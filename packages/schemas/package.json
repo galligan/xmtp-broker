@@ -7,6 +7,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./test-utils": {
+      "types": "./src/__tests__/fixtures.ts",
+      "default": "./src/__tests__/fixtures.ts"
     }
   },
   "scripts": {
@@ -15,7 +19,10 @@
     "lint": "oxlint .",
     "test": "bun test"
   },
-  "dependencies": {},
+  "dependencies": {
+    "better-result": "catalog:",
+    "zod": "catalog:"
+  },
   "devDependencies": {
     "bun-types": "catalog:",
     "typescript": "catalog:"
