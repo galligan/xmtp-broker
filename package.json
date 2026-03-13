@@ -25,7 +25,7 @@
   },
   "packageManager": "bun@1.2.9",
   "catalog": {
-    "better-result": "^1.1.0",
+    "better-result": "^2.7.0",
     "zod": "^3.24.0",
     "typescript": "^5.8.0",
     "oxfmt": "^0.40.0",

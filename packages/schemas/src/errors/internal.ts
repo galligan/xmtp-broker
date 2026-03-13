@@ -1,0 +1,22 @@
+import type { BrokerError } from "./base.js";
+
+export class InternalError extends Error implements BrokerError {
+  readonly _tag = "InternalError" as const;
+  readonly code = 1400;
+  readonly category = "internal" as const;
+
+  constructor(
+    message: string,
+    readonly context: Record<string, unknown> | null,
+  ) {
+    super(message);
+    this.name = "InternalError";
+  }
+
+  static create(
+    message: string,
+    context?: Record<string, unknown>,
+  ): InternalError {
+    return new InternalError(message, context ?? null);
+  }
+}
