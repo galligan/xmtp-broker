@@ -24,7 +24,27 @@ export type {
 } from "./attestation-types.js";
 
 // Handler types
-export type { HandlerContext, Handler } from "./handler-types.js";
+export type {
+  AdminAuthContext,
+  HandlerContext,
+  Handler,
+} from "./handler-types.js";
+
+// Action types
+export type {
+  ActionSpec,
+  CliSurface,
+  McpSurface,
+  CliOption,
+} from "./action-spec.js";
+
+// Action registry
+export { createActionRegistry } from "./action-registry.js";
+export type { ActionRegistry } from "./action-registry.js";
+
+// Result envelope
+export { toActionResult } from "./result-envelope.js";
+export type { ActionResult } from "./result-envelope.js";
 
 // Service interfaces
 export type {

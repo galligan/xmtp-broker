@@ -3,12 +3,37 @@ import type { BrokerError } from "@xmtp-broker/schemas";
 import type { CoreContext } from "./core-types.js";
 
 /**
- * Canonical handler context. Extends CoreContext with any additional
- * context fields handlers may need. Currently identical to CoreContext;
- * adding fields here (e.g., sessionId, requestId, AbortSignal) allows
- * all handlers to pick them up without changing their signatures.
+ * Authentication context for admin callers. The admin key proves
+ * the caller has root access to the broker.
  */
-export interface HandlerContext extends CoreContext {}
+export interface AdminAuthContext {
+  /** Fingerprint of the admin key used for authentication. */
+  readonly adminKeyFingerprint: string;
+}
+
+/**
+ * Canonical handler context. Extends CoreContext with cross-cutting
+ * concerns needed by all handlers.
+ */
+export interface HandlerContext extends CoreContext {
+  /** Unique identifier for this request. Used in ActionResult.meta and tracing. */
+  readonly requestId: string;
+
+  /** Cancellation signal. Handlers should check this for long operations. */
+  readonly signal: AbortSignal;
+
+  /**
+   * Admin authentication context. Present when the caller is the broker
+   * admin (CLI, local MCP). Absent for harness sessions.
+   */
+  readonly adminAuth?: AdminAuthContext;
+
+  /**
+   * Session identifier. Present when the caller is an authenticated
+   * harness session. Absent for admin callers.
+   */
+  readonly sessionId?: string;
+}
 
 /**
  * Canonical handler type for all domain logic. Handlers receive
