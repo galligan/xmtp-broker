@@ -9,3 +9,6 @@ dist/
 
 # Reference material (read-only context from related projects)
 .reference/
+
+# Tracer bullet test artifacts
+.test/

@@ -1,59 +1,167 @@
 ---
 name: tracer-bullet
-description: "Walk through a feature end-to-end by executing each step live, pausing at failures to diagnose and fix before continuing. Use when testing a user story, running an end-to-end flow, validating that things actually work, doing a tracer bullet, smoke testing, or when the user says 'let's try it' or 'does this actually work'. Proactively use this when a feature has been implemented but never run for real."
+description: "Run end-to-end tracer bullets against the real xmtp-broker codebase. Executes user stories step-by-step, pausing at failures to diagnose and fix. Use when testing a user story, running an end-to-end flow, validating that things actually work, doing a tracer bullet, smoke testing, or when the user says 'let's try it' or 'does this actually work'. Proactively use this when a feature has been implemented but never run for real."
 ---
 
 # Tracer Bullet
 
-Execute a user story step-by-step against real code, pausing at each failure to diagnose and fix before moving on. The goal is to find every gap between "tests pass" and "it actually works."
+Run predefined user stories against the real broker, catch every gap between "tests pass" and "it actually works."
 
-## How it works
+## Invocation
 
-1. **Define the journey** — list every step a real user would take, in order
-2. **Execute each step** — run the actual command, call the actual API, connect the actual client
-3. **At each step, observe** — did it succeed? What was the output? Was it what we expected?
-4. **On failure, pause** — don't skip ahead. Diagnose the root cause, fix it, verify the fix, then continue
-5. **Track progress** — maintain a checklist so we know where we are
+If the user doesn't specify which tracer bullet to run, use `AskUserQuestion` to let them pick:
 
-## When a step fails
+| Option | Story | Needs |
+|--------|-------|-------|
+| **Admin flow** | identity init → broker start → admin token → session issue/list/inspect/revoke → broker stop | Keys + daemon |
+| **Empty-dir boot** | broker start from empty data dir → verify listening → verify no implicit credentials → stop | Nothing |
+| **WebSocket harness** | (after admin flow) connect WS with session token → denied send → allowed send → disconnect | Session token |
+| **Full journey** | All of the above in sequence | Nothing |
 
-Follow this exact sequence:
+If the user says "all" or "full", run them in order. Each story is independent — earlier stories create state that later ones consume.
 
-1. **Capture the error** — full output, exit code, stack trace
-2. **Classify** — is this a bug, a missing feature, a config issue, or an expected limitation?
-3. **If bug or missing feature**: fix it now, run tests, verify the fix
-4. **If config issue**: fix the config, document what was needed
-5. **If expected limitation**: document it, note what's needed to close the gap, move on
-6. **Re-run the step** to confirm it passes before advancing
+## Test environment
 
-## State tracking
-
-Maintain a progress table in the conversation. Update it after each step:
+All tracer bullets run against deterministic temp directories under `.test/tracers/` (gitignored):
 
 ```
-Step | Action                          | Status | Notes
------|--------------------------------|--------|------
-1    | broker start                   | PASS   | ws://127.0.0.1:8393
-2    | identity init                  | FAIL   | command is a stub
-2a   |   fix: wire identity init      | DONE   | created vault + keys
-2    | identity init (retry)          | PASS   | fingerprint: abc123
-3    | admin token                    | ...    | not attempted yet
+.test/tracers/<story-name>/
+  config.toml          # generated config with free port + temp paths
+  data/                # vault, identity store, DB files
+  runtime/             # PID file, admin socket
+  state/               # audit log
 ```
 
-## Fixing protocol
+Before each story, create a fresh directory. After each story, leave artifacts for inspection. The config uses:
+- A random free WS port (use port 0 or find-free-port)
+- All paths pointing into the temp directory
+- `env: "local"` (no real XMTP network unless explicitly testing that)
 
-When fixing a failure:
+## Execution model
 
-- Fix from the **top of the Graphite stack** (or current branch)
-- Use `gt absorb -a -f` to route fixes to the correct branch
-- Run `bun run build && bun run test && bun run typecheck && bun run lint` after each fix
-- If the fix touches multiple packages, verify the full build
-- Comment on affected PRs with what changed
+Each tracer bullet runs as a **subagent** so the main conversation stays clean. The subagent:
 
-## Key principles
+1. Creates the test environment
+2. Executes each step using real CLI commands (`bun run packages/cli/src/bin.ts ...`)
+3. On failure: classifies → fixes if possible → retries
+4. Writes progress to a report file
 
-- **No skipping.** Every step must pass before advancing. A tracer bullet that skips failures isn't testing anything.
-- **Fix forward.** When something is broken, fix it — don't work around it. The whole point is to make the real path work.
-- **Document gaps.** Some things genuinely can't be fixed right now (e.g., needs a running XMTP network node). Document these clearly as known limitations with what's needed to close them.
-- **Small fixes.** Each fix should be the minimum change needed. Don't refactor the world — just make the current step work.
-- **Verify twice.** After fixing, re-run the failing step AND re-run the previous step to make sure you didn't break it.
+### Subagent prompt template
+
+```
+Run the "{story_name}" tracer bullet for xmtp-broker.
+
+Test directory: {test_dir}
+Config file: {test_dir}/config.toml
+CLI entry point: packages/cli/src/bin.ts
+
+Steps:
+{step_list}
+
+Rules:
+- Execute each step by running the real CLI command or connecting a real client.
+- On failure: capture the full error, classify it (bug / missing feature / config / limitation), and fix if possible.
+- After fixing, re-run the step to confirm it passes before advancing.
+- Do NOT skip steps. Every step must pass or be documented as a known limitation.
+- Write your progress report to: {report_path}
+- Fix from the top of the Graphite stack. Use `gt absorb -a -f` to route fixes.
+- Run `bun run build && bun run test && bun run typecheck && bun run lint` after any fix.
+```
+
+## Report format
+
+Each tracer bullet writes a markdown report to `.test/tracers/<story-name>/REPORT.md`:
+
+```markdown
+# Tracer Bullet: {story_name}
+**Date:** {iso_date}
+**Duration:** {elapsed}
+**Result:** {PASS | PARTIAL | FAIL}
+
+## Steps
+
+| # | Action | Status | Duration | Notes |
+|---|--------|--------|----------|-------|
+| 1 | broker start | PASS | 1.2s | ws://127.0.0.1:{port} |
+| 2 | identity init | FIXED | 3.4s | wired command, see fix below |
+| 3 | admin token | PASS | 0.8s | JWT generated |
+
+## Fixes Applied
+
+### Fix 1: {title}
+**Step:** {step_number}
+**Classification:** {bug | missing_feature | config}
+**Files changed:** {list}
+**Description:** {what and why}
+
+## Known Limitations
+
+- {description of what can't be fixed right now and what's needed}
+
+## Environment
+
+- Config: {config_path}
+- Data dir: {data_dir}
+- WS port: {port}
+- Platform: {os} / {arch}
+```
+
+## After completion
+
+After all requested stories finish:
+
+1. Read each `REPORT.md` and present a summary to the user
+2. If fixes were applied, note which files changed and suggest committing
+3. If known limitations were found, note what's needed to close them
+
+## Story definitions
+
+### Admin Flow
+
+```
+1. Create test environment (config, directories)
+2. identity init --config {config} --json
+3. broker start --config {config} --json (background)
+4. Wait for admin socket + WS port
+5. admin token --config {config} --json
+6. broker status --config {config} --json
+7. session issue --config {config} --agent test-agent --view @{view_file} --grant @{grant_file} --json
+8. session list --config {config} --agent test-agent --json
+9. session inspect --config {config} {session_id} --json
+10. session revoke --config {config} {session_id} --json
+11. broker stop --config {config} --json
+12. Verify: PID file cleaned up, port released, audit log has entries
+```
+
+### Empty-Dir Boot
+
+```
+1. Create test environment (config only, empty data dir)
+2. Verify data dir does not exist
+3. broker start --config {config} --json (background)
+4. Wait for admin socket + WS port
+5. broker status --config {config} --json
+6. Verify: no admin key, no operational key, no XMTP identity created
+7. Stop daemon via SIGTERM
+8. Verify: PID file cleaned up, port released
+```
+
+### WebSocket Harness
+
+Depends on a session token from Admin Flow (run Admin Flow first, or reuse existing test env).
+
+```
+1. Create test environment (or reuse from Admin Flow)
+2. identity init + broker start + session issue (if not already done)
+3. Connect WebSocket to ws://127.0.0.1:{port} with session token
+4. Send auth frame, verify AuthenticatedFrame received
+5. Send send_message for group NOT in session scope → expect permission error
+6. Send send_message for group IN session scope → expect routed response
+7. Send heartbeat → expect success
+8. Disconnect WebSocket
+9. broker stop --config {config} --json
+```
+
+### Full Journey
+
+Run Admin Flow → Empty-Dir Boot → WebSocket Harness in sequence. Each gets its own test directory. Report combines all three.
