@@ -8,7 +8,7 @@
  * and data. Tests are sequential since they share no state.
  */
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -123,20 +123,6 @@ function startDaemon(configPath: string): Bun.Subprocess {
   );
   backgroundProcesses.push(proc);
   return proc;
-}
-
-async function waitFor(
-  predicate: () => Promise<boolean>,
-  timeoutMs = 30_000,
-): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    if (await predicate()) {
-      return;
-    }
-    await Bun.sleep(200);
-  }
-  throw new Error(`Timed out after ${timeoutMs}ms`);
 }
 
 async function waitForDaemonReady(
