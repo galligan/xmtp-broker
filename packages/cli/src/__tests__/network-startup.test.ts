@@ -2,9 +2,9 @@ import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { Result } from "better-result";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mkdir, rm, readFile } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { InternalError } from "@xmtp-broker/schemas";
-import type { AdminDispatcher } from "../admin/dispatcher.js";
+import type { CoreState } from "@xmtp-broker/contracts";
 import { createBrokerRuntime, type BrokerRuntimeDeps } from "../runtime.js";
 import { CliConfigSchema, type CliConfig } from "../config/schema.js";
 
@@ -15,19 +15,21 @@ import { CliConfigSchema, type CliConfig } from "../config/schema.js";
 function makeTempDir(): string {
   return join(
     tmpdir(),
-    `runtime-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    `net-startup-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
 }
 
-function makeConfig(tempDir: string): CliConfig {
+function makeConfig(
+  tempDir: string,
+  overrides?: { env?: "local" | "dev" | "production" },
+): CliConfig {
   return CliConfigSchema.parse({
-    broker: { dataDir: join(tempDir, "data") },
+    broker: { dataDir: join(tempDir, "data"), env: overrides?.env },
     admin: { socketPath: join(tempDir, "admin.sock") },
     logging: { auditLogPath: join(tempDir, "audit.jsonl") },
   });
 }
 
-/** Track call order for startup/shutdown sequencing verification. */
 function createCallTracker(): {
   calls: string[];
   record(name: string): void;
@@ -41,11 +43,16 @@ function createCallTracker(): {
   };
 }
 
-function makeMockDeps(tracker: {
-  calls: string[];
-  record(name: string): void;
-}): BrokerRuntimeDeps & { _dispatcher: () => AdminDispatcher | undefined } {
-  let capturedDispatcher: AdminDispatcher | undefined;
+function makeMockDeps(
+  tracker: { calls: string[]; record(name: string): void },
+  options?: {
+    coreInitializeResult?: () => Promise<
+      Result<void, import("@xmtp-broker/schemas").BrokerError>
+    >;
+    coreStateGetter?: () => CoreState;
+  },
+): BrokerRuntimeDeps {
+  let coreState: CoreState = "uninitialized";
 
   return {
     createKeyManager: async () => {
@@ -122,13 +129,21 @@ function makeMockDeps(tracker: {
     createBrokerCore: () => {
       tracker.record("brokerCore.create");
       return {
-        state: "uninitialized" as const,
+        get state() {
+          if (options?.coreStateGetter) return options.coreStateGetter();
+          return coreState;
+        },
         initializeLocal: async () => {
           tracker.record("brokerCore.initializeLocal");
+          coreState = "ready-local";
           return Result.ok(undefined);
         },
         initialize: async () => {
           tracker.record("brokerCore.initialize");
+          if (options?.coreInitializeResult) {
+            return options.coreInitializeResult();
+          }
+          coreState = "ready";
           return Result.ok(undefined);
         },
         shutdown: async () => {
@@ -189,9 +204,8 @@ function makeMockDeps(tracker: {
         broadcast: () => {},
       };
     },
-    createAdminServer: (_config, deps) => {
+    createAdminServer: () => {
       tracker.record("adminServer.create");
-      capturedDispatcher = (deps as { dispatcher: AdminDispatcher }).dispatcher;
       return {
         state: "idle" as const,
         start: async () => {
@@ -204,15 +218,14 @@ function makeMockDeps(tracker: {
         },
       };
     },
-    _dispatcher: () => capturedDispatcher,
   };
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Network Startup Tests
 // ---------------------------------------------------------------------------
 
-describe("createBrokerRuntime", () => {
+describe("network startup", () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -224,97 +237,9 @@ describe("createBrokerRuntime", () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  test("creates runtime with mocked deps", async () => {
+  test("skips core.initialize() when env is local", async () => {
     const tracker = createCallTracker();
-    const config = makeConfig(tempDir);
-    const deps = makeMockDeps(tracker);
-
-    const result = await createBrokerRuntime(config, deps);
-
-    expect(Result.isOk(result)).toBe(true);
-    if (Result.isError(result)) return;
-    const runtime = result.value;
-
-    expect(runtime.state).toBe("created");
-    expect(runtime.config).toBe(config);
-    expect(runtime.core).toBeDefined();
-    expect(runtime.sessionManager).toBeDefined();
-    expect(runtime.attestationManager).toBeDefined();
-    expect(runtime.keyManager).toBeDefined();
-    expect(runtime.wsServer).toBeDefined();
-    expect(runtime.adminServer).toBeDefined();
-    expect(runtime.paths).toBeDefined();
-  });
-
-  test("start() transitions through states correctly", async () => {
-    const tracker = createCallTracker();
-    const config = makeConfig(tempDir);
-    const deps = makeMockDeps(tracker);
-
-    const result = await createBrokerRuntime(config, deps);
-    expect(Result.isOk(result)).toBe(true);
-    if (Result.isError(result)) return;
-    const runtime = result.value;
-
-    expect(runtime.state).toBe("created");
-
-    const startResult = await runtime.start();
-    expect(Result.isOk(startResult)).toBe(true);
-    expect(runtime.state).toBe("running");
-  });
-
-  test("start() initializes services in dependency order", async () => {
-    const tracker = createCallTracker();
-    const config = makeConfig(tempDir);
-    const deps = makeMockDeps(tracker);
-
-    const result = await createBrokerRuntime(config, deps);
-    expect(Result.isOk(result)).toBe(true);
-    if (Result.isError(result)) return;
-
-    await result.value.start();
-
-    // Key manager initialized first, then local core init, then network
-    // init (for non-local envs), then ws/admin servers.
-    const initIdx = tracker.calls.indexOf("keyManager.initialize");
-    const localIdx = tracker.calls.indexOf("brokerCore.initializeLocal");
-    const networkIdx = tracker.calls.indexOf("brokerCore.initialize");
-    const wsIdx = tracker.calls.indexOf("wsServer.start");
-    const adminIdx = tracker.calls.indexOf("adminServer.start");
-
-    expect(initIdx).toBeGreaterThanOrEqual(0);
-    expect(localIdx).toBeGreaterThan(initIdx);
-    expect(networkIdx).toBeGreaterThan(localIdx);
-    expect(wsIdx).toBeGreaterThan(networkIdx);
-    expect(adminIdx).toBeGreaterThan(wsIdx);
-  });
-
-  test("registers session and broker actions before admin server is created", async () => {
-    const tracker = createCallTracker();
-    const config = makeConfig(tempDir);
-    const deps = makeMockDeps(tracker);
-
-    const result = await createBrokerRuntime(config, deps);
-    expect(Result.isOk(result)).toBe(true);
-    if (Result.isError(result)) return;
-
-    const dispatcher = deps._dispatcher();
-    expect(dispatcher).toBeDefined();
-    expect(dispatcher?.hasMethod("session.issue")).toBe(true);
-    expect(dispatcher?.hasMethod("session.list")).toBe(true);
-    expect(dispatcher?.hasMethod("session.inspect")).toBe(true);
-    expect(dispatcher?.hasMethod("session.revoke")).toBe(true);
-    expect(dispatcher?.hasMethod("broker.status")).toBe(true);
-    expect(dispatcher?.hasMethod("broker.stop")).toBe(true);
-  });
-
-  test("skips network init in local env", async () => {
-    const tracker = createCallTracker();
-    const config = CliConfigSchema.parse({
-      broker: { dataDir: join(tempDir, "data"), env: "local" },
-      admin: { socketPath: join(tempDir, "admin.sock") },
-      logging: { auditLogPath: join(tempDir, "audit.jsonl") },
-    });
+    const config = makeConfig(tempDir, { env: "local" });
     const deps = makeMockDeps(tracker);
 
     const result = await createBrokerRuntime(config, deps);
@@ -325,90 +250,91 @@ describe("createBrokerRuntime", () => {
     expect(Result.isOk(startResult)).toBe(true);
     expect(result.value.state).toBe("running");
     expect(tracker.calls).not.toContain("brokerCore.initialize");
+    expect(tracker.calls).toContain("brokerCore.initializeLocal");
   });
 
-  test("shutdown() reverses in correct order", async () => {
+  test("calls core.initialize() when env is dev", async () => {
     const tracker = createCallTracker();
-    const config = makeConfig(tempDir);
+    const config = makeConfig(tempDir, { env: "dev" });
     const deps = makeMockDeps(tracker);
 
     const result = await createBrokerRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    const runtime = result.value;
 
-    await runtime.start();
-    tracker.calls.length = 0; // Clear start calls
-
-    const shutdownResult = await runtime.shutdown();
-    expect(Result.isOk(shutdownResult)).toBe(true);
-    expect(runtime.state).toBe("stopped");
-
-    // Admin stopped first, then ws, then core
-    const adminIdx = tracker.calls.indexOf("adminServer.stop");
-    const wsIdx = tracker.calls.indexOf("wsServer.stop");
-    const coreIdx = tracker.calls.indexOf("brokerCore.shutdown");
-
-    expect(adminIdx).toBeGreaterThanOrEqual(0);
-    expect(wsIdx).toBeGreaterThan(adminIdx);
-    expect(coreIdx).toBeGreaterThan(wsIdx);
+    const startResult = await result.value.start();
+    expect(Result.isOk(startResult)).toBe(true);
+    expect(result.value.state).toBe("running");
+    expect(tracker.calls).toContain("brokerCore.initialize");
   });
 
-  test("key initialization failure transitions to error state", async () => {
+  test("continues running when core.initialize() fails (graceful degradation)", async () => {
     const tracker = createCallTracker();
-    const config = makeConfig(tempDir);
-    const deps = makeMockDeps(tracker);
-
-    deps.createKeyManager = async () => {
-      tracker.record("keyManager.create");
-      return Result.err(InternalError.create("Vault unlock failed"));
-    };
+    const config = makeConfig(tempDir, { env: "dev" });
+    const deps = makeMockDeps(tracker, {
+      coreInitializeResult: async () =>
+        Result.err(InternalError.create("network unreachable")),
+      coreStateGetter: () => "ready-local",
+    });
 
     const result = await createBrokerRuntime(config, deps);
+    expect(Result.isOk(result)).toBe(true);
+    if (Result.isError(result)) return;
 
-    // Creation itself should fail if key manager can't be created
-    expect(Result.isError(result)).toBe(true);
-    if (Result.isOk(result)) return;
-    expect(result.error.message).toContain("Vault unlock failed");
+    const startResult = await result.value.start();
+    expect(Result.isOk(startResult)).toBe(true);
+    expect(result.value.state).toBe("running");
+    expect(tracker.calls).toContain("brokerCore.initialize");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Status Field Tests
+// ---------------------------------------------------------------------------
+
+describe("status networkState field", () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = makeTempDir();
+    await mkdir(tempDir, { recursive: true });
   });
 
-  test("config values passed through to correct components", async () => {
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  test("reports connected when core state is ready", async () => {
     const tracker = createCallTracker();
-    const config = makeConfig(tempDir);
+    const config = makeConfig(tempDir, { env: "dev" });
     const deps = makeMockDeps(tracker);
 
     const result = await createBrokerRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    const runtime = result.value;
 
-    expect(runtime.config.ws.port).toBe(8393);
-    expect(runtime.config.ws.host).toBe("127.0.0.1");
-    expect(runtime.paths.adminSocket).toBe(join(tempDir, "admin.sock"));
-    expect(runtime.paths.auditLog).toBe(join(tempDir, "audit.jsonl"));
+    await result.value.start();
+    const status = await result.value.status();
+
+    expect(status.networkState).toBe("connected");
+    expect(status.identityCount).toBe(0);
+    expect(status.connectedInboxIds).toEqual([]);
   });
 
-  test("PID file written on start and cleaned on shutdown", async () => {
+  test("reports disconnected when core is local-only", async () => {
     const tracker = createCallTracker();
-    const config = makeConfig(tempDir);
+    const config = makeConfig(tempDir, { env: "local" });
     const deps = makeMockDeps(tracker);
 
     const result = await createBrokerRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    const runtime = result.value;
 
-    await runtime.start();
+    await result.value.start();
+    const status = await result.value.status();
 
-    // PID file should exist
-    const pidContent = await readFile(runtime.paths.pidFile, "utf-8");
-    const pid = parseInt(pidContent.trim(), 10);
-    expect(pid).toBe(process.pid);
-
-    await runtime.shutdown();
-
-    // PID file should be cleaned up
-    const exists = await Bun.file(runtime.paths.pidFile).exists();
-    expect(exists).toBe(false);
+    expect(status.networkState).toBe("disconnected");
+    expect(status.identityCount).toBe(0);
+    expect(status.connectedInboxIds).toEqual([]);
   });
 });
