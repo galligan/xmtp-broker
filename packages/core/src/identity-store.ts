@@ -7,6 +7,7 @@ export interface AgentIdentity {
   readonly id: string;
   readonly inboxId: string | null;
   readonly groupId: string | null;
+  readonly label: string | null;
   readonly createdAt: string;
 }
 
@@ -15,6 +16,7 @@ interface IdentityRow {
   id: string;
   inbox_id: string | null;
   group_id: string | null;
+  label: string | null;
   created_at: string;
 }
 
@@ -23,6 +25,7 @@ function rowToIdentity(row: IdentityRow): AgentIdentity {
     id: row.id,
     inboxId: row.inbox_id,
     groupId: row.group_id,
+    label: row.label,
     createdAt: row.created_at,
   };
 }
@@ -56,14 +59,24 @@ export class SqliteIdentityStore {
         id TEXT PRIMARY KEY,
         inbox_id TEXT,
         group_id TEXT UNIQUE,
+        label TEXT UNIQUE,
         created_at TEXT NOT NULL
       )
     `);
+
+    // Safe migration: add label column if upgrading from older schema
+    const cols = this.#db
+      .prepare("PRAGMA table_info(identities)")
+      .all() as Array<{ name: string }>;
+    if (!cols.some((c) => c.name === "label")) {
+      this.#db.run("ALTER TABLE identities ADD COLUMN label TEXT UNIQUE");
+    }
   }
 
   /** Create a new identity with fresh key material. */
   async create(
     groupId: string | null,
+    label?: string,
   ): Promise<Result<AgentIdentity, InternalError>> {
     const id = generateId();
     const createdAt = new Date().toISOString();
@@ -71,14 +84,15 @@ export class SqliteIdentityStore {
     try {
       this.#db
         .prepare(
-          "INSERT INTO identities (id, inbox_id, group_id, created_at) VALUES (?, ?, ?, ?)",
+          "INSERT INTO identities (id, inbox_id, group_id, label, created_at) VALUES (?, ?, ?, ?, ?)",
         )
-        .run(id, null, groupId, createdAt);
+        .run(id, null, groupId, label ?? null, createdAt);
 
       return Result.ok({
         id,
         inboxId: null,
         groupId,
+        label: label ?? null,
         createdAt,
       });
     } catch (cause) {
@@ -95,6 +109,14 @@ export class SqliteIdentityStore {
     const row = this.#db
       .prepare("SELECT * FROM identities WHERE group_id = ?")
       .get(groupId) as IdentityRow | null;
+    return row ? rowToIdentity(row) : null;
+  }
+
+  /** Look up an identity by its human-readable label. */
+  async getByLabel(label: string): Promise<AgentIdentity | null> {
+    const row = this.#db
+      .prepare("SELECT * FROM identities WHERE label = ?")
+      .get(label) as IdentityRow | null;
     return row ? rowToIdentity(row) : null;
   }
 
