@@ -17,6 +17,7 @@ If the user doesn't specify which tracer bullet to run, use `AskUserQuestion` to
 | **Empty-dir boot** | broker start from empty data dir → verify listening → verify no implicit credentials → stop | Nothing |
 | **WebSocket harness** | (after admin flow) connect WS with session token → denied send → allowed send → disconnect | Session token |
 | **Full journey** | All of the above in sequence | Nothing |
+| **Dev network** | dual-identity init → broker start → create group → session issue → WS send → receive → stop | Network access |
 
 If the user says "all" or "full", run them in order. Each story is independent — earlier stories create state that later ones consume.
 
@@ -165,3 +166,44 @@ Depends on a session token from Admin Flow (run Admin Flow first, or reuse exist
 ### Full Journey
 
 Run Admin Flow → Empty-Dir Boot → WebSocket Harness in sequence. Each gets its own test directory. Report combines all three.
+
+### Dev Network
+
+```
+ 1. Create test environment (config with env: "dev", temp dirs)
+ 2. identity init --env dev --label alice --config {config} --json
+ 3. identity init --env dev --label bob --config {config} --json
+ 4. Verify: two distinct inbox IDs returned
+ 5. broker start --config {config} --json (background)
+ 6. Wait for daemon ready + core state "running" (poll broker status)
+ 7. broker status --config {config} --json → verify 2 identities connected
+ 8. conversation create --name "tracer-test" --members {bob_inbox_id} --as alice --config {config} --json
+ 9. conversation list --config {config} --json → verify group exists
+10. Generate view.json scoped to the created group:
+    { "groups": ["{group_id}"], "contentTypes": ["xmtp.org/text:1.0"] }
+11. Generate grant.json allowing send_message:
+    { "actions": ["send_message"], "rateLimit": null }
+12. session issue --config {config} --agent {alice_inbox_id} --view @view.json --grant @grant.json --json
+13. Connect WebSocket with session token
+14. Send auth frame → verify authenticated
+15. Send send_message to the created group → expect success with messageId
+16. Verify: message appears in broker's event stream (or poll conversation)
+17. session issue for bob → connect second WS → verify bob receives the message
+18. broker stop --config {config} --json
+19. Verify: clean shutdown, PID file removed
+```
+
+**Config template for dev network:**
+```toml
+[broker]
+env = "dev"
+
+[broker.ws]
+host = "127.0.0.1"
+port = 0
+
+[paths]
+data_dir = "{test_dir}/data"
+runtime_dir = "{test_dir}/runtime"
+state_dir = "{test_dir}/state"
+```
