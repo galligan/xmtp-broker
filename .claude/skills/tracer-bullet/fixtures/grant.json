@@ -1,0 +1,24 @@
+{
+  "messaging": {
+    "send": true,
+    "reply": true,
+    "react": true,
+    "draftOnly": false
+  },
+  "groupManagement": {
+    "addMembers": false,
+    "removeMembers": false,
+    "updateMetadata": false,
+    "inviteUsers": false
+  },
+  "tools": {
+    "scopes": []
+  },
+  "egress": {
+    "storeExcerpts": false,
+    "useForMemory": false,
+    "forwardToProviders": false,
+    "quoteRevealed": false,
+    "summarize": false
+  }
+}

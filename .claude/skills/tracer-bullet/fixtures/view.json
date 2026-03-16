@@ -1,0 +1,5 @@
+{
+  "mode": "full",
+  "threadScopes": [{ "groupId": "test-group-in-scope", "threadId": null }],
+  "contentTypes": ["xmtp.org/text:1.0", "xmtp.org/reaction:1.0"]
+}
