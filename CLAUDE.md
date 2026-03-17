@@ -53,11 +53,11 @@ qmd get xmtp-signet-plans/plans/v0/13-daemon-cli.md:50 -l 40  # read specific se
 
 **Project documentation search**: Three qmd collections are indexed with embeddings for semantic search:
 
-| Collection | Contents | Files |
-|------------|----------|-------|
-| `xmtp-signet` | `docs/` — architecture, concepts, development guides | 5 |
-| `xmtp-signet-plans` | `.agents/` — Phase 2 specs (10–15), execution plans, PRD, design decisions | 30 |
-| `xmtp-signet-claude` | `.claude/` — skills, agent configs, agent memory | 13 |
+| Collection           | Contents                                                                   | Files |
+| -------------------- | -------------------------------------------------------------------------- | ----- |
+| `xmtp-signet`        | `docs/` — architecture, concepts, development guides                       | 5     |
+| `xmtp-signet-plans`  | `.agents/` — Phase 2 specs (10–15), execution plans, PRD, design decisions | 30    |
+| `xmtp-signet-claude` | `.claude/` — skills, agent configs, agent memory                           | 13    |
 
 Use `qmd query` for semantic search across these collections. Use `qmd get` to read specific file sections by path and line offset. Run `qmd update` after changing docs to re-index, then `qmd embed` to refresh embeddings.
 
@@ -94,7 +94,7 @@ Use `qmd query` for semantic search across these collections. Use `qmd get` to r
 | Result type       | `better-result`             |
 | Schema validation | `zod`                       |
 | Testing           | `bun:test`                  |
-| XMTP SDK          | `@xmtp/node-sdk`           |
+| XMTP SDK          | `@xmtp/node-sdk`            |
 | CLI framework     | `commander`                 |
 | TOML parsing      | `smol-toml`                 |
 | MCP SDK           | `@modelcontextprotocol/sdk` |

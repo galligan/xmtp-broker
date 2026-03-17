@@ -19,13 +19,13 @@ This moves agents from **opaque trust** to **inspectable trust** — you can ver
 
 ## Core concepts
 
-| Concept     | What it is                                                                     |
-| ----------- | ------------------------------------------------------------------------------ |
+| Concept     | What it is                                                                         |
+| ----------- | ---------------------------------------------------------------------------------- |
 | **Signet**  | Trusted runtime that owns the XMTP client, signer material, and encrypted database |
-| **View**    | Policy-filtered projection of what an agent can see                            |
-| **Grant**   | Structured description of what an agent can do                                 |
-| **Seal**    | Signed, group-visible declaration of an agent's current permissions            |
-| **Session** | Ephemeral authorization context between harness and signet                     |
+| **View**    | Policy-filtered projection of what an agent can see                                |
+| **Grant**   | Structured description of what an agent can do                                     |
+| **Seal**    | Signed, group-visible declaration of an agent's current permissions                |
+| **Session** | Ephemeral authorization context between harness and signet                         |
 
 See [docs/concepts.md](docs/concepts.md) for the full conceptual model.
 
@@ -50,21 +50,21 @@ See [docs/architecture.md](docs/architecture.md) for the full architecture guide
 
 ## Packages
 
-| Package                    | Layer      | Purpose                                                  |
-| -------------------------- | ---------- | -------------------------------------------------------- |
-| `@xmtp/signet-schemas`     | Foundation | Zod schemas, inferred types, error taxonomy              |
-| `@xmtp/signet-contracts`   | Foundation | Service interfaces, provider contracts, wire formats     |
-| `@xmtp/signet-core`        | Runtime    | XMTP client lifecycle, identity store, Convos protocol   |
-| `@xmtp/signet-keys`        | Runtime    | Three-tier key hierarchy, encrypted vault, JWT auth      |
-| `@xmtp/signet-sessions`    | Runtime    | Session lifecycle, token generation, policy dedup        |
-| `@xmtp/signet-seals`       | Runtime    | Seal lifecycle, chain management, signing                |
-| `@xmtp/signet-policy`      | Runtime    | View projection pipeline, grant validation, materiality  |
-| `@xmtp/signet-verifier`    | Runtime    | 6-check verification service for signet trust            |
-| `@xmtp/signet-ws`          | Transport  | WebSocket transport with Bun.serve()                     |
-| `@xmtp/signet-mcp`         | Transport  | MCP transport with session-scoped tools                  |
-| `@xmtp/signet-sdk`         | Transport  | TypeScript client SDK for harness developers             |
-| `@xmtp/signet-cli`         | Transport  | CLI daemon, admin socket, 8 command groups               |
-| `@xmtp/signet-integration` | Test       | Cross-package integration tests and fixtures             |
+| Package                    | Layer      | Purpose                                                 |
+| -------------------------- | ---------- | ------------------------------------------------------- |
+| `@xmtp/signet-schemas`     | Foundation | Zod schemas, inferred types, error taxonomy             |
+| `@xmtp/signet-contracts`   | Foundation | Service interfaces, provider contracts, wire formats    |
+| `@xmtp/signet-core`        | Runtime    | XMTP client lifecycle, identity store, Convos protocol  |
+| `@xmtp/signet-keys`        | Runtime    | Three-tier key hierarchy, encrypted vault, JWT auth     |
+| `@xmtp/signet-sessions`    | Runtime    | Session lifecycle, token generation, policy dedup       |
+| `@xmtp/signet-seals`       | Runtime    | Seal lifecycle, chain management, signing               |
+| `@xmtp/signet-policy`      | Runtime    | View projection pipeline, grant validation, materiality |
+| `@xmtp/signet-verifier`    | Runtime    | 6-check verification service for signet trust           |
+| `@xmtp/signet-ws`          | Transport  | WebSocket transport with Bun.serve()                    |
+| `@xmtp/signet-mcp`         | Transport  | MCP transport with session-scoped tools                 |
+| `@xmtp/signet-sdk`         | Transport  | TypeScript client SDK for harness developers            |
+| `@xmtp/signet-cli`         | Transport  | CLI daemon, admin socket, 8 command groups              |
+| `@xmtp/signet-integration` | Test       | Cross-package integration tests and fixtures            |
 
 ## Quick start
 
@@ -105,16 +105,16 @@ See [docs/development.md](docs/development.md) for the full development guide.
 
 ## CLI commands
 
-| Group            | Commands                                              |
-| ---------------- | ----------------------------------------------------- |
-| `start`          | Start the signet daemon                               |
-| `stop`           | Stop the signet daemon                                |
-| `status`         | Show signet status                                    |
-| `identity`       | `init`, `list`                                        |
-| `session`        | `issue`, `list`, `inspect`, `revoke`                  |
-| `seal`           | `inspect`, `verify`, `history`                        |
-| `conversation`   | `create`, `list`, `info`, `join`, `invite`, `add-member`, `members` |
-| `admin`          | `token`                                               |
+| Group          | Commands                                                            |
+| -------------- | ------------------------------------------------------------------- |
+| `start`        | Start the signet daemon                                             |
+| `stop`         | Stop the signet daemon                                              |
+| `status`       | Show signet status                                                  |
+| `identity`     | `init`, `list`                                                      |
+| `session`      | `issue`, `list`, `inspect`, `revoke`                                |
+| `seal`         | `inspect`, `verify`, `history`                                      |
+| `conversation` | `create`, `list`, `info`, `join`, `invite`, `add-member`, `members` |
+| `admin`        | `token`                                                             |
 
 ## What's working
 
