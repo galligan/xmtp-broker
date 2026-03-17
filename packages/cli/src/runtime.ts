@@ -244,6 +244,9 @@ export async function createBrokerRuntime(
         identityMode: config.broker.identityMode,
         wsPort: config.ws.port,
         version: "0.1.0",
+        identityCount: 0,
+        networkState: core.state === "ready" ? "connected" : "disconnected",
+        connectedInboxIds: [],
       };
     },
 
@@ -271,6 +274,25 @@ export async function createBrokerRuntime(
         if (Result.isError(coreLocalResult)) {
           currentState = "error";
           return coreLocalResult;
+        }
+
+        // 2b. Attempt network startup if env is not "local"
+        if (config.broker.env !== "local") {
+          const coreNetworkResult = await core.initialize();
+          if (Result.isError(coreNetworkResult)) {
+            // Graceful degradation: log and continue in local mode
+            await auditLog.append({
+              timestamp: new Date().toISOString(),
+              action: "core.network-start-failed",
+              actor: "system",
+              success: false,
+              detail: {
+                error: coreNetworkResult.error.message,
+                fallback: "local",
+              },
+            });
+            // Don't return error -- daemon is still useful in local state
+          }
         }
 
         // 3. Start WebSocket server

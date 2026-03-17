@@ -13,6 +13,9 @@ export type DaemonStatus = {
   identityMode: "per-group" | "shared";
   wsPort: number;
   version: string;
+  identityCount: number;
+  networkState: "disconnected" | "connected";
+  connectedInboxIds: readonly string[];
 };
 
 /**
@@ -55,5 +58,16 @@ export const DaemonStatusSchema: z.ZodType<DaemonStatus> = z
       .describe("Identity isolation strategy"),
     wsPort: z.number().int().positive().describe("WebSocket server port"),
     version: z.string().describe("Broker version string"),
+    identityCount: z
+      .number()
+      .int()
+      .nonnegative()
+      .describe("Number of registered identities"),
+    networkState: z
+      .enum(["disconnected", "connected"])
+      .describe("Whether the broker core has reached the network"),
+    connectedInboxIds: z
+      .array(z.string())
+      .describe("List of connected XMTP inbox IDs"),
   })
   .describe("Daemon status response");
