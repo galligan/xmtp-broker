@@ -1,4 +1,4 @@
-import type { GrantConfig } from "@xmtp-broker/schemas";
+import type { GrantConfig } from "@xmtp/signet-schemas";
 
 /**
  * Converts a structured GrantConfig into the flat string array stored

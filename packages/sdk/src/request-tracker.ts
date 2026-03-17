@@ -1,22 +1,22 @@
-import type { BrokerError } from "@xmtp-broker/schemas";
-import { TimeoutError } from "@xmtp-broker/schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
+import { TimeoutError } from "@xmtp/signet-schemas";
 import { Result } from "better-result";
 
 /** A pending request awaiting a response. */
 export interface PendingRequest {
   readonly requestId: string;
-  readonly resolve: (result: Result<unknown, BrokerError>) => void;
+  readonly resolve: (result: Result<unknown, SignetError>) => void;
   readonly timer: Timer;
 }
 
 /** Tracks in-flight requests by requestId with timeout. */
 export interface RequestTracker {
   /** Register a new request. Returns a promise that resolves on response or timeout. */
-  track(requestId: string): Promise<Result<unknown, BrokerError>>;
+  track(requestId: string): Promise<Result<unknown, SignetError>>;
   /** Resolve a pending request with a result. */
-  resolve(requestId: string, result: Result<unknown, BrokerError>): void;
+  resolve(requestId: string, result: Result<unknown, SignetError>): void;
   /** Reject all pending requests (e.g., on disconnect). */
-  rejectAll(error: BrokerError): void;
+  rejectAll(error: SignetError): void;
   /** Number of pending requests. */
   readonly pending: number;
 }
@@ -26,7 +26,7 @@ export function createRequestTracker(timeoutMs: number): RequestTracker {
   const pending = new Map<string, PendingRequest>();
 
   return {
-    track(requestId: string): Promise<Result<unknown, BrokerError>> {
+    track(requestId: string): Promise<Result<unknown, SignetError>> {
       return new Promise((resolve) => {
         const timer = setTimeout(() => {
           pending.delete(requestId);
@@ -37,7 +37,7 @@ export function createRequestTracker(timeoutMs: number): RequestTracker {
       });
     },
 
-    resolve(requestId: string, result: Result<unknown, BrokerError>): void {
+    resolve(requestId: string, result: Result<unknown, SignetError>): void {
       const entry = pending.get(requestId);
       if (!entry) return;
       clearTimeout(entry.timer);
@@ -45,7 +45,7 @@ export function createRequestTracker(timeoutMs: number): RequestTracker {
       entry.resolve(result);
     },
 
-    rejectAll(error: BrokerError): void {
+    rejectAll(error: SignetError): void {
       for (const entry of pending.values()) {
         clearTimeout(entry.timer);
         entry.resolve(Result.err(error));

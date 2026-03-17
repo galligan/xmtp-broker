@@ -7,7 +7,7 @@
 
 import { describe, test, expect, afterEach } from "bun:test";
 import { rm } from "node:fs/promises";
-import { WS_CLOSE_CODES } from "@xmtp-broker/ws";
+import { WS_CLOSE_CODES } from "@xmtp/signet-ws";
 import {
   createTestRuntime,
   issueTestSession,

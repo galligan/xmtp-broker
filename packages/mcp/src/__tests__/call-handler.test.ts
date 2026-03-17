@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { Result } from "better-result";
-import { PermissionError } from "@xmtp-broker/schemas";
+import { PermissionError } from "@xmtp/signet-schemas";
 import { handleCallTool } from "../call-handler.js";
 import {
   createSendSpec,

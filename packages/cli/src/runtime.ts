@@ -1,16 +1,16 @@
 import { Result } from "better-result";
-import type { BrokerError } from "@xmtp-broker/schemas";
-import { InternalError } from "@xmtp-broker/schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
+import { InternalError } from "@xmtp/signet-schemas";
 import type {
   ActionSpec,
-  BrokerCore,
+  SignetCore,
   SessionManager,
-  AttestationManager,
-} from "@xmtp-broker/contracts";
-import { createActionRegistry } from "@xmtp-broker/contracts";
-import type { KeyManager } from "@xmtp-broker/keys";
-import type { WsServer } from "@xmtp-broker/ws";
-import { createSessionActions } from "@xmtp-broker/sessions";
+  SealManager,
+} from "@xmtp/signet-contracts";
+import { createActionRegistry } from "@xmtp/signet-contracts";
+import type { KeyManager } from "@xmtp/signet-keys";
+import type { WsServer } from "@xmtp/signet-ws";
+import { createSessionActions } from "@xmtp/signet-sessions";
 import type { AdminServer } from "./admin/server.js";
 import type { CliConfig } from "./config/schema.js";
 import type { ResolvedPaths } from "./config/paths.js";
@@ -27,10 +27,10 @@ import { createBrokerActions } from "./actions/broker-actions.js";
 // ---------------------------------------------------------------------------
 
 /** The fully wired broker runtime returned by the composition root. */
-export interface BrokerRuntime {
-  readonly core: BrokerCore;
+export interface SignetRuntime {
+  readonly core: SignetCore;
   readonly sessionManager: SessionManager;
-  readonly attestationManager: AttestationManager;
+  readonly attestationManager: SealManager;
   readonly keyManager: KeyManager;
   readonly wsServer: WsServer;
   readonly adminServer: AdminServer;
@@ -39,10 +39,10 @@ export interface BrokerRuntime {
   readonly paths: ResolvedPaths;
 
   /** Start all services in dependency order. */
-  start(): Promise<Result<void, BrokerError>>;
+  start(): Promise<Result<void, SignetError>>;
 
   /** Graceful shutdown in reverse dependency order. */
-  shutdown(): Promise<Result<void, BrokerError>>;
+  shutdown(): Promise<Result<void, SignetError>>;
 
   /** Snapshot daemon status for CLI/admin callers. */
   status(): Promise<DaemonStatus>;
@@ -55,22 +55,22 @@ export interface BrokerRuntime {
  * Injectable factory functions for all runtime dependencies.
  * Tests provide mocks here; production uses real implementations.
  */
-export interface BrokerRuntimeDeps {
+export interface SignetRuntimeDeps {
   createKeyManager: (
     config: unknown,
-  ) => Promise<Result<KeyManager, BrokerError>>;
+  ) => Promise<Result<KeyManager, SignetError>>;
 
-  createBrokerCore: (
+  createSignetCore: (
     config: unknown,
     signerFactory: unknown,
     clientFactory: unknown,
-  ) => BrokerCore;
+  ) => SignetCore;
 
   createSessionManager: (
     config: unknown,
     keyManager: KeyManager,
   ) => SessionManager;
-  createAttestationManager: (deps: unknown) => AttestationManager;
+  createSealManager: (deps: unknown) => SealManager;
 
   createWsServer: (config: unknown, deps: unknown) => WsServer;
 
@@ -78,7 +78,7 @@ export interface BrokerRuntimeDeps {
 
   /** Optional factory for conversation action specs, wired in production by start.ts. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  createConversationActions?: () => ActionSpec<any, any, BrokerError>[];
+  createConversationActions?: () => ActionSpec<any, any, SignetError>[];
 
   /** Optional callback to list registered identities with their inbox IDs. */
   listIdentities?: () => Promise<readonly { inboxId: string | null }[]>;
@@ -94,10 +94,10 @@ export interface BrokerRuntimeDeps {
  * The `deps` parameter enables full dependency injection for testing.
  * In production, pass the real factory functions from each package.
  */
-export async function createBrokerRuntime(
+export async function createSignetRuntime(
   config: CliConfig,
-  deps: BrokerRuntimeDeps,
-): Promise<Result<BrokerRuntime, BrokerError>> {
+  deps: SignetRuntimeDeps,
+): Promise<Result<SignetRuntime, SignetError>> {
   const paths = resolvePaths(config);
   let currentState: DaemonState = "created";
   let boundWsPort: number = config.ws.port;
@@ -117,7 +117,7 @@ export async function createBrokerRuntime(
   const keyManager = keyManagerResult.value;
 
   // -- Step 2: Create remaining services --
-  const core = deps.createBrokerCore(
+  const core = deps.createSignetCore(
     {
       env: config.broker.env,
       identityMode: config.broker.identityMode,
@@ -135,7 +135,7 @@ export async function createBrokerRuntime(
     keyManager,
   );
 
-  const attestationManager = deps.createAttestationManager({});
+  const attestationManager = deps.createSealManager({});
 
   const wsServer = deps.createWsServer(
     { port: config.ws.port, host: config.ws.host },
@@ -150,7 +150,7 @@ export async function createBrokerRuntime(
 
   // Admin handlers are admin-auth only and don't use the signer.
   // Provide a stub that returns InternalError if ever called.
-  const adminSignerStub: import("@xmtp-broker/contracts").SignerProvider = {
+  const adminSignerStub: import("@xmtp/signet-contracts").SignerProvider = {
     async sign() {
       return Result.err(
         InternalError.create("SignerProvider not available in admin context"),
@@ -181,7 +181,7 @@ export async function createBrokerRuntime(
   const pidFile = createPidFile(paths.pidFile);
   const registry = createActionRegistry();
 
-  let runtimeRef: BrokerRuntime | undefined;
+  let runtimeRef: SignetRuntime | undefined;
 
   for (const spec of createSessionActions({ sessionManager })) {
     registry.register(spec);
@@ -224,7 +224,7 @@ export async function createBrokerRuntime(
   );
 
   // -- Build runtime object --
-  const runtime: BrokerRuntime = {
+  const runtime: SignetRuntime = {
     core,
     sessionManager,
     attestationManager,
@@ -270,7 +270,7 @@ export async function createBrokerRuntime(
       };
     },
 
-    async start(): Promise<Result<void, BrokerError>> {
+    async start(): Promise<Result<void, SignetError>> {
       if (currentState !== "created") {
         return Result.err(
           InternalError.create(
@@ -379,7 +379,7 @@ export async function createBrokerRuntime(
       }
     },
 
-    async shutdown(): Promise<Result<void, BrokerError>> {
+    async shutdown(): Promise<Result<void, SignetError>> {
       if (currentState !== "running") {
         return Result.err(
           InternalError.create(

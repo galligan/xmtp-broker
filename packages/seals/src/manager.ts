@@ -2,20 +2,20 @@ import { Result } from "better-result";
 import type {
   AgentRevocationReason,
   Attestation,
-  BrokerError,
-} from "@xmtp-broker/schemas";
+  SignetError,
+} from "@xmtp/signet-schemas";
 import {
-  AttestationError,
+  SealError,
   RevocationAttestation,
   ValidationError,
-} from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
 import type {
-  AttestationManager,
-  AttestationPublisher,
-  AttestationSigner,
-  SignedAttestation,
-} from "@xmtp-broker/contracts";
-import { isMaterialChange } from "@xmtp-broker/policy";
+  SealManager,
+  SealPublisher,
+  SealStamper,
+  Seal,
+} from "@xmtp/signet-contracts";
+import { isMaterialChange } from "@xmtp/signet-policy";
 import { buildAttestation } from "./build.js";
 import type { AttestationInput } from "./build.js";
 import { generateAttestationId } from "./attestation-id.js";
@@ -33,17 +33,17 @@ const RENEWAL_THRESHOLD = 0.75;
 export type InputResolver = (
   sessionId: string,
   groupId: string,
-) => Promise<Result<AttestationInput, BrokerError>>;
+) => Promise<Result<AttestationInput, SignetError>>;
 
 /** Dependencies for the attestation manager. */
-export interface AttestationManagerDeps {
-  readonly signer: AttestationSigner;
-  readonly publisher: AttestationPublisher;
+export interface SealManagerDeps {
+  readonly signer: SealStamper;
+  readonly publisher: SealPublisher;
   readonly resolveInput: InputResolver;
 }
 
-/** AttestationManager that satisfies the contracts interface plus renewal check. */
-export interface AttestationManagerImpl extends AttestationManager {
+/** SealManager that satisfies the contracts interface plus renewal check. */
+export interface SealManagerImpl extends SealManager {
   needsRenewal(attestation: Attestation): boolean;
 }
 
@@ -53,16 +53,14 @@ function chainKey(agentInboxId: string, groupId: string): string {
 }
 
 /**
- * Creates an AttestationManager that handles the full attestation lifecycle:
+ * Creates an SealManager that handles the full attestation lifecycle:
  * creation, signing, publishing, chaining, renewal, and revocation.
  */
-export function createAttestationManager(
-  deps: AttestationManagerDeps,
-): AttestationManagerImpl {
+export function createSealManager(deps: SealManagerDeps): SealManagerImpl {
   // In-memory tracking of current attestation per agent+group
-  const currentAttestations = new Map<string, SignedAttestation>();
+  const currentAttestations = new Map<string, Seal>();
   // Track attestations by ID for refresh/revoke lookups
-  const attestationsById = new Map<string, SignedAttestation>();
+  const attestationsById = new Map<string, Seal>();
   // Track which inputs produced which attestations (for refresh)
   const inputsByAttestationId = new Map<string, AttestationInput>();
   // Track revoked agent+group pairs
@@ -72,7 +70,7 @@ export function createAttestationManager(
     async issue(
       sessionId: string,
       groupId: string,
-    ): Promise<Result<SignedAttestation, BrokerError>> {
+    ): Promise<Result<Seal, SignetError>> {
       // Resolve input from session+group
       const inputResult = await deps.resolveInput(sessionId, groupId);
       if (inputResult.isErr()) {
@@ -85,7 +83,7 @@ export function createAttestationManager(
       // Check if this agent+group is revoked
       if (revokedPairs.has(key)) {
         return Result.err(
-          AttestationError.create(
+          SealError.create(
             "",
             "Cannot issue attestation for revoked agent+group",
           ),
@@ -141,23 +139,18 @@ export function createAttestationManager(
       return Result.ok(signed);
     },
 
-    async refresh(
-      attestationId: string,
-    ): Promise<Result<SignedAttestation, BrokerError>> {
+    async refresh(attestationId: string): Promise<Result<Seal, SignetError>> {
       const existing = attestationsById.get(attestationId);
       if (!existing) {
         return Result.err(
-          AttestationError.create(attestationId, "Attestation not found"),
+          SealError.create(attestationId, "Attestation not found"),
         );
       }
 
       const input = inputsByAttestationId.get(attestationId);
       if (!input) {
         return Result.err(
-          AttestationError.create(
-            attestationId,
-            "Input not found for attestation",
-          ),
+          SealError.create(attestationId, "Input not found for attestation"),
         );
       }
 
@@ -168,7 +161,7 @@ export function createAttestationManager(
       const current = currentAttestations.get(key);
       if (current?.attestation.attestationId !== attestationId) {
         return Result.err(
-          AttestationError.create(
+          SealError.create(
             attestationId,
             "Only the current head attestation can be refreshed",
           ),
@@ -178,7 +171,7 @@ export function createAttestationManager(
       // Check if this agent+group is revoked
       if (revokedPairs.has(key)) {
         return Result.err(
-          AttestationError.create(
+          SealError.create(
             attestationId,
             "Cannot refresh: agent+group pair has been revoked",
           ),
@@ -218,11 +211,11 @@ export function createAttestationManager(
     async revoke(
       attestationId: string,
       reason: AgentRevocationReason,
-    ): Promise<Result<void, BrokerError>> {
+    ): Promise<Result<void, SignetError>> {
       const existing = attestationsById.get(attestationId);
       if (!existing) {
         return Result.err(
-          AttestationError.create(attestationId, "Attestation not found"),
+          SealError.create(attestationId, "Attestation not found"),
         );
       }
 
@@ -233,7 +226,7 @@ export function createAttestationManager(
 
       if (revokedPairs.has(key)) {
         return Result.err(
-          AttestationError.create(attestationId, "Agent+group already revoked"),
+          SealError.create(attestationId, "Agent+group already revoked"),
         );
       }
 
@@ -282,7 +275,7 @@ export function createAttestationManager(
     async current(
       agentInboxId: string,
       groupId: string,
-    ): Promise<Result<SignedAttestation | null, BrokerError>> {
+    ): Promise<Result<Seal | null, SignetError>> {
       const key = chainKey(agentInboxId, groupId);
       const current = currentAttestations.get(key) ?? null;
       return Result.ok(current);

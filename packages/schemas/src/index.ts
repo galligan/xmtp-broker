@@ -78,8 +78,8 @@ export {
   GrantUpdatedEvent,
   AgentRevokedEvent,
   ActionConfirmationEvent,
-  BrokerRecoveryEvent,
-  BrokerEvent,
+  SignetRecoveryEvent,
+  SignetEvent,
 } from "./events.js";
 
 // Requests
@@ -117,11 +117,11 @@ export {
   type ErrorCategoryMeta,
   ERROR_CATEGORY_META,
   errorCategoryMeta,
-  type BrokerError,
-  type AnyBrokerError,
+  type SignetError,
+  type AnySignetError,
   matchError,
   ValidationError,
-  AttestationError,
+  SealError,
   NotFoundError,
   PermissionError,
   GrantDeniedError,

@@ -1,4 +1,4 @@
-import type { ContentTypeId } from "@xmtp-broker/schemas";
+import type { ContentTypeId } from "@xmtp/signet-schemas";
 import type { SignerProvider } from "./providers.js";
 
 /** Broker lifecycle states. */

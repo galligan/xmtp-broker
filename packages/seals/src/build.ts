@@ -3,8 +3,8 @@ import type {
   Attestation,
   GrantConfig,
   ViewConfig,
-} from "@xmtp-broker/schemas";
-import { AttestationSchema, ValidationError } from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
+import { AttestationSchema, ValidationError } from "@xmtp/signet-schemas";
 import { generateAttestationId } from "./attestation-id.js";
 import { canonicalize } from "./canonicalize.js";
 import { grantConfigToOps, grantConfigToToolScopes } from "./grant-ops.js";

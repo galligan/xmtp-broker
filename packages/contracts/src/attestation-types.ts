@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AttestationSchema, RevocationAttestation } from "@xmtp-broker/schemas";
+import { AttestationSchema, RevocationAttestation } from "@xmtp/signet-schemas";
 
 /** Provenance info attached to outbound messages. */
 export interface MessageProvenanceMetadata {
@@ -14,14 +14,14 @@ const BASE64_SIGNATURE: z.ZodString = z
   .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/)
   .describe("Base64-encoded signature bytes");
 
-type SignedAttestationEnvelopeShape = {
+type SealEnvelopeShape = {
   attestation: typeof AttestationSchema;
   signature: typeof BASE64_SIGNATURE;
   signatureAlgorithm: z.ZodString;
   signerKeyRef: z.ZodString;
 };
 
-const signedAttestationEnvelopeShape: SignedAttestationEnvelopeShape = {
+const signedAttestationEnvelopeShape: SealEnvelopeShape = {
   attestation: AttestationSchema.describe("The attestation payload"),
   signature: BASE64_SIGNATURE.describe(
     "Base64-encoded signature over the canonical attestation bytes",
@@ -35,12 +35,11 @@ const signedAttestationEnvelopeShape: SignedAttestationEnvelopeShape = {
 };
 
 /** Signed attestation ready for group publication. */
-export const SignedAttestationEnvelope: z.ZodObject<SignedAttestationEnvelopeShape> =
-  z
-    .object(signedAttestationEnvelopeShape)
-    .describe("Signed attestation ready for group publication");
+export const SealEnvelope: z.ZodObject<SealEnvelopeShape> = z
+  .object(signedAttestationEnvelopeShape)
+  .describe("Signed attestation ready for group publication");
 
-export type SignedAttestation = z.infer<typeof SignedAttestationEnvelope>;
+export type Seal = z.infer<typeof SealEnvelope>;
 
 type SignedRevocationEnvelopeShape = {
   revocation: typeof RevocationAttestation;

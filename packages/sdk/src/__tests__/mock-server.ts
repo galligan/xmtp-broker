@@ -1,4 +1,4 @@
-import type { BrokerEvent } from "@xmtp-broker/schemas";
+import type { SignetEvent } from "@xmtp/signet-schemas";
 import type { ServerWebSocket } from "bun";
 
 /** Wire data for an incoming auth frame from the handler SDK. */
@@ -44,7 +44,7 @@ export interface TestHarness {
   handler: import("../types.js").BrokerHandler;
   server: MockBrokerServer;
   /** Push an event to all authenticated connections. */
-  emitEvent: (event: BrokerEvent) => void;
+  emitEvent: (event: SignetEvent) => void;
   /** Drop all connections (simulate transport failure). */
   dropConnection: () => void;
   /** Close all connections with a specific code. */
@@ -61,7 +61,7 @@ export interface TestHarness {
  */
 export function createMockServer(options: MockServerOptions = {}): {
   server: MockBrokerServer;
-  emitEvent: (event: BrokerEvent) => void;
+  emitEvent: (event: SignetEvent) => void;
   dropConnection: () => void;
   closeWith: (code: number, reason: string) => void;
   sendBackpressure: (frame: { buffered: number; limit: number }) => void;
@@ -213,7 +213,7 @@ export function createMockServer(options: MockServerOptions = {}): {
   const port = bunServer.port;
   const url = `ws://127.0.0.1:${port}/v1/agent`;
 
-  function emitEvent(event: BrokerEvent): void {
+  function emitEvent(event: SignetEvent): void {
     for (const conn of activeConnections.values()) {
       if (conn.authenticated) {
         conn.seq += 1;

@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { resolveEffectiveAllowlist } from "../allowlist.js";
-import { BASELINE_CONTENT_TYPES } from "@xmtp-broker/schemas";
-import type { ContentTypeId } from "@xmtp-broker/schemas";
+import { BASELINE_CONTENT_TYPES } from "@xmtp/signet-schemas";
+import type { ContentTypeId } from "@xmtp/signet-schemas";
 import { Result } from "better-result";
 
 describe("resolveEffectiveAllowlist", () => {

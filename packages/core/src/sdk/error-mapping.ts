@@ -1,10 +1,10 @@
 import { Result } from "better-result";
-import type { BrokerError } from "@xmtp-broker/schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
 import {
   InternalError,
   NotFoundError,
   TimeoutError,
-} from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
 
 /** Hints for classifying SDK errors into broker error types. */
 export interface WrapSdkCallHints {
@@ -33,7 +33,7 @@ export async function wrapSdkCall<T>(
   fn: () => Promise<T>,
   context: string,
   hints?: WrapSdkCallHints,
-): Promise<Result<T, BrokerError>> {
+): Promise<Result<T, SignetError>> {
   try {
     const value = await fn();
     return Result.ok(value);

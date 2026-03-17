@@ -10,8 +10,8 @@ import type {
   ViewConfig,
   GrantConfig,
   ContentTypeId,
-} from "@xmtp-broker/schemas";
-import { BASELINE_CONTENT_TYPES } from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
+import { BASELINE_CONTENT_TYPES } from "@xmtp/signet-schemas";
 import {
   projectMessage,
   resolveEffectiveAllowlist,
@@ -20,10 +20,10 @@ import {
   validateGroupManagement,
   isMaterialChange,
   requiresReauthorization,
-} from "@xmtp-broker/policy";
-import type { RawMessage, BrokerContentTypeConfig } from "@xmtp-broker/policy";
-import type { PolicyDelta } from "@xmtp-broker/contracts";
-import { checkMateriality } from "@xmtp-broker/sessions";
+} from "@xmtp/signet-policy";
+import type { RawMessage, BrokerContentTypeConfig } from "@xmtp/signet-policy";
+import type { PolicyDelta } from "@xmtp/signet-contracts";
+import { checkMateriality } from "@xmtp/signet-sessions";
 
 const GROUP_ID = "policy-group-1";
 

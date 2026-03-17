@@ -5,13 +5,13 @@ import {
   createActionRegistry,
   type ActionSpec,
   type SignerProvider,
-} from "@xmtp-broker/contracts";
+} from "@xmtp/signet-contracts";
 import {
   AuthError,
   InternalError,
   PermissionError,
-  type BrokerError,
-} from "@xmtp-broker/schemas";
+  type SignetError,
+} from "@xmtp/signet-schemas";
 import { createAdminServer, type AdminServer } from "../admin/server.js";
 import { createAdminClient, type AdminClient } from "../admin/client.js";
 import { createAdminDispatcher } from "../admin/dispatcher.js";
@@ -75,9 +75,9 @@ function makeStubSignerProvider(): SignerProvider {
 
 function makeTestSpec(
   id: string,
-  handler: ActionSpec<unknown, unknown, BrokerError>["handler"],
+  handler: ActionSpec<unknown, unknown, SignetError>["handler"],
   rpcMethod?: string,
-): ActionSpec<unknown, unknown, BrokerError> {
+): ActionSpec<unknown, unknown, SignetError> {
   return {
     id,
     handler,

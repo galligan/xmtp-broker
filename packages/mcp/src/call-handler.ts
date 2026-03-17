@@ -3,15 +3,15 @@ import {
   ValidationError,
   NotFoundError,
   InternalError,
-} from "@xmtp-broker/schemas";
-import type { ActionResultMeta, BrokerError } from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
+import type { ActionResultMeta, SignetError } from "@xmtp/signet-schemas";
 import type {
   ActionRegistry,
   ActionSpec,
   SignerProvider,
   SessionRecord,
-} from "@xmtp-broker/contracts";
-import { toActionResult } from "@xmtp-broker/contracts";
+} from "@xmtp/signet-contracts";
+import { toActionResult } from "@xmtp/signet-contracts";
 import type { McpContentResponse } from "./output-formatter.js";
 import { formatActionResult } from "./output-formatter.js";
 import { createHandlerContext } from "./context-factory.js";
@@ -94,7 +94,7 @@ function buildMeta(requestId: string, startTime: number): ActionResultMeta {
 function findSpecByToolName(
   toolName: string,
   registry: ActionRegistry,
-): ActionSpec<unknown, unknown, BrokerError> | undefined {
+): ActionSpec<unknown, unknown, SignetError> | undefined {
   const mcpSpecs = registry.listForSurface("mcp");
   return mcpSpecs.find((spec) => spec.mcp?.toolName === toolName);
 }

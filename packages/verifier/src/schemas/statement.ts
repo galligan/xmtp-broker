@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { TrustTier } from "@xmtp-broker/schemas";
-import type { TrustTier as TrustTierType } from "@xmtp-broker/schemas";
+import { TrustTier } from "@xmtp/signet-schemas";
+import type { TrustTier as TrustTierType } from "@xmtp/signet-schemas";
 import { VerificationCheck } from "./check.js";
 
 export const VerificationVerdict: z.ZodEnum<

@@ -1,15 +1,15 @@
 import { Result } from "better-result";
 import type {
   Attestation,
-  BrokerError,
+  SignetError,
   RevocationAttestation,
-} from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
 import type {
-  AttestationSigner,
-  AttestationPublisher,
-  SignedAttestation,
+  SealStamper,
+  SealPublisher,
+  Seal,
   SignedRevocationEnvelope,
-} from "@xmtp-broker/contracts";
+} from "@xmtp/signet-contracts";
 import type { AttestationInput } from "../build.js";
 import type { InputResolver } from "../manager.js";
 import { canonicalize } from "../canonicalize.js";
@@ -82,19 +82,17 @@ export function createTestInputResolver(
   return async (
     sessionId: string,
     groupId: string,
-  ): Promise<Result<AttestationInput, BrokerError>> => {
+  ): Promise<Result<AttestationInput, SignetError>> => {
     const key = `${sessionId}:${groupId}`;
     const input = overrides?.get(key) ?? validInput({ groupId });
     return Result.ok(input);
   };
 }
 
-/** Creates a mock AttestationSigner that produces deterministic signatures. */
-export function createTestSigner(): AttestationSigner {
+/** Creates a mock SealStamper that produces deterministic signatures. */
+export function createTestSigner(): SealStamper {
   return {
-    async sign(
-      payload: Attestation,
-    ): Promise<Result<SignedAttestation, BrokerError>> {
+    async sign(payload: Attestation): Promise<Result<Seal, SignetError>> {
       const bytes = canonicalize(payload);
       // Simple test signature: base64 of the first 16 bytes of canonical form
       const sig = btoa(
@@ -109,7 +107,7 @@ export function createTestSigner(): AttestationSigner {
     },
     async signRevocation(
       payload: RevocationAttestation,
-    ): Promise<Result<SignedRevocationEnvelope, BrokerError>> {
+    ): Promise<Result<SignedRevocationEnvelope, SignetError>> {
       const bytes = canonicalize(payload);
       const sig = btoa(
         String.fromCharCode(...new Uint8Array(bytes.slice(0, 16))),
@@ -124,27 +122,27 @@ export function createTestSigner(): AttestationSigner {
   };
 }
 
-/** Creates a mock AttestationPublisher that records published attestations. */
-export function createTestPublisher(): AttestationPublisher & {
-  readonly published: SignedAttestation[];
+/** Creates a mock SealPublisher that records published attestations. */
+export function createTestPublisher(): SealPublisher & {
+  readonly published: Seal[];
   readonly publishedRevocations: SignedRevocationEnvelope[];
 } {
-  const published: SignedAttestation[] = [];
+  const published: Seal[] = [];
   const publishedRevocations: SignedRevocationEnvelope[] = [];
   return {
     published,
     publishedRevocations,
     async publish(
       _groupId: string,
-      attestation: SignedAttestation,
-    ): Promise<Result<void, BrokerError>> {
+      attestation: Seal,
+    ): Promise<Result<void, SignetError>> {
       published.push(attestation);
       return Result.ok();
     },
     async publishRevocation(
       _groupId: string,
       revocation: SignedRevocationEnvelope,
-    ): Promise<Result<void, BrokerError>> {
+    ): Promise<Result<void, SignetError>> {
       publishedRevocations.push(revocation);
       return Result.ok();
     },

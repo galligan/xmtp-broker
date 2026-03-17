@@ -9,16 +9,16 @@
 import { describe, test, expect } from "bun:test";
 import { Result } from "better-result";
 import type {
-  BrokerCore,
+  SignetCore,
   SessionManager,
-  AttestationManager,
+  SealManager,
   SignerProvider,
-  AttestationSigner,
-} from "@xmtp-broker/contracts";
-import type { BrokerError } from "@xmtp-broker/schemas";
+  SealStamper,
+} from "@xmtp/signet-contracts";
+import type { SignetError } from "@xmtp/signet-schemas";
 import {
   ValidationError,
-  AttestationError,
+  SealError,
   NotFoundError,
   PermissionError,
   GrantDeniedError,
@@ -27,7 +27,7 @@ import {
   InternalError,
   TimeoutError,
   CancelledError,
-} from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
 
 describe("contract-verification", () => {
   test("all error types are constructable and have correct categories", () => {
@@ -38,9 +38,9 @@ describe("contract-verification", () => {
         tag: "ValidationError",
       },
       {
-        instance: AttestationError.create("id", "reason"),
+        instance: SealError.create("id", "reason"),
         category: "validation",
-        tag: "AttestationError",
+        tag: "SealError",
       },
       {
         instance: NotFoundError.create("resource", "id"),
@@ -93,7 +93,7 @@ describe("contract-verification", () => {
     }
   });
 
-  test("error instances extend Error and have BrokerError shape", () => {
+  test("error instances extend Error and have SignetError shape", () => {
     const err = ValidationError.create("test", "reason");
     expect(err instanceof Error).toBe(true);
     expect(err._tag).toBe("ValidationError");
@@ -127,8 +127,8 @@ describe("contract-verification", () => {
     // This is a compile-time check. If the file compiles, the contracts
     // are satisfied. We use type assertions to verify compatibility.
 
-    // BrokerCore contract
-    const _brokerCore: BrokerCore = {
+    // SignetCore contract
+    const _brokerCore: SignetCore = {
       get state() {
         return "ready" as const;
       },
@@ -223,8 +223,8 @@ describe("contract-verification", () => {
       },
     };
 
-    // AttestationManager contract
-    const _attestationManager: AttestationManager = {
+    // SealManager contract
+    const _attestationManager: SealManager = {
       async issue(_sessionId, _groupId) {
         return Result.err(InternalError.create("stub"));
       },
@@ -260,13 +260,13 @@ describe("contract-verification", () => {
       },
     };
 
-    // AttestationSigner contract
-    const _attestationSigner: AttestationSigner = {
+    // SealStamper contract
+    const _attestationSigner: SealStamper = {
       async sign(_payload) {
-        return Result.err(InternalError.create("stub") as BrokerError);
+        return Result.err(InternalError.create("stub") as SignetError);
       },
       async signRevocation(_payload) {
-        return Result.err(InternalError.create("stub") as BrokerError);
+        return Result.err(InternalError.create("stub") as SignetError);
       },
     };
 

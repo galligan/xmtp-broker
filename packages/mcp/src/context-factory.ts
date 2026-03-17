@@ -1,4 +1,4 @@
-import type { HandlerContext, SignerProvider } from "@xmtp-broker/contracts";
+import type { HandlerContext, SignerProvider } from "@xmtp/signet-contracts";
 
 /**
  * Parameters for building a HandlerContext for MCP callers.

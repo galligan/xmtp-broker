@@ -3,8 +3,8 @@ import {
   InternalError,
   AuthError,
   type ValidationError,
-} from "@xmtp-broker/schemas";
-import type { HandlerContext } from "@xmtp-broker/contracts";
+} from "@xmtp/signet-schemas";
+import type { HandlerContext } from "@xmtp/signet-contracts";
 import type { AdminDispatcher } from "./dispatcher.js";
 import {
   AdminAuthFrameSchema,

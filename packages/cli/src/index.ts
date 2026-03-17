@@ -1,12 +1,12 @@
 /**
- * CLI package for xmtp-broker. Provides the `xmtp-broker` command,
+ * CLI package for xmtp-signet. Provides the `xmtp-signet` (alias `xs`) command,
  * daemon lifecycle, admin socket client/server, configuration loading,
  * and direct-mode fallback.
  * @module
  */
 
 import { Command } from "commander";
-import { createBrokerCommands } from "./commands/broker.js";
+import { createDaemonCommands } from "./commands/broker.js";
 import { createIdentityCommands } from "./commands/identity.js";
 import { createSessionCommands } from "./commands/session.js";
 import { createGrantCommands } from "./commands/grant.js";
@@ -16,12 +16,13 @@ import { createConversationCommands } from "./commands/conversation.js";
 import { createAdminCommands } from "./commands/admin.js";
 
 const program: Command = new Command()
-  .name("xmtp-broker")
+  .name("xmtp-signet")
+  .alias("xs")
   .version("0.1.0")
-  .description("Agent broker for XMTP");
+  .description("Agent signet for XMTP");
 
-// Wire all command groups
-program.addCommand(createBrokerCommands());
+// Wire all command groups — broker subcommands are now top-level under "daemon"
+program.addCommand(createDaemonCommands());
 program.addCommand(createIdentityCommands());
 program.addCommand(createSessionCommands());
 program.addCommand(createGrantCommands());
@@ -72,7 +73,7 @@ export type {
   AdminAuthFrame,
 } from "./admin/protocol.js";
 
-export { createBrokerCommands } from "./commands/broker.js";
+export { createDaemonCommands } from "./commands/broker.js";
 export { createIdentityCommands } from "./commands/identity.js";
 export { createSessionCommands } from "./commands/session.js";
 export { createGrantCommands } from "./commands/grant.js";

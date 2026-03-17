@@ -7,14 +7,11 @@ import {
   encodeAttestationMessage,
   encodeRevocationMessage,
 } from "../content-type.js";
-import type {
-  SignedAttestation,
-  SignedRevocationEnvelope,
-} from "@xmtp-broker/contracts";
-import type { Attestation, RevocationAttestation } from "@xmtp-broker/schemas";
+import type { Seal, SignedRevocationEnvelope } from "@xmtp/signet-contracts";
+import type { Attestation, RevocationAttestation } from "@xmtp/signet-schemas";
 
 /** Minimal valid signed attestation for testing codec functions. */
-function stubSignedAttestation(): SignedAttestation {
+function stubSeal(): Seal {
   return {
     attestation: {
       attestationId: "att_00000000000000000000000000000001",
@@ -88,7 +85,7 @@ describe("content type IDs", () => {
 
 describe("encodeAttestationMessage", () => {
   test("wraps signed attestation with contentType field", () => {
-    const envelope = stubSignedAttestation();
+    const envelope = stubSeal();
     const message = encodeAttestationMessage(envelope);
     expect(message.contentType).toBe(ATTESTATION_CONTENT_TYPE_ID);
     expect(message.attestation).toBe(envelope.attestation);
@@ -96,7 +93,7 @@ describe("encodeAttestationMessage", () => {
   });
 
   test("result validates against AttestationMessage schema", () => {
-    const envelope = stubSignedAttestation();
+    const envelope = stubSeal();
     const message = encodeAttestationMessage(envelope);
     const parsed = AttestationMessage.safeParse(message);
     expect(parsed.success).toBe(true);
@@ -122,13 +119,13 @@ describe("encodeRevocationMessage", () => {
 
 describe("AttestationMessage schema", () => {
   test("rejects messages without contentType", () => {
-    const envelope = stubSignedAttestation();
+    const envelope = stubSeal();
     const parsed = AttestationMessage.safeParse(envelope);
     expect(parsed.success).toBe(false);
   });
 
   test("rejects messages with wrong contentType", () => {
-    const envelope = stubSignedAttestation();
+    const envelope = stubSeal();
     const parsed = AttestationMessage.safeParse({
       ...envelope,
       contentType: "wrong/type:1.0",

@@ -2,13 +2,13 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { Command } from "commander";
 import { Result } from "better-result";
-import type { BrokerError } from "@xmtp-broker/schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
 import type { DaemonStatus } from "../daemon/status.js";
 import { loadConfig } from "../config/loader.js";
 import { resolvePaths } from "../config/paths.js";
 import { formatOutput } from "../output/formatter.js";
 import { exitCodeFromCategory } from "../output/exit-codes.js";
-import { createBrokerRuntime } from "../runtime.js";
+import { createSignetRuntime } from "../runtime.js";
 import { createProductionDeps } from "../start.js";
 import { setupSignalHandlers } from "../daemon/signals.js";
 import {
@@ -19,7 +19,7 @@ import {
 export interface BrokerCommandDeps {
   readonly loadConfig: typeof loadConfig;
   readonly resolvePaths: typeof resolvePaths;
-  readonly createBrokerRuntime: typeof createBrokerRuntime;
+  readonly createSignetRuntime: typeof createSignetRuntime;
   readonly createProductionDeps: typeof createProductionDeps;
   readonly setupSignalHandlers: typeof setupSignalHandlers;
   readonly withDaemonClient: WithDaemonClient;
@@ -31,7 +31,7 @@ export interface BrokerCommandDeps {
 const defaultDeps: BrokerCommandDeps = {
   loadConfig,
   resolvePaths,
-  createBrokerRuntime,
+  createSignetRuntime,
   createProductionDeps,
   setupSignalHandlers,
   withDaemonClient: createWithDaemonClient(),
@@ -47,20 +47,20 @@ const defaultDeps: BrokerCommandDeps = {
 };
 
 /**
- * Broker lifecycle commands.
+ * Daemon lifecycle commands.
  *
- * - start: Create and start the BrokerRuntime (does not use admin socket)
- * - stop: Send broker.stop via admin socket
- * - status: Send broker.status via admin socket
+ * - start: Create and start the SignetRuntime (does not use admin socket)
+ * - stop: Send daemon.stop via admin socket
+ * - status: Send daemon.status via admin socket
  * - config show: Show active merged configuration
  * - config validate: Validate config file (no daemon required)
  */
-export function createBrokerCommands(
+export function createDaemonCommands(
   deps: Partial<BrokerCommandDeps> = {},
 ): Command {
   const resolvedDeps: BrokerCommandDeps = { ...defaultDeps, ...deps };
-  const cmd = new Command("broker").description(
-    "Broker daemon lifecycle management",
+  const cmd = new Command("daemon").description(
+    "Signet daemon lifecycle management",
   );
 
   cmd
@@ -118,7 +118,7 @@ export function createBrokerCommands(
         write("Initializing broker runtime...");
       }
 
-      const runtimeResult = await resolvedDeps.createBrokerRuntime(
+      const runtimeResult = await resolvedDeps.createSignetRuntime(
         config,
         resolvedDeps.createProductionDeps(),
       );
@@ -313,7 +313,7 @@ export function createBrokerCommands(
 
 function writeError(
   deps: BrokerCommandDeps,
-  error: BrokerError,
+  error: SignetError,
   json: boolean,
 ): void {
   deps.writeStderr(

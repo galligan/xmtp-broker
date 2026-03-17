@@ -7,9 +7,9 @@
  */
 
 import { createMcpServer } from "../server.js";
-import { createActionRegistry } from "@xmtp-broker/contracts";
+import { createActionRegistry } from "@xmtp/signet-contracts";
 import { Result } from "better-result";
-import { InternalError } from "@xmtp-broker/schemas";
+import { InternalError } from "@xmtp/signet-schemas";
 
 const sessionToken = process.env["XMTP_BROKER_SESSION_TOKEN"];
 if (!sessionToken) {

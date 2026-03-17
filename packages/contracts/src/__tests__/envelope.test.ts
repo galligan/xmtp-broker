@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  SignedAttestationEnvelope,
+  SealEnvelope,
   SignedRevocationEnvelope,
 } from "../attestation-types.js";
 
@@ -53,7 +53,7 @@ function validRevocation() {
   };
 }
 
-describe("SignedAttestationEnvelope", () => {
+describe("SealEnvelope", () => {
   test("accepts a valid signed attestation", () => {
     const input = {
       attestation: validAttestation(),
@@ -62,7 +62,7 @@ describe("SignedAttestationEnvelope", () => {
       signerKeyRef: "key-ref-001",
     };
 
-    const result = SignedAttestationEnvelope.safeParse(input);
+    const result = SealEnvelope.safeParse(input);
     expect(result.success).toBe(true);
   });
 
@@ -73,7 +73,7 @@ describe("SignedAttestationEnvelope", () => {
       signerKeyRef: "key-ref-001",
     };
 
-    const result = SignedAttestationEnvelope.safeParse(input);
+    const result = SealEnvelope.safeParse(input);
     expect(result.success).toBe(false);
   });
 
@@ -84,7 +84,7 @@ describe("SignedAttestationEnvelope", () => {
       signerKeyRef: "key-ref-001",
     };
 
-    const result = SignedAttestationEnvelope.safeParse(input);
+    const result = SealEnvelope.safeParse(input);
     expect(result.success).toBe(false);
   });
 
@@ -96,7 +96,7 @@ describe("SignedAttestationEnvelope", () => {
       signerKeyRef: "key-ref-001",
     };
 
-    const result = SignedAttestationEnvelope.safeParse(input);
+    const result = SealEnvelope.safeParse(input);
     expect(result.success).toBe(false);
   });
 
@@ -107,7 +107,7 @@ describe("SignedAttestationEnvelope", () => {
       signerKeyRef: "key-ref-001",
     };
 
-    const result = SignedAttestationEnvelope.safeParse(input);
+    const result = SealEnvelope.safeParse(input);
     expect(result.success).toBe(false);
   });
 
@@ -118,7 +118,7 @@ describe("SignedAttestationEnvelope", () => {
       signatureAlgorithm: "Ed25519",
     };
 
-    const result = SignedAttestationEnvelope.safeParse(input);
+    const result = SealEnvelope.safeParse(input);
     expect(result.success).toBe(false);
   });
 
@@ -130,7 +130,7 @@ describe("SignedAttestationEnvelope", () => {
       signerKeyRef: "key-ref-001",
     };
 
-    const result = SignedAttestationEnvelope.safeParse(input);
+    const result = SealEnvelope.safeParse(input);
     expect(result.success).toBe(false);
   });
 
@@ -142,7 +142,7 @@ describe("SignedAttestationEnvelope", () => {
       signerKeyRef: "key-ref-001",
     };
 
-    const result = SignedAttestationEnvelope.safeParse(input);
+    const result = SealEnvelope.safeParse(input);
     expect(result.success).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import type { PolicyDelta } from "@xmtp-broker/contracts";
+import type { PolicyDelta } from "@xmtp/signet-contracts";
 
 /** Material field prefixes that trigger attestation. */
 const MATERIAL_FIELD_PREFIXES = [

@@ -1,6 +1,6 @@
-import type { BrokerError } from "./base.js";
+import type { SignetError } from "./base.js";
 
-export class ValidationError extends Error implements BrokerError {
+export class ValidationError extends Error implements SignetError {
   readonly _tag = "ValidationError" as const;
   readonly code = 1000;
   readonly category = "validation" as const;
@@ -29,8 +29,8 @@ export class ValidationError extends Error implements BrokerError {
   }
 }
 
-export class AttestationError extends Error implements BrokerError {
-  readonly _tag = "AttestationError" as const;
+export class SealError extends Error implements SignetError {
+  readonly _tag = "SealError" as const;
   readonly code = 1010;
   readonly category = "validation" as const;
 
@@ -39,11 +39,11 @@ export class AttestationError extends Error implements BrokerError {
     readonly context: { attestationId: string } & Record<string, unknown>,
   ) {
     super(message);
-    this.name = "AttestationError";
+    this.name = "SealError";
   }
 
-  static create(attestationId: string, reason: string): AttestationError {
-    return new AttestationError(`Attestation '${attestationId}': ${reason}`, {
+  static create(attestationId: string, reason: string): SealError {
+    return new SealError(`Seal '${attestationId}': ${reason}`, {
       attestationId,
       reason,
     });

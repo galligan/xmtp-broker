@@ -5,14 +5,14 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { ActionResultMeta } from "@xmtp-broker/schemas";
-import { InternalError, AuthError } from "@xmtp-broker/schemas";
+import type { ActionResultMeta } from "@xmtp/signet-schemas";
+import { InternalError, AuthError } from "@xmtp/signet-schemas";
 import type {
   ActionRegistry,
   SessionManager,
   SessionRecord,
   SignerProvider,
-} from "@xmtp-broker/contracts";
+} from "@xmtp/signet-contracts";
 import type { McpServerConfig } from "./config.js";
 import { McpServerConfigSchema } from "./config.js";
 import {
@@ -22,7 +22,7 @@ import {
 import { handleCallTool } from "./call-handler.js";
 import { validateSession, checkSessionLiveness } from "./session-guard.js";
 import { formatActionResult } from "./output-formatter.js";
-import { toActionResult } from "@xmtp-broker/contracts";
+import { toActionResult } from "@xmtp/signet-contracts";
 
 // ---------------------------------------------------------------------------
 // Types

@@ -4,7 +4,7 @@ import {
   type ValidationError,
   type TimeoutError,
   InternalError as InternalErrorClass,
-} from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
 import type { VerificationRequest } from "./schemas/request.js";
 import type {
   VerificationStatement,

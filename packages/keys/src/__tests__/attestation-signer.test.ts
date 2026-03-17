@@ -4,9 +4,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createKeyManager, type KeyManager } from "../key-manager.js";
-import { createAttestationSigner } from "../attestation-signer.js";
-import type { AttestationSigner } from "@xmtp-broker/contracts";
-import type { Attestation } from "@xmtp-broker/schemas";
+import { createSealStamper } from "../attestation-signer.js";
+import type { SealStamper } from "@xmtp/signet-contracts";
+import type { Attestation } from "@xmtp/signet-schemas";
 
 function makeTestAttestation(): Attestation {
   return {
@@ -38,10 +38,10 @@ function makeTestAttestation(): Attestation {
   };
 }
 
-describe("AttestationSigner", () => {
+describe("SealStamper", () => {
   let dataDir: string;
   let manager: KeyManager;
-  let signer: AttestationSigner;
+  let signer: SealStamper;
 
   beforeEach(async () => {
     dataDir = mkdtempSync(join(tmpdir(), "as-test-"));
@@ -49,7 +49,7 @@ describe("AttestationSigner", () => {
     if (Result.isError(result)) throw new Error("setup failed");
     manager = result.value;
     await manager.createOperationalKey("agent-1", null);
-    signer = createAttestationSigner(manager, "agent-1");
+    signer = createSealStamper(manager, "agent-1");
   });
 
   afterEach(() => {
@@ -58,7 +58,7 @@ describe("AttestationSigner", () => {
   });
 
   describe("sign", () => {
-    test("signs an attestation and returns a SignedAttestation", async () => {
+    test("signs an attestation and returns a Seal", async () => {
       const attestation = makeTestAttestation();
       const result = await signer.sign(attestation);
       expect(Result.isOk(result)).toBe(true);

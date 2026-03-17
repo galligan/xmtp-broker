@@ -3,7 +3,7 @@ import {
   type ContentTypeId,
   type ViewMode,
   ValidationError,
-} from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
 import type { BrokerContentTypeConfig } from "./types.js";
 
 /**

@@ -11,23 +11,17 @@ import { tmpdir } from "node:os";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type {
-  BrokerError,
+  SignetError,
   ViewConfig,
   GrantConfig,
-} from "@xmtp-broker/schemas";
-import type {
-  SignedAttestation,
-  SignedRevocationEnvelope,
-} from "@xmtp-broker/contracts";
-import type { AttestationPublisher } from "@xmtp-broker/contracts";
-import { createKeyManager, createAttestationSigner } from "@xmtp-broker/keys";
-import type { KeyManager } from "@xmtp-broker/keys";
-import { createSessionManager } from "@xmtp-broker/sessions";
-import type { InternalSessionManager } from "@xmtp-broker/sessions";
-import {
-  createAttestationManager,
-  type AttestationManagerImpl,
-} from "@xmtp-broker/attestations";
+} from "@xmtp/signet-schemas";
+import type { Seal, SignedRevocationEnvelope } from "@xmtp/signet-contracts";
+import type { SealPublisher } from "@xmtp/signet-contracts";
+import { createKeyManager, createSealStamper } from "@xmtp/signet-keys";
+import type { KeyManager } from "@xmtp/signet-keys";
+import { createSessionManager } from "@xmtp/signet-sessions";
+import type { InternalSessionManager } from "@xmtp/signet-sessions";
+import { createSealManager, type SealManagerImpl } from "@xmtp/signet-seals";
 
 const GROUP_ID = "attest-group-1";
 const AGENT_INBOX_ID = "agent-attest-1";
@@ -67,8 +61,8 @@ let dataDir = "";
 interface TestCtx {
   keyManager: KeyManager;
   sessionManager: InternalSessionManager;
-  attestationManager: AttestationManagerImpl;
-  published: Array<{ groupId: string; attestation: SignedAttestation }>;
+  attestationManager: SealManagerImpl;
+  published: Array<{ groupId: string; attestation: Seal }>;
   revokedPublished: Array<{
     groupId: string;
     revocation: SignedRevocationEnvelope;
@@ -89,18 +83,18 @@ async function setup(): Promise<TestCtx> {
   await km.createOperationalKey(IDENTITY_ID, GROUP_ID);
 
   const sessionManager = createSessionManager({ defaultTtlSeconds: 300 });
-  const signer = createAttestationSigner(km, IDENTITY_ID);
+  const signer = createSealStamper(km, IDENTITY_ID);
 
   const published: Array<{
     groupId: string;
-    attestation: SignedAttestation;
+    attestation: Seal;
   }> = [];
   const revokedPublished: Array<{
     groupId: string;
     revocation: SignedRevocationEnvelope;
   }> = [];
 
-  const publisher: AttestationPublisher = {
+  const publisher: SealPublisher = {
     async publish(groupId, attestation) {
       published.push({ groupId, attestation });
       return Result.ok(undefined);
@@ -111,13 +105,13 @@ async function setup(): Promise<TestCtx> {
     },
   };
 
-  const attestationManager = createAttestationManager({
+  const attestationManager = createSealManager({
     signer,
     publisher,
     resolveInput: async (sessionId, gId) => {
       const session = sessionManager.getSessionById(sessionId);
       if (!session.isOk()) {
-        return Result.err(session.error as BrokerError);
+        return Result.err(session.error as SignetError);
       }
       const s = session.value;
       return Result.ok({

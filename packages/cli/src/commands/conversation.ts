@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import type { BrokerError } from "@xmtp-broker/schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
 import { exitCodeFromCategory } from "../output/exit-codes.js";
 import { formatOutput } from "../output/formatter.js";
 import {
@@ -334,7 +334,7 @@ function parseMembers(value: unknown): string[] {
 
 function writeError(
   deps: ConversationCommandDeps,
-  error: BrokerError,
+  error: SignetError,
   json: boolean,
 ): void {
   deps.writeStderr(

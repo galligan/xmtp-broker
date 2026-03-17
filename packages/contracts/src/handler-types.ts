@@ -1,5 +1,5 @@
 import type { Result } from "better-result";
-import type { BrokerError } from "@xmtp-broker/schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
 import type { CoreContext } from "./core-types.js";
 
 /**
@@ -44,5 +44,5 @@ export interface HandlerContext extends CoreContext {
 export type Handler<
   TInput,
   TOutput,
-  TError extends BrokerError = BrokerError,
+  TError extends SignetError = SignetError,
 > = (input: TInput, ctx: HandlerContext) => Promise<Result<TOutput, TError>>;

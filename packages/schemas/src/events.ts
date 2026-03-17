@@ -218,12 +218,12 @@ const _ActionConfirmationEvent = z
 export const ActionConfirmationEvent: z.ZodType<ActionConfirmationEvent> =
   _ActionConfirmationEvent;
 
-export type BrokerRecoveryEvent = {
+export type SignetRecoveryEvent = {
   type: "broker.recovery.complete";
   caughtUpThrough: string;
 };
 
-const _BrokerRecoveryEvent = z
+const _SignetRecoveryEvent = z
   .object({
     type: z
       .literal("broker.recovery.complete")
@@ -233,12 +233,12 @@ const _BrokerRecoveryEvent = z
       .datetime()
       .describe("Timestamp through which the broker has resynced"),
   })
-  .describe("Broker has recovered and resynced");
+  .describe("Signet has recovered and resynced");
 
-export const BrokerRecoveryEvent: z.ZodType<BrokerRecoveryEvent> =
-  _BrokerRecoveryEvent;
+export const SignetRecoveryEvent: z.ZodType<SignetRecoveryEvent> =
+  _SignetRecoveryEvent;
 
-export type BrokerEvent =
+export type SignetEvent =
   | MessageEvent
   | AttestationEvent
   | SessionStartedEvent
@@ -250,10 +250,10 @@ export type BrokerEvent =
   | GrantUpdatedEvent
   | AgentRevokedEvent
   | ActionConfirmationEvent
-  | BrokerRecoveryEvent;
+  | SignetRecoveryEvent;
 
-/** Discriminated union of all broker-to-harness events. */
-export const BrokerEvent: z.ZodType<BrokerEvent> = z
+/** Discriminated union of all signet-to-harness events. */
+export const SignetEvent: z.ZodType<SignetEvent> = z
   .discriminatedUnion("type", [
     _MessageEvent,
     _AttestationEvent,
@@ -266,6 +266,6 @@ export const BrokerEvent: z.ZodType<BrokerEvent> = z
     _GrantUpdatedEvent,
     _AgentRevokedEvent,
     _ActionConfirmationEvent,
-    _BrokerRecoveryEvent,
+    _SignetRecoveryEvent,
   ])
-  .describe("Any event the broker may send to a harness");
+  .describe("Any event the signet may send to a harness");

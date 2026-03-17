@@ -145,4 +145,4 @@ export const JSON_RPC_ERRORS = {
 } as const;
 
 // Re-export the AdminJwtPayload type for convenience
-export type { AdminJwtPayload } from "@xmtp-broker/keys";
+export type { AdminJwtPayload } from "@xmtp/signet-keys";

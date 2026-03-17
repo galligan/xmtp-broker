@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { Result } from "better-result";
-import type { Attestation, BrokerError } from "@xmtp-broker/schemas";
-import { InternalError } from "@xmtp-broker/schemas";
-import { createAttestationManager } from "../manager.js";
+import type { Attestation, SignetError } from "@xmtp/signet-schemas";
+import { InternalError } from "@xmtp/signet-schemas";
+import { createSealManager } from "../manager.js";
 import type { AttestationInput } from "../build.js";
 import {
   validInput,
@@ -15,7 +15,7 @@ function createTestManager(inputOverrides?: Map<string, AttestationInput>) {
   const signer = createTestSigner();
   const publisher = createTestPublisher();
   const resolveInput = createTestInputResolver(inputOverrides);
-  const manager = createAttestationManager({
+  const manager = createSealManager({
     signer,
     publisher,
     resolveInput,
@@ -23,7 +23,7 @@ function createTestManager(inputOverrides?: Map<string, AttestationInput>) {
   return { manager, signer, publisher };
 }
 
-describe("AttestationManager", () => {
+describe("SealManager", () => {
   describe("issue", () => {
     test("creates and publishes an attestation for a new agent+group", async () => {
       const { manager, publisher } = createTestManager();
@@ -121,7 +121,7 @@ describe("AttestationManager", () => {
       const result = await manager.issue("session-1", "group-1");
       expect(Result.isError(result)).toBe(true);
       if (Result.isOk(result)) return;
-      expect(result.error._tag).toBe("AttestationError");
+      expect(result.error._tag).toBe("SealError");
     });
   });
 
@@ -304,7 +304,7 @@ describe("AttestationManager", () => {
       const result = await manager.refresh("att_unknown");
       expect(Result.isError(result)).toBe(true);
       if (Result.isOk(result)) return;
-      expect(result.error._tag).toBe("AttestationError");
+      expect(result.error._tag).toBe("SealError");
     });
 
     test("refresh is rejected after revoke", async () => {
@@ -325,7 +325,7 @@ describe("AttestationManager", () => {
       const refreshed = await manager.refresh(attestationId);
       expect(Result.isError(refreshed)).toBe(true);
       if (Result.isOk(refreshed)) return;
-      expect(refreshed.error._tag).toBe("AttestationError");
+      expect(refreshed.error._tag).toBe("SealError");
 
       // 4. Confirm no new publish occurred
       expect(publisher.published.length).toBe(publishCountAfterRevoke);
@@ -529,15 +529,15 @@ describe("AttestationManager", () => {
     test("propagates signer errors", async () => {
       const publisher = createTestPublisher();
       const failingSigner = {
-        async sign(): Promise<Result<never, BrokerError>> {
+        async sign(): Promise<Result<never, SignetError>> {
           return Result.err(InternalError.create("Key unavailable"));
         },
-        async signRevocation(): Promise<Result<never, BrokerError>> {
+        async signRevocation(): Promise<Result<never, SignetError>> {
           return Result.err(InternalError.create("Key unavailable"));
         },
       };
       const resolveInput = createTestInputResolver();
-      const manager = createAttestationManager({
+      const manager = createSealManager({
         signer: failingSigner,
         publisher,
         resolveInput,
@@ -553,15 +553,15 @@ describe("AttestationManager", () => {
     test("propagates publisher errors", async () => {
       const signer = createTestSigner();
       const failingPublisher = {
-        async publish(): Promise<Result<never, BrokerError>> {
+        async publish(): Promise<Result<never, SignetError>> {
           return Result.err(InternalError.create("XMTP send failed"));
         },
-        async publishRevocation(): Promise<Result<never, BrokerError>> {
+        async publishRevocation(): Promise<Result<never, SignetError>> {
           return Result.err(InternalError.create("XMTP send failed"));
         },
       };
       const resolveInput = createTestInputResolver();
-      const manager = createAttestationManager({
+      const manager = createSealManager({
         signer,
         publisher: failingPublisher,
         resolveInput,

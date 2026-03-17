@@ -4,7 +4,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
-import { createBrokerRuntime } from "../runtime.js";
+import { createSignetRuntime } from "../runtime.js";
 import { createProductionDeps } from "../start.js";
 import { loadConfig } from "../config/loader.js";
 import { resolvePaths } from "../config/paths.js";
@@ -100,7 +100,7 @@ describe("empty-dir broker boot", () => {
       await mkdir(dir, { recursive: true });
     }
 
-    const runtimeResult = await createBrokerRuntime(
+    const runtimeResult = await createSignetRuntime(
       configResult.value,
       createProductionDeps(),
     );

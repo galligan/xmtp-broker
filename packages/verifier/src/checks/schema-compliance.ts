@@ -1,5 +1,5 @@
 import { Result } from "better-result";
-import { AttestationSchema, type InternalError } from "@xmtp-broker/schemas";
+import { AttestationSchema, type InternalError } from "@xmtp/signet-schemas";
 import type { VerificationCheck } from "../schemas/check.js";
 import type { VerificationRequest } from "../schemas/request.js";
 import type { CheckHandler } from "./handler.js";

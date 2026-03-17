@@ -1,9 +1,9 @@
 import { z } from "zod";
-import {
-  AttestationSchema,
-  TrustTier,
-} from "@xmtp-broker/schemas";
-import type { Attestation, TrustTier as TrustTierType } from "@xmtp-broker/schemas";
+import { AttestationSchema, TrustTier } from "@xmtp/signet-schemas";
+import type {
+  Attestation,
+  TrustTier as TrustTierType,
+} from "@xmtp/signet-schemas";
 
 export type VerificationRequest = {
   requestId: string;

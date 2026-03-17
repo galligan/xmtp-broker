@@ -1,12 +1,12 @@
-import type { BrokerEvent } from "@xmtp-broker/schemas";
+import type { SignetEvent } from "@xmtp/signet-schemas";
 
 /**
  * AsyncIterable event queue that receives events from the WebSocket
  * message handler and delivers them to harness consumers.
  */
-export interface EventStream extends AsyncIterable<BrokerEvent> {
+export interface EventStream extends AsyncIterable<SignetEvent> {
   /** Push an event into the queue. */
-  push(event: BrokerEvent): void;
+  push(event: SignetEvent): void;
   /** Signal that no more events will arrive. */
   complete(): void;
 }
@@ -17,11 +17,11 @@ export interface EventStream extends AsyncIterable<BrokerEvent> {
  * The iterator completes when complete() is called and the buffer is drained.
  */
 export function createEventStream(): EventStream {
-  const buffer: BrokerEvent[] = [];
+  const buffer: SignetEvent[] = [];
   let done = false;
-  let waiter: ((value: IteratorResult<BrokerEvent>) => void) | null = null;
+  let waiter: ((value: IteratorResult<SignetEvent>) => void) | null = null;
 
-  function push(event: BrokerEvent): void {
+  function push(event: SignetEvent): void {
     if (done) return;
     if (waiter) {
       const resolve = waiter;
@@ -37,19 +37,19 @@ export function createEventStream(): EventStream {
     if (waiter) {
       const resolve = waiter;
       waiter = null;
-      resolve({ value: undefined as unknown as BrokerEvent, done: true });
+      resolve({ value: undefined as unknown as SignetEvent, done: true });
     }
   }
 
-  const asyncIterator: AsyncIterator<BrokerEvent> = {
-    next(): Promise<IteratorResult<BrokerEvent>> {
+  const asyncIterator: AsyncIterator<SignetEvent> = {
+    next(): Promise<IteratorResult<SignetEvent>> {
       const buffered = buffer.shift();
       if (buffered !== undefined) {
         return Promise.resolve({ value: buffered, done: false });
       }
       if (done) {
         return Promise.resolve({
-          value: undefined as unknown as BrokerEvent,
+          value: undefined as unknown as SignetEvent,
           done: true,
         });
       }

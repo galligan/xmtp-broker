@@ -8,7 +8,7 @@ import {
   AuthError,
   InternalError,
   ValidationError,
-} from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
 import { CliConfigSchema } from "../config/schema.js";
 import {
   createWithDaemonClient,

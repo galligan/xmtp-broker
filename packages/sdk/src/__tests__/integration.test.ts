@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach } from "bun:test";
-import type { BrokerEvent } from "@xmtp-broker/schemas";
+import type { SignetEvent } from "@xmtp/signet-schemas";
 import {
   createTestHandler,
   waitForState,
@@ -116,7 +116,7 @@ describe("Integration: full round-trip", () => {
       await harness.handler.disconnect();
     }, 100);
 
-    const items: BrokerEvent[] = [];
+    const items: SignetEvent[] = [];
     for await (const event of harness.handler.events) {
       items.push(event);
     }

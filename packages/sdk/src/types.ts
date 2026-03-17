@@ -1,4 +1,4 @@
-import type { BrokerEvent, BrokerError } from "@xmtp-broker/schemas";
+import type { SignetEvent, SignetError } from "@xmtp/signet-schemas";
 import type { Result } from "better-result";
 
 /** Connection state machine states. */
@@ -17,7 +17,7 @@ export type StateChangeCallback = (
 ) => void;
 
 /** Callback fired for connection/protocol errors. */
-export type ErrorCallback = (error: BrokerError) => void;
+export type ErrorCallback = (error: SignetError) => void;
 
 /** Read-only session info derived from AuthenticatedFrame. */
 export interface SessionInfo {
@@ -72,34 +72,34 @@ export interface ConversationInfo {
 /** The public BrokerHandler interface. */
 export interface BrokerHandler {
   /** Open the WebSocket connection and authenticate. */
-  connect(): Promise<Result<void, BrokerError>>;
+  connect(): Promise<Result<void, SignetError>>;
 
   /** Close the connection gracefully. */
-  disconnect(): Promise<Result<void, BrokerError>>;
+  disconnect(): Promise<Result<void, SignetError>>;
 
   /** Typed async iterable of broker events. */
-  readonly events: AsyncIterable<BrokerEvent>;
+  readonly events: AsyncIterable<SignetEvent>;
 
   /** Send a text message to a conversation. */
   sendMessage(
     groupId: string,
     content: MessageContent,
-  ): Promise<Result<MessageSent, BrokerError>>;
+  ): Promise<Result<MessageSent, SignetError>>;
 
   /** Send a reaction to a message. */
   sendReaction(
     groupId: string,
     messageId: string,
     reaction: string,
-  ): Promise<Result<ReactionSent, BrokerError>>;
+  ): Promise<Result<ReactionSent, SignetError>>;
 
   /** List conversations visible to this session. */
-  listConversations(): Promise<Result<Conversation[], BrokerError>>;
+  listConversations(): Promise<Result<Conversation[], SignetError>>;
 
   /** Get detailed info about a conversation. */
   getConversationInfo(
     groupId: string,
-  ): Promise<Result<ConversationInfo, BrokerError>>;
+  ): Promise<Result<ConversationInfo, SignetError>>;
 
   /** Current session info. */
   readonly session: SessionInfo | null;

@@ -1,9 +1,9 @@
 import { describe, test, expect } from "bun:test";
 import { createEventStream } from "../event-stream.js";
-import type { BrokerEvent } from "@xmtp-broker/schemas";
+import type { SignetEvent } from "@xmtp/signet-schemas";
 import { take } from "./mock-server.js";
 
-function makeEvent(text: string): BrokerEvent {
+function makeEvent(text: string): SignetEvent {
   return {
     type: "message.visible",
     messageId: `msg_${text}`,
@@ -46,7 +46,7 @@ describe("EventStream", () => {
     stream.push(makeEvent("one"));
     stream.complete();
 
-    const items: BrokerEvent[] = [];
+    const items: SignetEvent[] = [];
     for await (const item of stream) {
       items.push(item);
     }

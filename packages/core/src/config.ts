@@ -13,7 +13,7 @@ export const IdentityModeSchema: z.ZodEnum<["per-group", "shared"]> = z
 export type IdentityMode = z.infer<typeof IdentityModeSchema>;
 
 /** Parsed broker core configuration (all defaults applied). */
-export type BrokerCoreConfig = {
+export type SignetCoreConfig = {
   dataDir: string;
   env: XmtpEnv;
   identityMode: IdentityMode;
@@ -22,8 +22,8 @@ export type BrokerCoreConfig = {
   appVersion: string;
 };
 
-/** Input to BrokerCoreConfigSchema (fields with defaults are optional). */
-type BrokerCoreConfigInput = {
+/** Input to SignetCoreConfigSchema (fields with defaults are optional). */
+type SignetCoreConfigInput = {
   dataDir: string;
   env?: XmtpEnv | undefined;
   identityMode?: IdentityMode | undefined;
@@ -32,10 +32,10 @@ type BrokerCoreConfigInput = {
   appVersion?: string | undefined;
 };
 
-export const BrokerCoreConfigSchema: z.ZodType<
-  BrokerCoreConfig,
+export const SignetCoreConfigSchema: z.ZodType<
+  SignetCoreConfig,
   z.ZodTypeDef,
-  BrokerCoreConfigInput
+  SignetCoreConfigInput
 > = z
   .object({
     dataDir: z.string().describe("Base directory for all broker data"),

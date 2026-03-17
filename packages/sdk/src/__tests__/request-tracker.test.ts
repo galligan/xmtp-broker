@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { Result } from "better-result";
 import { createRequestTracker } from "../request-tracker.js";
-import { TimeoutError, InternalError } from "@xmtp-broker/schemas";
+import { TimeoutError, InternalError } from "@xmtp/signet-schemas";
 
 describe("RequestTracker", () => {
   test("resolves a tracked request with success", async () => {

@@ -3,9 +3,9 @@ import { Result } from "better-result";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdir, rm, readFile } from "node:fs/promises";
-import { InternalError } from "@xmtp-broker/schemas";
+import { InternalError } from "@xmtp/signet-schemas";
 import type { AdminDispatcher } from "../admin/dispatcher.js";
-import { createBrokerRuntime, type BrokerRuntimeDeps } from "../runtime.js";
+import { createSignetRuntime, type SignetRuntimeDeps } from "../runtime.js";
 import { CliConfigSchema, type CliConfig } from "../config/schema.js";
 
 // ---------------------------------------------------------------------------
@@ -44,7 +44,7 @@ function createCallTracker(): {
 function makeMockDeps(tracker: {
   calls: string[];
   record(name: string): void;
-}): BrokerRuntimeDeps & { _dispatcher: () => AdminDispatcher | undefined } {
+}): SignetRuntimeDeps & { _dispatcher: () => AdminDispatcher | undefined } {
   let capturedDispatcher: AdminDispatcher | undefined;
 
   return {
@@ -119,7 +119,7 @@ function makeMockDeps(tracker: {
         signWithOperationalKey: async () => Result.ok(new Uint8Array()),
       });
     },
-    createBrokerCore: () => {
+    createSignetCore: () => {
       tracker.record("brokerCore.create");
       return {
         state: "uninitialized" as const,
@@ -164,7 +164,7 @@ function makeMockDeps(tracker: {
         isActive: async () => Result.ok(false),
       };
     },
-    createAttestationManager: () => {
+    createSealManager: () => {
       tracker.record("attestationManager.create");
       return {
         issue: async () => Result.err(InternalError.create("not impl")),
@@ -212,7 +212,7 @@ function makeMockDeps(tracker: {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("createBrokerRuntime", () => {
+describe("createSignetRuntime", () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -229,7 +229,7 @@ describe("createBrokerRuntime", () => {
     const config = makeConfig(tempDir);
     const deps = makeMockDeps(tracker);
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
 
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
@@ -251,7 +251,7 @@ describe("createBrokerRuntime", () => {
     const config = makeConfig(tempDir);
     const deps = makeMockDeps(tracker);
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
     const runtime = result.value;
@@ -268,7 +268,7 @@ describe("createBrokerRuntime", () => {
     const config = makeConfig(tempDir);
     const deps = makeMockDeps(tracker);
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
 
@@ -294,7 +294,7 @@ describe("createBrokerRuntime", () => {
     const config = makeConfig(tempDir);
     const deps = makeMockDeps(tracker);
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
 
@@ -317,7 +317,7 @@ describe("createBrokerRuntime", () => {
     });
     const deps = makeMockDeps(tracker);
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
 
@@ -332,7 +332,7 @@ describe("createBrokerRuntime", () => {
     const config = makeConfig(tempDir);
     const deps = makeMockDeps(tracker);
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
     const runtime = result.value;
@@ -364,7 +364,7 @@ describe("createBrokerRuntime", () => {
       return Result.err(InternalError.create("Vault unlock failed"));
     };
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
 
     // Creation itself should fail if key manager can't be created
     expect(Result.isError(result)).toBe(true);
@@ -377,7 +377,7 @@ describe("createBrokerRuntime", () => {
     const config = makeConfig(tempDir);
     const deps = makeMockDeps(tracker);
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
     const runtime = result.value;
@@ -416,7 +416,7 @@ describe("createBrokerRuntime", () => {
       };
     };
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
     const runtime = result.value;
@@ -437,7 +437,7 @@ describe("createBrokerRuntime", () => {
     const config = makeConfig(tempDir);
     const deps = makeMockDeps(tracker);
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
     const runtime = result.value;

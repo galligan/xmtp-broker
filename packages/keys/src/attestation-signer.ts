@@ -1,28 +1,26 @@
 import { Result } from "better-result";
 import type {
   Attestation,
-  BrokerError,
+  SignetError,
   RevocationAttestation,
-} from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
 import type {
-  AttestationSigner,
-  SignedAttestation,
+  SealStamper,
+  Seal,
   SignedRevocationEnvelope,
-} from "@xmtp-broker/contracts";
+} from "@xmtp/signet-contracts";
 import type { KeyManager } from "./key-manager.js";
 
 /**
- * Create an AttestationSigner backed by a KeyManager's operational key.
+ * Create an SealStamper backed by a KeyManager's operational key.
  * Signs attestation and revocation payloads with Ed25519.
  */
-export function createAttestationSigner(
+export function createSealStamper(
   manager: KeyManager,
   identityId: string,
-): AttestationSigner {
+): SealStamper {
   return {
-    async sign(
-      payload: Attestation,
-    ): Promise<Result<SignedAttestation, BrokerError>> {
+    async sign(payload: Attestation): Promise<Result<Seal, SignetError>> {
       const canonical = canonicalize(payload);
       const sig = await manager.signWithOperationalKey(identityId, canonical);
       if (Result.isError(sig)) return sig;
@@ -30,7 +28,7 @@ export function createAttestationSigner(
       const opKey = manager.getOperationalKey(identityId);
       if (Result.isError(opKey)) return opKey;
 
-      const signed: SignedAttestation = {
+      const signed: Seal = {
         attestation: payload,
         signature: toBase64(sig.value),
         signatureAlgorithm: "Ed25519",
@@ -41,7 +39,7 @@ export function createAttestationSigner(
 
     async signRevocation(
       payload: RevocationAttestation,
-    ): Promise<Result<SignedRevocationEnvelope, BrokerError>> {
+    ): Promise<Result<SignedRevocationEnvelope, SignetError>> {
       const canonical = canonicalize(payload);
       const sig = await manager.signWithOperationalKey(identityId, canonical);
       if (Result.isError(sig)) return sig;

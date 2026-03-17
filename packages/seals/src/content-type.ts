@@ -1,11 +1,8 @@
 import { z } from "zod";
-import { SignedAttestationEnvelope } from "@xmtp-broker/contracts";
-import type {
-  SignedAttestation,
-  SignedRevocationEnvelope,
-} from "@xmtp-broker/contracts";
-import { RevocationAttestation } from "@xmtp-broker/schemas";
-import type { RevocationAttestation as RevocationAttestationType } from "@xmtp-broker/schemas";
+import { SealEnvelope } from "@xmtp/signet-contracts";
+import type { Seal, SignedRevocationEnvelope } from "@xmtp/signet-contracts";
+import { RevocationAttestation } from "@xmtp/signet-schemas";
+import type { RevocationAttestation as RevocationAttestationType } from "@xmtp/signet-schemas";
 
 /**
  * Custom XMTP content type for attestations.
@@ -21,12 +18,12 @@ export const ATTESTATION_CONTENT_TYPE_ID =
 export const REVOCATION_CONTENT_TYPE_ID =
   "xmtp.org/agentRevocation:1.0" as const;
 
-export type AttestationMessage = z.infer<typeof SignedAttestationEnvelope> & {
+export type AttestationMessage = z.infer<typeof SealEnvelope> & {
   contentType: typeof ATTESTATION_CONTENT_TYPE_ID;
 };
 
 /** Schema for a full attestation message with contentType discriminator. */
-const _AttestationMessage = SignedAttestationEnvelope.extend({
+const _AttestationMessage = SealEnvelope.extend({
   contentType: z.literal(ATTESTATION_CONTENT_TYPE_ID),
 }).describe("Attestation message with content type discriminator");
 
@@ -61,9 +58,7 @@ export const RevocationMessage: z.ZodType<RevocationMessage> =
   _RevocationMessage;
 
 /** Wraps a signed attestation with the contentType discriminator field. */
-export function encodeAttestationMessage(
-  envelope: SignedAttestation,
-): AttestationMessage {
+export function encodeAttestationMessage(envelope: Seal): AttestationMessage {
   return { contentType: ATTESTATION_CONTENT_TYPE_ID, ...envelope };
 }
 

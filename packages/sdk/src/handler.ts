@@ -5,8 +5,8 @@ import {
   NotFoundError,
   PermissionError,
   ValidationError,
-} from "@xmtp-broker/schemas";
-import type { BrokerEvent, BrokerError } from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
+import type { SignetEvent, SignetError } from "@xmtp/signet-schemas";
 import type { BrokerHandlerConfig } from "./config.js";
 import type {
   BrokerHandler,
@@ -55,7 +55,7 @@ interface AuthErrorFrameData {
 /** Sequenced event frame from the broker. */
 interface SequencedFrameData {
   seq: number;
-  event: BrokerEvent;
+  event: SignetEvent;
 }
 
 /** Backpressure frame from the broker. */
@@ -130,7 +130,7 @@ export function createBrokerHandler(
     }
   }
 
-  function emitError(error: BrokerError): void {
+  function emitError(error: SignetError): void {
     for (const listener of errorListeners) {
       listener(error);
     }
@@ -202,7 +202,7 @@ export function createBrokerHandler(
         const errCtx = resp.error?.context ?? undefined;
         const category = resp.error?.category;
 
-        let brokerError: BrokerError;
+        let brokerError: SignetError;
         switch (category) {
           case "auth":
             brokerError = AuthError.create(errMsg, errCtx);
@@ -246,7 +246,7 @@ export function createBrokerHandler(
     }
   }
 
-  async function connectInternal(): Promise<Result<void, BrokerError>> {
+  async function connectInternal(): Promise<Result<void, SignetError>> {
     setState("connecting");
 
     return new Promise((resolve) => {
@@ -392,7 +392,7 @@ export function createBrokerHandler(
 
   async function sendRequest(
     request: Record<string, unknown>,
-  ): Promise<Result<unknown, BrokerError>> {
+  ): Promise<Result<unknown, SignetError>> {
     if (state !== "connected" || !ws) {
       return Result.err(
         ValidationError.create("state", "Not connected to broker"),
@@ -408,7 +408,7 @@ export function createBrokerHandler(
   }
 
   const handler: BrokerHandler = {
-    async connect(): Promise<Result<void, BrokerError>> {
+    async connect(): Promise<Result<void, SignetError>> {
       if (state === "closed") {
         return Result.err(
           ValidationError.create(
@@ -437,7 +437,7 @@ export function createBrokerHandler(
       return connectInternal();
     },
 
-    async disconnect(): Promise<Result<void, BrokerError>> {
+    async disconnect(): Promise<Result<void, SignetError>> {
       heartbeatMonitor?.stop();
       requestTracker.rejectAll(InternalError.create("Disconnecting"));
 
@@ -451,14 +451,14 @@ export function createBrokerHandler(
       return Result.ok(undefined);
     },
 
-    get events(): AsyncIterable<BrokerEvent> {
+    get events(): AsyncIterable<SignetEvent> {
       return eventStream;
     },
 
     async sendMessage(
       groupId: string,
       content: MessageContent,
-    ): Promise<Result<MessageSent, BrokerError>> {
+    ): Promise<Result<MessageSent, SignetError>> {
       const contentType =
         content.type === "text" ? "xmtp.org/text:1.0" : content.contentType;
       const payload =
@@ -496,7 +496,7 @@ export function createBrokerHandler(
       groupId: string,
       messageId: string,
       reaction: string,
-    ): Promise<Result<ReactionSent, BrokerError>> {
+    ): Promise<Result<ReactionSent, SignetError>> {
       const result = await sendRequest({
         type: "send_reaction",
         groupId,
@@ -526,7 +526,7 @@ export function createBrokerHandler(
       });
     },
 
-    async listConversations(): Promise<Result<Conversation[], BrokerError>> {
+    async listConversations(): Promise<Result<Conversation[], SignetError>> {
       const result = await sendRequest({
         type: "list_conversations",
       });
@@ -545,7 +545,7 @@ export function createBrokerHandler(
 
     async getConversationInfo(
       groupId: string,
-    ): Promise<Result<ConversationInfo, BrokerError>> {
+    ): Promise<Result<ConversationInfo, SignetError>> {
       const result = await sendRequest({
         type: "get_conversation_info",
         groupId,

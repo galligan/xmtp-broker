@@ -3,9 +3,9 @@ import { Result } from "better-result";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdir, rm } from "node:fs/promises";
-import { InternalError } from "@xmtp-broker/schemas";
-import type { CoreState } from "@xmtp-broker/contracts";
-import { createBrokerRuntime, type BrokerRuntimeDeps } from "../runtime.js";
+import { InternalError } from "@xmtp/signet-schemas";
+import type { CoreState } from "@xmtp/signet-contracts";
+import { createSignetRuntime, type SignetRuntimeDeps } from "../runtime.js";
 import { CliConfigSchema, type CliConfig } from "../config/schema.js";
 
 // ---------------------------------------------------------------------------
@@ -47,11 +47,11 @@ function makeMockDeps(
   tracker: { calls: string[]; record(name: string): void },
   options?: {
     coreInitializeResult?: () => Promise<
-      Result<void, import("@xmtp-broker/schemas").BrokerError>
+      Result<void, import("@xmtp/signet-schemas").SignetError>
     >;
     coreStateGetter?: () => CoreState;
   },
-): BrokerRuntimeDeps {
+): SignetRuntimeDeps {
   let coreState: CoreState = "uninitialized";
 
   return {
@@ -126,7 +126,7 @@ function makeMockDeps(
         signWithOperationalKey: async () => Result.ok(new Uint8Array()),
       });
     },
-    createBrokerCore: () => {
+    createSignetCore: () => {
       tracker.record("brokerCore.create");
       return {
         get state() {
@@ -179,7 +179,7 @@ function makeMockDeps(
         isActive: async () => Result.ok(false),
       };
     },
-    createAttestationManager: () => {
+    createSealManager: () => {
       tracker.record("attestationManager.create");
       return {
         issue: async () => Result.err(InternalError.create("not impl")),
@@ -242,7 +242,7 @@ describe("network startup", () => {
     const config = makeConfig(tempDir, { env: "local" });
     const deps = makeMockDeps(tracker);
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
 
@@ -258,7 +258,7 @@ describe("network startup", () => {
     const config = makeConfig(tempDir, { env: "dev" });
     const deps = makeMockDeps(tracker);
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
 
@@ -277,7 +277,7 @@ describe("network startup", () => {
       coreStateGetter: () => "ready-local",
     });
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
 
@@ -309,7 +309,7 @@ describe("status networkState field", () => {
     const config = makeConfig(tempDir, { env: "dev" });
     const deps = makeMockDeps(tracker);
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
 
@@ -326,7 +326,7 @@ describe("status networkState field", () => {
     const config = makeConfig(tempDir, { env: "local" });
     const deps = makeMockDeps(tracker);
 
-    const result = await createBrokerRuntime(config, deps);
+    const result = await createSignetRuntime(config, deps);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
 

@@ -1,5 +1,5 @@
 import { Result } from "better-result";
-import { NotFoundError, type BrokerError } from "@xmtp-broker/schemas";
+import { NotFoundError, type SignetError } from "@xmtp/signet-schemas";
 import type { ClientRegistry } from "./client-registry.js";
 import type { SqliteIdentityStore } from "./identity-store.js";
 import type { XmtpGroupInfo } from "./xmtp-client-factory.js";
@@ -11,7 +11,7 @@ import type { XmtpGroupInfo } from "./xmtp-client-factory.js";
  * for each operation, and to the identity store for inbox ID lookups.
  * Never exposes the raw client, conversations, or signer.
  */
-export class BrokerCoreContext {
+export class SignetCoreContext {
   readonly #registry: ClientRegistry;
   readonly #identityStore: SqliteIdentityStore;
 
@@ -25,7 +25,7 @@ export class BrokerCoreContext {
     groupId: string,
     _contentType: string,
     content: unknown,
-  ): Promise<Result<{ messageId: string }, BrokerError>> {
+  ): Promise<Result<{ messageId: string }, SignetError>> {
     const managed = this.#registry.getByGroupId(groupId);
     if (!managed) {
       return Result.err(NotFoundError.create("group", groupId));
@@ -38,7 +38,7 @@ export class BrokerCoreContext {
   /** Get group metadata. */
   async getGroupInfo(
     groupId: string,
-  ): Promise<Result<XmtpGroupInfo, BrokerError>> {
+  ): Promise<Result<XmtpGroupInfo, SignetError>> {
     const managed = this.#registry.getByGroupId(groupId);
     if (!managed) {
       return Result.err(NotFoundError.create("group", groupId));
@@ -47,7 +47,7 @@ export class BrokerCoreContext {
   }
 
   /** List all groups the broker is a member of. */
-  async listGroups(): Promise<Result<readonly XmtpGroupInfo[], BrokerError>> {
+  async listGroups(): Promise<Result<readonly XmtpGroupInfo[], SignetError>> {
     const allGroups: XmtpGroupInfo[] = [];
     for (const managed of this.#registry.list()) {
       const result = await managed.client.listGroups();
@@ -61,7 +61,7 @@ export class BrokerCoreContext {
   async addMembers(
     groupId: string,
     inboxIds: readonly string[],
-  ): Promise<Result<void, BrokerError>> {
+  ): Promise<Result<void, SignetError>> {
     const managed = this.#registry.getByGroupId(groupId);
     if (!managed) {
       return Result.err(NotFoundError.create("group", groupId));
@@ -73,7 +73,7 @@ export class BrokerCoreContext {
   async removeMembers(
     groupId: string,
     inboxIds: readonly string[],
-  ): Promise<Result<void, BrokerError>> {
+  ): Promise<Result<void, SignetError>> {
     const managed = this.#registry.getByGroupId(groupId);
     if (!managed) {
       return Result.err(NotFoundError.create("group", groupId));
@@ -82,7 +82,7 @@ export class BrokerCoreContext {
   }
 
   /** Get the inbox ID for a given group's identity. */
-  async getInboxId(groupId: string): Promise<Result<string, BrokerError>> {
+  async getInboxId(groupId: string): Promise<Result<string, SignetError>> {
     // Check the runtime registry first — shared-mode identities are
     // persisted with group_id = NULL, so the identity store lookup
     // would miss them. The registry is hydrated at startup.
@@ -103,7 +103,7 @@ export class BrokerCoreContext {
   }
 
   /** Force a sync for a specific group. */
-  async syncGroup(groupId: string): Promise<Result<void, BrokerError>> {
+  async syncGroup(groupId: string): Promise<Result<void, SignetError>> {
     const managed = this.#registry.getByGroupId(groupId);
     if (!managed) {
       return Result.err(NotFoundError.create("group", groupId));

@@ -1,5 +1,9 @@
 import { describe, test, expect, afterEach } from "bun:test";
-import { AuthError, InternalError, PermissionError } from "@xmtp-broker/schemas";
+import {
+  AuthError,
+  InternalError,
+  PermissionError,
+} from "@xmtp/signet-schemas";
 import type { HandlerState } from "../types.js";
 import {
   createMockServer,
@@ -137,7 +141,13 @@ describe("Auth timeout", () => {
     const handler = createBrokerHandler({
       url: mock.url,
       token: "test-token",
-      reconnect: { enabled: false, maxAttempts: 0, baseDelayMs: 100, maxDelayMs: 100, jitter: false },
+      reconnect: {
+        enabled: false,
+        maxAttempts: 0,
+        baseDelayMs: 100,
+        maxDelayMs: 100,
+        jitter: false,
+      },
       requestTimeoutMs: 500,
     });
 
@@ -212,7 +222,13 @@ describe("Error category preservation", () => {
     const handler = createBrokerHandler({
       url: `ws://127.0.0.1:${bunServer.port}/`,
       token: "test-token",
-      reconnect: { enabled: false, maxAttempts: 0, baseDelayMs: 100, maxDelayMs: 100, jitter: false },
+      reconnect: {
+        enabled: false,
+        maxAttempts: 0,
+        baseDelayMs: 100,
+        maxDelayMs: 100,
+        jitter: false,
+      },
       requestTimeoutMs: 5000,
     });
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { GrantConfig } from "@xmtp-broker/schemas";
+import type { GrantConfig } from "@xmtp/signet-schemas";
 import { grantConfigToOps, grantConfigToToolScopes } from "../grant-ops.js";
 
 function makeGrant(

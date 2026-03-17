@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Result } from "better-result";
-import { NotFoundError } from "@xmtp-broker/schemas";
+import { NotFoundError } from "@xmtp/signet-schemas";
 import type {
   ActionSpec,
   ActionRegistry,
@@ -9,8 +9,8 @@ import type {
   McpSurface,
   HandlerContext,
   SignerProvider,
-} from "@xmtp-broker/contracts";
-import { createActionRegistry } from "@xmtp-broker/contracts";
+} from "@xmtp/signet-contracts";
+import { createActionRegistry } from "@xmtp/signet-contracts";
 
 // ---------------------------------------------------------------------------
 // Session fixtures

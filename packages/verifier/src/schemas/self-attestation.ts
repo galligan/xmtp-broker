@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { TrustTier } from "@xmtp-broker/schemas";
-import type { TrustTier as TrustTierType } from "@xmtp-broker/schemas";
+import { TrustTier } from "@xmtp/signet-schemas";
+import type { TrustTier as TrustTierType } from "@xmtp/signet-schemas";
 
 export type VerifierCapabilities = {
   supportedTiers: TrustTierType[];
@@ -39,9 +39,7 @@ export const VerifierSelfAttestationSchema: z.ZodType<VerifierSelfAttestation> =
   z
     .object({
       verifierInboxId: z.string().describe("XMTP inbox ID of this verifier"),
-      capabilities: _VerifierCapabilities.describe(
-        "What this verifier can do",
-      ),
+      capabilities: _VerifierCapabilities.describe("What this verifier can do"),
       sourceRepoUrl: z
         .string()
         .url()

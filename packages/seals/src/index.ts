@@ -25,9 +25,9 @@ export type { AttestationInput, AttestationBuildResult } from "./build.js";
 export { computeInputDelta } from "./compute-delta.js";
 
 // Attestation manager
-export { createAttestationManager } from "./manager.js";
+export { createSealManager } from "./manager.js";
 export type {
-  AttestationManagerDeps,
-  AttestationManagerImpl,
+  SealManagerDeps,
+  SealManagerImpl,
   InputResolver,
 } from "./manager.js";

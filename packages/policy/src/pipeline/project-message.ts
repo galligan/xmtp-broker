@@ -2,7 +2,7 @@ import type {
   ContentTypeId,
   MessageEvent,
   ViewConfig,
-} from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
 import type { RawMessage, ProjectionResult } from "../types.js";
 import { isInScope } from "./scope-filter.js";
 import { isContentTypeAllowed } from "./content-type-filter.js";

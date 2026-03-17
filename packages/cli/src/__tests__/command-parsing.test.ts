@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Command } from "commander";
-import { createBrokerCommands } from "../commands/broker.js";
+import { createDaemonCommands } from "../commands/broker.js";
 import { createIdentityCommands } from "../commands/identity.js";
 import { createSessionCommands } from "../commands/session.js";
 import { createGrantCommands } from "../commands/grant.js";
@@ -22,7 +22,7 @@ function findSubcommand(parent: Command, name: string): Command | undefined {
 }
 
 describe("broker commands", () => {
-  const cmd = createBrokerCommands();
+  const cmd = createDaemonCommands();
 
   test("registers all subcommands", () => {
     const names = getSubcommandNames(cmd);
@@ -248,7 +248,7 @@ describe("all commands on program", () => {
   test("all 8 command groups are wired into the program", async () => {
     const { program } = await import("../index.js");
     const names = program.commands.map((c) => c.name());
-    expect(names).toContain("broker");
+    expect(names).toContain("daemon");
     expect(names).toContain("identity");
     expect(names).toContain("session");
     expect(names).toContain("grant");
@@ -273,7 +273,7 @@ describe("all commands on program", () => {
     }
 
     const allCommands = [
-      createBrokerCommands(),
+      createDaemonCommands(),
       createIdentityCommands(),
       createSessionCommands(),
       createGrantCommands(),

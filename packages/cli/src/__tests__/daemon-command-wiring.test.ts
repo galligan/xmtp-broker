@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { Result } from "better-result";
-import type { BrokerError } from "@xmtp-broker/schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
 import type { AdminClient } from "../admin/client.js";
-import { createBrokerCommands } from "../commands/broker.js";
+import { createDaemonCommands } from "../commands/broker.js";
 import { createSessionCommands } from "../commands/session.js";
 
 const view = {
@@ -62,8 +62,8 @@ function createHarness<T>(response: T) {
         options: { configPath?: string | undefined },
         run: (
           adminClient: AdminClient,
-        ) => Promise<Result<TResult, BrokerError>>,
-      ): Promise<Result<TResult, BrokerError>> {
+        ) => Promise<Result<TResult, SignetError>>,
+      ): Promise<Result<TResult, SignetError>> {
         withDaemonCalls.push(options);
         return run(client);
       },
@@ -149,7 +149,7 @@ describe("daemon-backed CLI command wiring", () => {
       version: "0.1.0",
     });
 
-    const command = createBrokerCommands(harness.deps);
+    const command = createDaemonCommands(harness.deps);
     await command.parseAsync([
       "node",
       "broker",

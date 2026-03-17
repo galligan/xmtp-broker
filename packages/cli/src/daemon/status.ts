@@ -1,4 +1,4 @@
-import type { CoreState } from "@xmtp-broker/contracts";
+import type { CoreState } from "@xmtp/signet-contracts";
 import { z } from "zod";
 
 /** Daemon status as returned by `broker status` and admin `ping()`. */

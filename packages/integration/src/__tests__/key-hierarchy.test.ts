@@ -14,7 +14,7 @@ import {
   createKeyManager,
   type KeyManager,
   createSignerProvider,
-} from "@xmtp-broker/keys";
+} from "@xmtp/signet-keys";
 
 let keyManager: KeyManager | null = null;
 let dataDir = "";

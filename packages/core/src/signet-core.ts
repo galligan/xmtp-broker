@@ -1,11 +1,11 @@
 import { Result } from "better-result";
-import { InternalError, ValidationError } from "@xmtp-broker/schemas";
-import type { BrokerError } from "@xmtp-broker/schemas";
-import type { BrokerCoreConfig } from "./config.js";
+import { InternalError, ValidationError } from "@xmtp/signet-schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
+import type { SignetCoreConfig } from "./config.js";
 import { CoreEventEmitter } from "./event-emitter.js";
 import { SqliteIdentityStore } from "./identity-store.js";
 import { ClientRegistry } from "./client-registry.js";
-import { BrokerCoreContext } from "./core-context.js";
+import { SignetCoreContext } from "./core-context.js";
 import type { ManagedClient } from "./client-registry.js";
 import type { RawEventHandler } from "./raw-events.js";
 import type {
@@ -16,7 +16,7 @@ import type {
 } from "./xmtp-client-factory.js";
 
 /** Broker lifecycle states. */
-export type BrokerState =
+export type SignetState =
   | "idle"
   | "local"
   | "starting"
@@ -39,20 +39,20 @@ export type SignerProviderFactory = (identityId: string) => SignerProviderLike;
  * heartbeat timer, and event emission. All XMTP client interactions
  * are delegated to the injected XmtpClientFactory.
  */
-export class BrokerCoreImpl {
-  #state: BrokerState = "idle";
-  readonly #config: BrokerCoreConfig;
+export class SignetCoreImpl {
+  #state: SignetState = "idle";
+  readonly #config: SignetCoreConfig;
   readonly #signerProviderFactory: SignerProviderFactory;
   readonly #clientFactory: XmtpClientFactory;
   readonly #emitter = new CoreEventEmitter();
   readonly #registry = new ClientRegistry();
   readonly #identityStore: SqliteIdentityStore;
-  readonly #context: BrokerCoreContext;
+  readonly #context: SignetCoreContext;
   #heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   #streams: Array<{ abort: () => void }> = [];
 
   constructor(
-    config: BrokerCoreConfig,
+    config: SignetCoreConfig,
     signerProviderFactory: SignerProviderFactory,
     clientFactory: XmtpClientFactory,
   ) {
@@ -64,16 +64,16 @@ export class BrokerCoreImpl {
         ? ":memory:"
         : `${config.dataDir}/identities.db`,
     );
-    this.#context = new BrokerCoreContext(this.#registry, this.#identityStore);
+    this.#context = new SignetCoreContext(this.#registry, this.#identityStore);
   }
 
   /** Current lifecycle state. */
-  get state(): BrokerState {
+  get state(): SignetState {
     return this.#state;
   }
 
   /** Get the sealed context for performing actions. */
-  get context(): BrokerCoreContext {
+  get context(): SignetCoreContext {
     return this.#context;
   }
 
@@ -83,7 +83,7 @@ export class BrokerCoreImpl {
   }
 
   /** The core configuration (exposed for wiring conversation actions). */
-  get config(): BrokerCoreConfig {
+  get config(): SignetCoreConfig {
     return this.#config;
   }
 
@@ -98,7 +98,7 @@ export class BrokerCoreImpl {
   }
 
   /** Start the core: initialize clients, begin streaming. */
-  async startLocal(): Promise<Result<void, BrokerError>> {
+  async startLocal(): Promise<Result<void, SignetError>> {
     if (this.#state !== "idle") {
       return Result.err(
         ValidationError.create(
@@ -113,7 +113,7 @@ export class BrokerCoreImpl {
   }
 
   /** Start the core: initialize clients, begin streaming. */
-  async start(): Promise<Result<void, BrokerError>> {
+  async start(): Promise<Result<void, SignetError>> {
     if (this.#state !== "idle" && this.#state !== "local") {
       return Result.err(
         ValidationError.create(
@@ -126,7 +126,7 @@ export class BrokerCoreImpl {
     const fallbackState = this.#state === "local" ? "local" : "error";
     this.#state = "starting";
 
-    const failStart = <T extends BrokerError>(error: T): Result<void, T> => {
+    const failStart = <T extends SignetError>(error: T): Result<void, T> => {
       this.#resetStartupArtifacts();
       this.#state = fallbackState;
       return Result.err(error);
@@ -249,7 +249,7 @@ export class BrokerCoreImpl {
   }
 
   /** Stop the core: close streams, disconnect clients. */
-  async stop(): Promise<Result<void, BrokerError>> {
+  async stop(): Promise<Result<void, SignetError>> {
     const previousState = this.#state;
 
     if (

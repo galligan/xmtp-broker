@@ -1,7 +1,7 @@
 import { Result } from "better-result";
 import { readFile } from "node:fs/promises";
 import { parse as parseToml } from "smol-toml";
-import { ValidationError, InternalError } from "@xmtp-broker/schemas";
+import { ValidationError, InternalError } from "@xmtp/signet-schemas";
 import { CliConfigSchema } from "./schema.js";
 import type { CliConfig } from "./schema.js";
 import { resolvePaths } from "./paths.js";

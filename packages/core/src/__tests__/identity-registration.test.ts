@@ -8,8 +8,8 @@ import type {
   XmtpClientFactory,
   SignerProviderLike,
 } from "../xmtp-client-factory.js";
-import type { BrokerError } from "@xmtp-broker/schemas";
-import { InternalError } from "@xmtp-broker/schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
+import { InternalError } from "@xmtp/signet-schemas";
 
 /** Hardhat's first test account private key. */
 const TEST_PRIVATE_KEY =
@@ -57,7 +57,7 @@ function createMockFactory(inboxId: string): XmtpClientFactory {
   };
 }
 
-function createFailingFactory(error: BrokerError): XmtpClientFactory {
+function createFailingFactory(error: SignetError): XmtpClientFactory {
   return {
     create: () => Promise.resolve(Result.err(error)),
   };

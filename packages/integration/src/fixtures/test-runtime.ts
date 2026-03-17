@@ -9,40 +9,37 @@ import { Result } from "better-result";
 import { tmpdir } from "node:os";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
-import type { BrokerError } from "@xmtp-broker/schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
 import type {
-  AttestationPublisher,
-  SignedAttestation,
+  SealPublisher,
+  Seal,
   SignedRevocationEnvelope,
-} from "@xmtp-broker/contracts";
-import { BrokerCoreImpl } from "@xmtp-broker/core";
-import type { XmtpDecodedMessage, XmtpGroupEvent } from "@xmtp-broker/core";
-import { createSessionManager } from "@xmtp-broker/sessions";
+} from "@xmtp/signet-contracts";
+import { SignetCoreImpl } from "@xmtp/signet-core";
+import type { XmtpDecodedMessage, XmtpGroupEvent } from "@xmtp/signet-core";
+import { createSessionManager } from "@xmtp/signet-sessions";
 import type {
   InternalSessionManager,
   SessionManagerConfig,
-} from "@xmtp-broker/sessions";
-import { createKeyManager } from "@xmtp-broker/keys";
-import type { KeyManager } from "@xmtp-broker/keys";
-import { createSignerProvider } from "@xmtp-broker/keys";
-import { createAttestationSigner } from "@xmtp-broker/keys";
-import {
-  createAttestationManager,
-  type AttestationManagerDeps,
-} from "@xmtp-broker/attestations";
-import type { AttestationManagerImpl } from "@xmtp-broker/attestations";
-import { createWsServer } from "@xmtp-broker/ws";
-import type { WsServer, WsServerConfig } from "@xmtp-broker/ws";
+} from "@xmtp/signet-sessions";
+import { createKeyManager } from "@xmtp/signet-keys";
+import type { KeyManager } from "@xmtp/signet-keys";
+import { createSignerProvider } from "@xmtp/signet-keys";
+import { createSealStamper } from "@xmtp/signet-keys";
+import { createSealManager, type SealManagerDeps } from "@xmtp/signet-seals";
+import type { SealManagerImpl } from "@xmtp/signet-seals";
+import { createWsServer } from "@xmtp/signet-ws";
+import type { WsServer, WsServerConfig } from "@xmtp/signet-ws";
 import {
   createMockXmtpClientFactory,
   type MockXmtpClientFactory,
 } from "./mock-xmtp-factory.js";
 
 /** In-memory attestation publisher that records publications. */
-function createTestPublisher(): AttestationPublisher & {
+function createTestPublisher(): SealPublisher & {
   readonly published: ReadonlyArray<{
     groupId: string;
-    attestation: SignedAttestation;
+    attestation: Seal;
   }>;
   readonly revokedPublished: ReadonlyArray<{
     groupId: string;
@@ -51,7 +48,7 @@ function createTestPublisher(): AttestationPublisher & {
 } {
   const published: Array<{
     groupId: string;
-    attestation: SignedAttestation;
+    attestation: Seal;
   }> = [];
   const revokedPublished: Array<{
     groupId: string;
@@ -78,9 +75,9 @@ function createTestPublisher(): AttestationPublisher & {
 
 export interface TestRuntime {
   readonly keyManager: KeyManager;
-  readonly broker: BrokerCoreImpl;
+  readonly broker: SignetCoreImpl;
   readonly sessionManager: InternalSessionManager;
-  readonly attestationManager: AttestationManagerImpl;
+  readonly attestationManager: SealManagerImpl;
   readonly publisher: ReturnType<typeof createTestPublisher>;
   readonly wsServer: WsServer;
   readonly wsPort: number;
@@ -143,12 +140,12 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
     ],
   });
 
-  // 2b. Signer provider factory for BrokerCore
+  // 2b. Signer provider factory for SignetCore
   const signerProviderFactory = (id: string) =>
     createSignerProvider(keyManager, id);
 
   // 2c. Broker core
-  const broker = new BrokerCoreImpl(
+  const broker = new SignetCoreImpl(
     {
       dataDir,
       env: "dev",
@@ -189,16 +186,16 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
   });
 
   // 5. Attestation manager
-  const attestationSigner = createAttestationSigner(keyManager, identityId);
+  const attestationSigner = createSealStamper(keyManager, identityId);
   const publisher = createTestPublisher();
 
-  const attestationDeps: AttestationManagerDeps = {
+  const attestationDeps: SealManagerDeps = {
     signer: attestationSigner,
     publisher,
     resolveInput: async (sessionId, gId) => {
       const session = sessionManager.getSessionById(sessionId);
       if (!session.isOk()) {
-        return Result.err(session.error as BrokerError);
+        return Result.err(session.error as SignetError);
       }
       const s = session.value;
       return Result.ok({
@@ -229,13 +226,13 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
       });
     },
   };
-  const attestationManager = createAttestationManager(attestationDeps);
+  const attestationManager = createSealManager(attestationDeps);
 
   // 6. Token lookup for WS
   const tokenLookup = async (token: string) => {
     const result = sessionManager.getSessionByToken(token);
     if (!result.isOk()) {
-      return Result.err(result.error as BrokerError);
+      return Result.err(result.error as SignetError);
     }
     const s = result.value;
     return Result.ok({
@@ -261,7 +258,7 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
         request["sessionId"] as string,
       );
       if (!hbResult.isOk()) {
-        return Result.err(hbResult.error as BrokerError);
+        return Result.err(hbResult.error as SignetError);
       }
       return Result.ok({ acknowledged: true });
     }
@@ -314,12 +311,12 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
             300,
           );
           if (!skResult.isOk()) {
-            return Result.err(skResult.error as BrokerError);
+            return Result.err(skResult.error as SignetError);
           }
           const fp = skResult.value.fingerprint;
           const result = await sessionManager.createSession(config, fp);
           if (!result.isOk()) {
-            return Result.err(result.error as BrokerError);
+            return Result.err(result.error as SignetError);
           }
           return Result.ok({
             token: result.value.token,
@@ -351,7 +348,7 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
         async lookup(sessionId) {
           const result = sessionManager.getSessionById(sessionId);
           if (!result.isOk()) {
-            return Result.err(result.error as BrokerError);
+            return Result.err(result.error as SignetError);
           }
           const s = result.value;
           return Result.ok({
@@ -369,7 +366,7 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
         async lookupByToken(token) {
           const result = sessionManager.getSessionByToken(token);
           if (!result.isOk()) {
-            return Result.err(result.error as BrokerError);
+            return Result.err(result.error as SignetError);
           }
           const s = result.value;
           return Result.ok({
@@ -387,21 +384,21 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
         async revoke(sessionId, reason) {
           const result = sessionManager.revokeSession(sessionId, reason);
           if (!result.isOk()) {
-            return Result.err(result.error as BrokerError);
+            return Result.err(result.error as SignetError);
           }
           return Result.ok(undefined);
         },
         async heartbeat(sessionId) {
           const result = sessionManager.recordHeartbeat(sessionId);
           if (!result.isOk()) {
-            return Result.err(result.error as BrokerError);
+            return Result.err(result.error as SignetError);
           }
           return Result.ok(undefined);
         },
         async isActive(sessionId) {
           const result = sessionManager.getSessionById(sessionId);
           if (!result.isOk()) {
-            return Result.err(result.error as BrokerError);
+            return Result.err(result.error as SignetError);
           }
           return Result.ok(result.value.state === "active");
         },
@@ -513,9 +510,7 @@ export async function issueTestSession(
     overrides?.ttlSeconds ?? 300,
   );
   if (!skResult.isOk()) {
-    throw new Error(
-      `Failed to issue session key: ${skResult.error.message}`,
-    );
+    throw new Error(`Failed to issue session key: ${skResult.error.message}`);
   }
   const fp = skResult.value.fingerprint;
 

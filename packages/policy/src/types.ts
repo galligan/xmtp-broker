@@ -1,4 +1,4 @@
-import type { ContentTypeId, MessageEvent } from "@xmtp-broker/schemas";
+import type { ContentTypeId, MessageEvent } from "@xmtp/signet-schemas";
 
 /**
  * A raw message as received from the XMTP client, already decoded.

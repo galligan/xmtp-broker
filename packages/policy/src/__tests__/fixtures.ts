@@ -2,7 +2,7 @@ import type {
   ContentTypeId,
   ViewConfig,
   GrantConfig,
-} from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
 import type { RevealStateSnapshot } from "../reveal-state.js";
 import type { RawMessage, BrokerContentTypeConfig } from "../types.js";
 

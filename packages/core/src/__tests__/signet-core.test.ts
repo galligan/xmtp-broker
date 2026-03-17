@@ -1,8 +1,8 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { Result } from "better-result";
-import { InternalError } from "@xmtp-broker/schemas";
-import type { BrokerError } from "@xmtp-broker/schemas";
-import { BrokerCoreImpl } from "../broker-core.js";
+import { InternalError } from "@xmtp/signet-schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
+import { SignetCoreImpl } from "../signet-core.js";
 import type { CoreRawEvent } from "../raw-events.js";
 import type {
   SignerProviderLike,
@@ -17,14 +17,14 @@ import {
   createTestConfig,
 } from "./fixtures.js";
 
-let core: BrokerCoreImpl;
+let core: SignetCoreImpl;
 
 function createCore(
   configOverrides?: Parameters<typeof createTestConfig>[0],
   factoryOverrides?: Partial<XmtpClient>,
 ) {
   const { factory } = createMockSignerProviderFactory();
-  return new BrokerCoreImpl(
+  return new SignetCoreImpl(
     createTestConfig(configOverrides),
     factory,
     createMockClientFactory(factoryOverrides),
@@ -42,7 +42,7 @@ afterEach(async () => {
   }
 });
 
-describe("BrokerCoreImpl", () => {
+describe("SignetCoreImpl", () => {
   describe("initial state", () => {
     test("starts in idle state", () => {
       expect(core.state).toBe("idle");
@@ -91,7 +91,7 @@ describe("BrokerCoreImpl", () => {
 
     test("fails startup when message stream initialization returns an error", async () => {
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -109,7 +109,7 @@ describe("BrokerCoreImpl", () => {
 
     test("fails startup when group stream initialization returns an error", async () => {
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -128,7 +128,7 @@ describe("BrokerCoreImpl", () => {
     test("returns to local state when full startup fails after local init", async () => {
       let failSync = true;
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -196,7 +196,7 @@ describe("BrokerCoreImpl", () => {
       const syncError = InternalError.create("sync failed");
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -310,11 +310,11 @@ describe("BrokerCoreImpl", () => {
           const client = createMockXmtpClient({
             inboxId: `inbox-${options.identityId}`,
           });
-          return Result.ok(client) as Result<XmtpClient, BrokerError>;
+          return Result.ok(client) as Result<XmtpClient, SignetError>;
         },
       };
 
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         clientFactory,
@@ -357,7 +357,7 @@ describe("BrokerCoreImpl", () => {
         };
       };
 
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory(),
@@ -399,7 +399,7 @@ describe("BrokerCoreImpl", () => {
       ];
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -409,7 +409,7 @@ describe("BrokerCoreImpl", () => {
             if (!group) {
               return Result.err(InternalError.create("not found")) as Result<
                 XmtpGroupInfo,
-                BrokerError
+                SignetError
               >;
             }
             return Result.ok(group);
@@ -443,7 +443,7 @@ describe("BrokerCoreImpl", () => {
       ];
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -465,7 +465,7 @@ describe("BrokerCoreImpl", () => {
 
     test("unhydrated group id returns not found", async () => {
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -490,7 +490,7 @@ describe("BrokerCoreImpl", () => {
       const listError = InternalError.create("listGroups failed");
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -508,7 +508,7 @@ describe("BrokerCoreImpl", () => {
       const listError = InternalError.create("listGroups failed");
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -527,7 +527,7 @@ describe("BrokerCoreImpl", () => {
       const events: CoreRawEvent[] = [];
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -548,7 +548,7 @@ describe("BrokerCoreImpl", () => {
       const events: CoreRawEvent[] = [];
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig({ heartbeatIntervalMs: 10 }),
         signerFactory,
         createMockClientFactory({
@@ -572,7 +572,7 @@ describe("BrokerCoreImpl", () => {
       const syncError = InternalError.create("sync failed");
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -591,7 +591,7 @@ describe("BrokerCoreImpl", () => {
       const syncError = InternalError.create("sync failed");
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -610,7 +610,7 @@ describe("BrokerCoreImpl", () => {
       const events: CoreRawEvent[] = [];
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -631,7 +631,7 @@ describe("BrokerCoreImpl", () => {
       const events: CoreRawEvent[] = [];
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig({ heartbeatIntervalMs: 10 }),
         signerFactory,
         createMockClientFactory({
@@ -656,7 +656,7 @@ describe("BrokerCoreImpl", () => {
       const streamError = InternalError.create("message stream failed");
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({
@@ -675,7 +675,7 @@ describe("BrokerCoreImpl", () => {
       const streamError = InternalError.create("group stream failed");
 
       const { factory: signerFactory } = createMockSignerProviderFactory();
-      core = new BrokerCoreImpl(
+      core = new SignetCoreImpl(
         createTestConfig(),
         signerFactory,
         createMockClientFactory({

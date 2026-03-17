@@ -1,4 +1,4 @@
-import type { TrustTier } from "@xmtp-broker/schemas";
+import type { TrustTier } from "@xmtp/signet-schemas";
 import type { PlatformCapability } from "./config.js";
 
 /**

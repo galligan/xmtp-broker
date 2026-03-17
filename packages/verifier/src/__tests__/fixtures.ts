@@ -1,4 +1,4 @@
-import type { Attestation } from "@xmtp-broker/schemas";
+import type { Attestation } from "@xmtp/signet-schemas";
 import type { VerificationRequest } from "../schemas/request.js";
 import type { VerifierConfig } from "../config.js";
 

@@ -1,4 +1,4 @@
-import type { PolicyDelta } from "@xmtp-broker/contracts";
+import type { PolicyDelta } from "@xmtp/signet-contracts";
 import type { AttestationInput } from "./build.js";
 
 /**

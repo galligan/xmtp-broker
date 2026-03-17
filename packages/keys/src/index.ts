@@ -28,7 +28,7 @@ export type { Vault } from "./vault.js";
 export { createSignerProvider } from "./signer-provider.js";
 
 // Attestation signer
-export { createAttestationSigner } from "./attestation-signer.js";
+export { createSealStamper } from "./attestation-signer.js";
 
 // Operational key manager
 export { createOperationalKeyManager } from "./operational-key.js";

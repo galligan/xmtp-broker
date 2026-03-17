@@ -1,24 +1,24 @@
 import { Result } from "better-result";
 import { z } from "zod";
-import type { ActionSpec } from "@xmtp-broker/contracts";
-import type { BrokerError } from "@xmtp-broker/schemas";
+import type { ActionSpec } from "@xmtp/signet-contracts";
+import type { SignetError } from "@xmtp/signet-schemas";
 import type { DaemonStatus } from "../daemon/status.js";
 
 export interface BrokerActionDeps {
   readonly status: () => Promise<DaemonStatus>;
-  readonly shutdown: () => Promise<Result<void, BrokerError>>;
+  readonly shutdown: () => Promise<Result<void, SignetError>>;
 }
 
 function widenActionSpec<TInput, TOutput>(
-  spec: ActionSpec<TInput, TOutput, BrokerError>,
-): ActionSpec<unknown, unknown, BrokerError> {
-  return spec as ActionSpec<unknown, unknown, BrokerError>;
+  spec: ActionSpec<TInput, TOutput, SignetError>,
+): ActionSpec<unknown, unknown, SignetError> {
+  return spec as ActionSpec<unknown, unknown, SignetError>;
 }
 
 export function createBrokerActions(
   deps: BrokerActionDeps,
-): ActionSpec<unknown, unknown, BrokerError>[] {
-  const status: ActionSpec<Record<string, never>, DaemonStatus, BrokerError> = {
+): ActionSpec<unknown, unknown, SignetError>[] {
+  const status: ActionSpec<Record<string, never>, DaemonStatus, SignetError> = {
     id: "broker.status",
     input: z.object({}),
     handler: async () => Result.ok(await deps.status()),
@@ -31,7 +31,7 @@ export function createBrokerActions(
   const stop: ActionSpec<
     { force?: boolean | undefined },
     { stopped: true },
-    BrokerError
+    SignetError
   > = {
     id: "broker.stop",
     input: z.object({

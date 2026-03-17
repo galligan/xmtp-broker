@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { Ok } from "better-result";
 import { z } from "zod";
-import type { BrokerError } from "@xmtp-broker/schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
 import { createActionRegistry } from "../action-registry.js";
 import type { ActionSpec, CliSurface, McpSurface } from "../action-spec.js";
 import type { HandlerContext } from "../handler-types.js";
@@ -23,7 +23,7 @@ const testMcpSurface: McpSurface = {
 function createTestSpec(
   id: string,
   surfaces?: { cli?: CliSurface; mcp?: McpSurface },
-): ActionSpec<unknown, unknown, BrokerError> {
+): ActionSpec<unknown, unknown, SignetError> {
   return {
     id,
     handler: (_input: unknown, _ctx: HandlerContext) =>

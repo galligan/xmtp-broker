@@ -3,9 +3,9 @@ import {
   SessionToken,
   ViewConfig,
   GrantConfig,
-  BrokerEvent,
-} from "@xmtp-broker/schemas";
-import type { BrokerEvent as BrokerEventType } from "@xmtp-broker/schemas";
+  SignetEvent,
+} from "@xmtp/signet-schemas";
+import type { SignetEvent as SignetEventType } from "@xmtp/signet-schemas";
 
 export type AuthFrame = {
   type: "auth";
@@ -87,7 +87,7 @@ export const BackpressureFrame: z.ZodType<BackpressureFrame> = z
 
 export type SequencedFrame = {
   seq: number;
-  event: BrokerEventType;
+  event: SignetEventType;
 };
 
 /** Sequenced event envelope for replay support. */
@@ -100,7 +100,7 @@ export const SequencedFrame: z.ZodType<SequencedFrame> = z
       .describe(
         "Monotonically increasing sequence number, scoped to connection",
       ),
-    event: BrokerEvent.describe("The event payload"),
+    event: SignetEvent.describe("The event payload"),
   })
   .describe("Sequenced event envelope for replay support");
 
@@ -109,9 +109,8 @@ export const SequencedFrame: z.ZodType<SequencedFrame> = z
  * The auth frame is the only non-request frame; requests use HarnessRequest
  * from schemas.
  */
-export const InboundFrame: z.ZodType<AuthFrame> = z.discriminatedUnion(
-  "type",
-  [_AuthFrame],
-);
+export const InboundFrame: z.ZodType<AuthFrame> = z.discriminatedUnion("type", [
+  _AuthFrame,
+]);
 
 export type InboundFrame = z.infer<typeof InboundFrame>;

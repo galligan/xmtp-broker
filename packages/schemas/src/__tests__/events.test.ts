@@ -4,8 +4,8 @@ import {
   MessageEvent,
   SessionStartedEvent,
   HeartbeatEvent,
-  BrokerRecoveryEvent,
-  BrokerEvent,
+  SignetRecoveryEvent,
+  SignetEvent,
 } from "../events.js";
 
 describe("MessageVisibility", () => {
@@ -102,24 +102,24 @@ describe("HeartbeatEvent", () => {
   });
 });
 
-describe("BrokerRecoveryEvent", () => {
+describe("SignetRecoveryEvent", () => {
   it("accepts valid recovery event", () => {
     const valid = {
       type: "broker.recovery.complete",
       caughtUpThrough: "2024-01-01T00:00:00Z",
     };
-    expect(BrokerRecoveryEvent.safeParse(valid).success).toBe(true);
+    expect(SignetRecoveryEvent.safeParse(valid).success).toBe(true);
   });
 });
 
-describe("BrokerEvent discriminated union", () => {
+describe("SignetEvent discriminated union", () => {
   it("discriminates on type field", () => {
     const heartbeat = {
       type: "heartbeat",
       sessionId: "sess-1",
       timestamp: "2024-01-01T00:00:00Z",
     };
-    const result = BrokerEvent.safeParse(heartbeat);
+    const result = SignetEvent.safeParse(heartbeat);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.type).toBe("heartbeat");
@@ -128,7 +128,7 @@ describe("BrokerEvent discriminated union", () => {
 
   it("rejects events with unknown type", () => {
     const invalid = { type: "unknown.event", data: {} };
-    expect(BrokerEvent.safeParse(invalid).success).toBe(false);
+    expect(SignetEvent.safeParse(invalid).success).toBe(false);
   });
 
   it("accepts all 12 event types", () => {
@@ -265,7 +265,7 @@ describe("BrokerEvent discriminated union", () => {
     ];
 
     for (const event of events) {
-      const result = BrokerEvent.safeParse(event);
+      const result = SignetEvent.safeParse(event);
       expect(result.success).toBe(true);
     }
   });
