@@ -128,7 +128,7 @@ describe("contract-verification", () => {
     // are satisfied. We use type assertions to verify compatibility.
 
     // SignetCore contract
-    const _brokerCore: SignetCore = {
+    const _signetCore: SignetCore = {
       get state() {
         return "ready" as const;
       },
@@ -274,7 +274,7 @@ describe("contract-verification", () => {
     };
 
     // If we reach here without type errors, all contracts are satisfied
-    expect(_brokerCore).toBeDefined();
+    expect(_signetCore).toBeDefined();
     expect(_sessionManager).toBeDefined();
     expect(_sealManager).toBeDefined();
     expect(_signerProvider).toBeDefined();

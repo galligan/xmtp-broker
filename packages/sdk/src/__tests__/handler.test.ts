@@ -11,7 +11,7 @@ import {
   waitForState,
   type TestHarness,
 } from "./mock-server.js";
-import { createBrokerHandler } from "../handler.js";
+import { createSignetHandler } from "../handler.js";
 
 let harness: TestHarness;
 
@@ -138,7 +138,7 @@ describe("Non-retryable close codes", () => {
 describe("Auth timeout", () => {
   test("connect rejects when server never sends auth response", async () => {
     const mock = createMockServer({ authBehavior: "no-response" });
-    const handler = createBrokerHandler({
+    const handler = createSignetHandler({
       url: mock.url,
       token: "test-token",
       reconnect: {
@@ -164,7 +164,7 @@ describe("Auth timeout", () => {
 });
 
 describe("Error category preservation", () => {
-  test("permission error from broker returns PermissionError", async () => {
+  test("permission error from signet returns PermissionError", async () => {
     // Custom server that responds to requests with a permission error
     const bunServer = Bun.serve({
       port: 0,
@@ -219,7 +219,7 @@ describe("Error category preservation", () => {
       },
     });
 
-    const handler = createBrokerHandler({
+    const handler = createSignetHandler({
       url: `ws://127.0.0.1:${bunServer.port}/`,
       token: "test-token",
       reconnect: {

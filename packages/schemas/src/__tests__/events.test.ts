@@ -162,7 +162,7 @@ describe("SignetEvent discriminated union", () => {
         ownerCanRevoke: true,
         adminCanRemove: false,
       },
-      issuer: "broker-1",
+      issuer: "signet-1",
     };
 
     const validGrant = {
@@ -249,7 +249,7 @@ describe("SignetEvent discriminated union", () => {
           groupId: "g1",
           reason: "owner-initiated",
           revokedAt: "2024-01-01T00:00:00Z",
-          issuer: "broker-1",
+          issuer: "signet-1",
         },
       },
       {

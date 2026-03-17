@@ -38,9 +38,9 @@ describe("SignetCoreConfigSchema", () => {
 
   test("accepts minimal config with defaults", () => {
     const config = SignetCoreConfigSchema.parse({
-      dataDir: "/tmp/broker",
+      dataDir: "/tmp/signet",
     });
-    expect(config.dataDir).toBe("/tmp/broker");
+    expect(config.dataDir).toBe("/tmp/signet");
     expect(config.env).toBe("dev");
     expect(config.identityMode).toBe("per-group");
     expect(config.heartbeatIntervalMs).toBe(30_000);
@@ -50,7 +50,7 @@ describe("SignetCoreConfigSchema", () => {
 
   test("accepts fully specified config", () => {
     const config = SignetCoreConfigSchema.parse({
-      dataDir: "/data/broker",
+      dataDir: "/data/signet",
       env: "production",
       identityMode: "shared",
       heartbeatIntervalMs: 10_000,

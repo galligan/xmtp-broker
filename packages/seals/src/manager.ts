@@ -27,7 +27,7 @@ const RENEWAL_THRESHOLD = 0.75;
 
 /**
  * Resolves the seal input for a session+group pair.
- * The broker runtime provides this, translating session policy
+ * The signet runtime provides this, translating session policy
  * into the flat SealInput structure.
  */
 export type InputResolver = (

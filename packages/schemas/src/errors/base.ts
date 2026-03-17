@@ -9,7 +9,7 @@ import type { CancelledError } from "./cancelled.js";
 import type { NetworkError } from "./network.js";
 
 /**
- * Base interface for all broker errors. Discriminated by `_tag`.
+ * Base interface for all signet errors. Discriminated by `_tag`.
  * Never constructed directly -- use the static factory on each subclass.
  */
 export interface SignetError extends Error {

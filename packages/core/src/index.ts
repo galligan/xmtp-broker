@@ -6,7 +6,7 @@ export {
 } from "./config.js";
 export type { SignetCoreConfig, XmtpEnv, IdentityMode } from "./config.js";
 
-// Broker core
+// Signet core
 export { SignetCoreImpl } from "./signet-core.js";
 export type { SignetState, SignerProviderFactory } from "./signet-core.js";
 

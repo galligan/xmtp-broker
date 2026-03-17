@@ -20,7 +20,7 @@ export const ContentEgressScope: z.ZodEnum<
     "none",
     "unknown",
   ])
-  .describe("What content leaves the broker boundary");
+  .describe("What content leaves the signet boundary");
 
 export type ContentEgressScope = z.infer<typeof ContentEgressScope>;
 
@@ -34,7 +34,7 @@ export type RetentionAtProvider = z.infer<typeof RetentionAtProvider>;
 
 export const HostingMode: z.ZodEnum<["local", "self-hosted", "managed"]> = z
   .enum(["local", "self-hosted", "managed"])
-  .describe("Where the broker runs");
+  .describe("Where the signet runs");
 
 export type HostingMode = z.infer<typeof HostingMode>;
 
@@ -47,7 +47,7 @@ export const TrustTier: z.ZodEnum<
     "reproducibly-verified",
     "runtime-attested",
   ])
-  .describe("Highest trust tier the broker can demonstrate");
+  .describe("Highest trust tier the signet can demonstrate");
 
 export type TrustTier = z.infer<typeof TrustTier>;
 
@@ -134,12 +134,12 @@ export const SealSchema: z.ZodType<Seal> = z
       .array(z.string())
       .describe("Envelope of inference providers the agent may use"),
     contentEgressScope: ContentEgressScope.describe(
-      "What content leaves the broker boundary",
+      "What content leaves the signet boundary",
     ),
     retentionAtProvider: RetentionAtProvider.describe(
       "Provider-side retention policy",
     ),
-    hostingMode: HostingMode.describe("Where the broker runs"),
+    hostingMode: HostingMode.describe("Where the signet runs"),
     trustTier: TrustTier.describe("Highest demonstrated trust tier"),
     buildProvenanceRef: z
       .string()

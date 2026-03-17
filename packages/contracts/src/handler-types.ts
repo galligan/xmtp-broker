@@ -4,7 +4,7 @@ import type { CoreContext } from "./core-types.js";
 
 /**
  * Authentication context for admin callers. The admin key proves
- * the caller has root access to the broker.
+ * the caller has root access to the signet.
  */
 export interface AdminAuthContext {
   /** Fingerprint of the admin key used for authentication. */
@@ -23,7 +23,7 @@ export interface HandlerContext extends CoreContext {
   readonly signal: AbortSignal;
 
   /**
-   * Admin authentication context. Present when the caller is the broker
+   * Admin authentication context. Present when the caller is the signet
    * admin (CLI, local MCP). Absent for harness sessions.
    */
   readonly adminAuth?: AdminAuthContext;

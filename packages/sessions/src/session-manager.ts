@@ -42,7 +42,7 @@ const DEFAULT_CONFIG: SessionManagerConfig = {
   heartbeatGracePeriod: 3,
 };
 
-/** Internal session record with all broker-side fields. */
+/** Internal session record with all signet-side fields. */
 export interface InternalSessionRecord {
   readonly sessionId: string;
   readonly token: string;

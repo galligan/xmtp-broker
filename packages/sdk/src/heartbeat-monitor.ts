@@ -4,7 +4,7 @@ export interface HeartbeatConfig {
   readonly missedBeforeDead: number;
 }
 
-/** Monitor broker heartbeats and detect dead connections. */
+/** Monitor signet heartbeats and detect dead connections. */
 export interface HeartbeatMonitor {
   /** Start monitoring. Calls onDead when heartbeats are missed. */
   start(onDead: () => void): void;

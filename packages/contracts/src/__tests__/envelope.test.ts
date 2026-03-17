@@ -33,7 +33,7 @@ function validSeal() {
       ownerCanRevoke: true,
       adminCanRemove: true,
     },
-    issuer: "broker-1",
+    issuer: "signet-1",
   };
 }
 
@@ -46,7 +46,7 @@ function validRevocation() {
     groupId: "group-1",
     reason: "owner-initiated",
     revokedAt: "2026-01-01T00:30:00Z",
-    issuer: "broker-1",
+    issuer: "signet-1",
   };
 }
 

@@ -7,9 +7,9 @@ import {
   ValidationError,
 } from "@xmtp/signet-schemas";
 import type { SignetEvent, SignetError } from "@xmtp/signet-schemas";
-import type { BrokerHandlerConfig } from "./config.js";
+import type { SignetHandlerConfig } from "./config.js";
 import type {
-  BrokerHandler,
+  SignetHandler,
   HandlerState,
   SessionInfo,
   MessageContent,
@@ -29,7 +29,7 @@ import type { ReconnectionTracker } from "./reconnection.js";
 import { createHeartbeatMonitor } from "./heartbeat-monitor.js";
 import type { HeartbeatMonitor } from "./heartbeat-monitor.js";
 
-/** Authenticated frame from the broker. */
+/** Authenticated frame from the signet. */
 interface AuthenticatedFrameData {
   type: "authenticated";
   connectionId: string;
@@ -45,27 +45,27 @@ interface AuthenticatedFrameData {
   resumedFromSeq: number | null;
 }
 
-/** Auth error frame from the broker. */
+/** Auth error frame from the signet. */
 interface AuthErrorFrameData {
   type: "auth_error";
   code: number;
   message: string;
 }
 
-/** Sequenced event frame from the broker. */
+/** Sequenced event frame from the signet. */
 interface SequencedFrameData {
   seq: number;
   event: SignetEvent;
 }
 
-/** Backpressure frame from the broker. */
+/** Backpressure frame from the signet. */
 interface BackpressureFrameData {
   type: "backpressure";
   buffered: number;
   limit: number;
 }
 
-/** Request response frame from the broker. */
+/** Request response frame from the signet. */
 interface ResponseFrameData {
   ok: boolean;
   requestId: string;
@@ -94,10 +94,10 @@ function hasStringFields<K extends string>(
   return obj as Record<K, string>;
 }
 
-/** Create a BrokerHandler. Does NOT connect -- call connect() separately. */
-export function createBrokerHandler(
-  config: BrokerHandlerConfig,
-): BrokerHandler {
+/** Create a SignetHandler. Does NOT connect -- call connect() separately. */
+export function createSignetHandler(
+  config: SignetHandlerConfig,
+): SignetHandler {
   let state: HandlerState = "disconnected";
   let ws: WebSocket | null = null;
   let sessionInfo: SessionInfo | null = null;
@@ -176,7 +176,7 @@ export function createBrokerHandler(
     try {
       data = JSON.parse(raw) as Record<string, unknown>;
     } catch {
-      emitError(ValidationError.create("frame", "Invalid JSON from broker"));
+      emitError(ValidationError.create("frame", "Invalid JSON from signet"));
       return;
     }
 
@@ -202,26 +202,26 @@ export function createBrokerHandler(
         const errCtx = resp.error?.context ?? undefined;
         const category = resp.error?.category;
 
-        let brokerError: SignetError;
+        let signetError: SignetError;
         switch (category) {
           case "auth":
-            brokerError = AuthError.create(errMsg, errCtx);
+            signetError = AuthError.create(errMsg, errCtx);
             break;
           case "validation":
-            brokerError = ValidationError.create("response", errMsg);
+            signetError = ValidationError.create("response", errMsg);
             break;
           case "not_found":
-            brokerError = NotFoundError.create("resource", errMsg);
+            signetError = NotFoundError.create("resource", errMsg);
             break;
           case "permission":
-            brokerError = PermissionError.create(errMsg, errCtx);
+            signetError = PermissionError.create(errMsg, errCtx);
             break;
           default:
-            brokerError = InternalError.create(errMsg, errCtx);
+            signetError = InternalError.create(errMsg, errCtx);
             break;
         }
 
-        requestTracker.resolve(resp.requestId, Result.err(brokerError));
+        requestTracker.resolve(resp.requestId, Result.err(signetError));
       }
       return;
     }
@@ -255,7 +255,7 @@ export function createBrokerHandler(
 
       let authHandled = false;
 
-      // Auth timeout: if broker accepts the WebSocket but never sends an
+      // Auth timeout: if signet accepts the WebSocket but never sends an
       // auth response, reject rather than hanging forever.
       const authTimeout = setTimeout(() => {
         if (!authHandled) {
@@ -296,7 +296,7 @@ export function createBrokerHandler(
             clearTimeout(authTimeout);
             setState("closed");
             resolve(
-              Result.err(AuthError.create("Invalid auth response from broker")),
+              Result.err(AuthError.create("Invalid auth response from signet")),
             );
             return;
           }
@@ -395,7 +395,7 @@ export function createBrokerHandler(
   ): Promise<Result<unknown, SignetError>> {
     if (state !== "connected" || !ws) {
       return Result.err(
-        ValidationError.create("state", "Not connected to broker"),
+        ValidationError.create("state", "Not connected to signet"),
       );
     }
 
@@ -407,7 +407,7 @@ export function createBrokerHandler(
     return promise;
   }
 
-  const handler: BrokerHandler = {
+  const handler: SignetHandler = {
     async connect(): Promise<Result<void, SignetError>> {
       if (state === "closed") {
         return Result.err(

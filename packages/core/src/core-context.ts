@@ -5,7 +5,7 @@ import type { SqliteIdentityStore } from "./identity-store.js";
 import type { XmtpGroupInfo } from "./xmtp-client-factory.js";
 
 /**
- * Sealed interface for performing actions through the broker core.
+ * Sealed interface for performing actions through the signet core.
  *
  * Delegates to the client registry to find the correct XMTP client
  * for each operation, and to the identity store for inbox ID lookups.
@@ -46,7 +46,7 @@ export class SignetCoreContext {
     return managed.client.getGroupInfo(groupId);
   }
 
-  /** List all groups the broker is a member of. */
+  /** List all groups the signet is a member of. */
   async listGroups(): Promise<Result<readonly XmtpGroupInfo[], SignetError>> {
     const allGroups: XmtpGroupInfo[] = [];
     for (const managed of this.#registry.list()) {

@@ -61,7 +61,7 @@ export function validInput(overrides?: Partial<SealInput>): SealInput {
       ownerCanRevoke: true,
       adminCanRemove: true,
     },
-    issuer: "broker-1",
+    issuer: "signet-1",
     ...overrides,
   };
 }

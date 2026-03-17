@@ -1,7 +1,7 @@
 import type { ContentTypeId } from "@xmtp/signet-schemas";
 import type { SignerProvider } from "./providers.js";
 
-/** Broker lifecycle states. */
+/** Signet lifecycle states. */
 export type CoreState =
   | "uninitialized"
   | "initializing"
@@ -17,7 +17,7 @@ export interface CoreContext {
   readonly signerProvider: SignerProvider;
 }
 
-/** Broker-internal representation of a group's state. */
+/** Signet-internal representation of a group's state. */
 export interface GroupInfo {
   readonly groupId: string;
   readonly identityKeyFingerprint: string;

@@ -6,7 +6,7 @@ import {
   TimeoutError,
 } from "@xmtp/signet-schemas";
 
-/** Hints for classifying SDK errors into broker error types. */
+/** Hints for classifying SDK errors into signet error types. */
 export interface WrapSdkCallHints {
   /** If provided, "not found" errors become NotFoundError. */
   readonly resourceType?: string;
@@ -27,7 +27,7 @@ function matchesAny(message: string, patterns: readonly string[]): boolean {
 
 /**
  * Wraps an async SDK call, converting exceptions to Result.err
- * with appropriate broker error types.
+ * with appropriate signet error types.
  */
 export async function wrapSdkCall<T>(
   fn: () => Promise<T>,

@@ -34,9 +34,9 @@ describe("CliConfigSchema", () => {
     expect(result.data.signet.identityMode).toBe("per-group");
   });
 
-  test("rejects broker section", () => {
+  test("rejects unknown legacy section", () => {
     const result = CliConfigSchema.safeParse({
-      broker: { env: "production" },
+      legacy_signet: { env: "production" },
     });
     expect(result.success).toBe(false);
   });

@@ -11,7 +11,7 @@ import type { SealEnvelope } from "./seal-envelope.js";
 import type { CoreState, GroupInfo } from "./core-types.js";
 import type { SessionRecord } from "./session-types.js";
 
-/** Top-level broker lifecycle: initialize, shutdown, state transitions. */
+/** Top-level signet lifecycle: initialize, shutdown, state transitions. */
 export interface SignetCore {
   readonly state: CoreState;
   initializeLocal(): Promise<Result<void, SignetError>>;

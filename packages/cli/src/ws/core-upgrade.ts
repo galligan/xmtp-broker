@@ -24,7 +24,7 @@ export function createLazyCoreUpgrade(
       core.state !== "uninitialized"
     ) {
       return Result.err(
-        InternalError.create("Broker core is not ready to service requests", {
+        InternalError.create("Signet core is not ready to service requests", {
           coreState: core.state,
         }),
       );

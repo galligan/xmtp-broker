@@ -33,16 +33,16 @@ interface ConnectionState {
   lastSeenSeq: number | null;
 }
 
-/** Mock broker server that implements the WS wire protocol. */
-export interface MockBrokerServer {
+/** Mock signet server that implements the WS wire protocol. */
+export interface MockSignetServer {
   readonly port: number;
   readonly connections: number;
   stop(): Promise<void>;
 }
 
 export interface TestHarness {
-  handler: import("../types.js").BrokerHandler;
-  server: MockBrokerServer;
+  handler: import("../types.js").SignetHandler;
+  server: MockSignetServer;
   /** Push an event to all authenticated connections. */
   emitEvent: (event: SignetEvent) => void;
   /** Drop all connections (simulate transport failure). */
@@ -56,11 +56,11 @@ export interface TestHarness {
 }
 
 /**
- * Create a mock broker server on a random port.
- * Returns a Bun.serve() instance that simulates the broker's wire protocol.
+ * Create a mock signet server on a random port.
+ * Returns a Bun.serve() instance that simulates the signet wire protocol.
  */
 export function createMockServer(options: MockServerOptions = {}): {
-  server: MockBrokerServer;
+  server: MockSignetServer;
   emitEvent: (event: SignetEvent) => void;
   dropConnection: () => void;
   closeWith: (code: number, reason: string) => void;
@@ -254,7 +254,7 @@ export function createMockServer(options: MockServerOptions = {}): {
     }
   }
 
-  const server: MockBrokerServer = {
+  const server: MockSignetServer = {
     get port() {
       return port;
     },
@@ -282,7 +282,7 @@ export function createMockServer(options: MockServerOptions = {}): {
 
 /** Helper: wait for a handler to reach a specific state. */
 export function waitForState(
-  handler: import("../types.js").BrokerHandler,
+  handler: import("../types.js").SignetHandler,
   targetState: import("../types.js").HandlerState,
   timeoutMs = 5000,
 ): Promise<void> {
@@ -324,11 +324,11 @@ export async function take<T>(
 
 /** Create a full test harness: mock server + handler. */
 export function createTestHandler(options?: {
-  config?: Partial<import("../config.js").BrokerHandlerConfig>;
+  config?: Partial<import("../config.js").SignetHandlerConfig>;
   serverOptions?: MockServerOptions;
 }): TestHarness {
-  const { createBrokerHandler } = require("../handler.js") as {
-    createBrokerHandler: typeof import("../handler.js").createBrokerHandler;
+  const { createSignetHandler } = require("../handler.js") as {
+    createSignetHandler: typeof import("../handler.js").createSignetHandler;
   };
 
   const {
@@ -340,7 +340,7 @@ export function createTestHandler(options?: {
     url,
   } = createMockServer(options?.serverOptions);
 
-  const handler = createBrokerHandler({
+  const handler = createSignetHandler({
     url: options?.config?.url ?? url,
     token: options?.config?.token ?? "test-token",
     reconnect: options?.config?.reconnect ?? { enabled: false },

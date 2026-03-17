@@ -120,19 +120,19 @@ function makeMockDeps(tracker: {
       });
     },
     createSignetCore: () => {
-      tracker.record("brokerCore.create");
+      tracker.record("signetCore.create");
       return {
         state: "uninitialized" as const,
         initializeLocal: async () => {
-          tracker.record("brokerCore.initializeLocal");
+          tracker.record("signetCore.initializeLocal");
           return Result.ok(undefined);
         },
         initialize: async () => {
-          tracker.record("brokerCore.initialize");
+          tracker.record("signetCore.initialize");
           return Result.ok(undefined);
         },
         shutdown: async () => {
-          tracker.record("brokerCore.shutdown");
+          tracker.record("signetCore.shutdown");
           return Result.ok(undefined);
         },
         sendMessage: async () =>
@@ -277,8 +277,8 @@ describe("createSignetRuntime", () => {
     // Key manager initialized first, then local core init, then network
     // init (for non-local envs), then ws/admin servers.
     const initIdx = tracker.calls.indexOf("keyManager.initialize");
-    const localIdx = tracker.calls.indexOf("brokerCore.initializeLocal");
-    const networkIdx = tracker.calls.indexOf("brokerCore.initialize");
+    const localIdx = tracker.calls.indexOf("signetCore.initializeLocal");
+    const networkIdx = tracker.calls.indexOf("signetCore.initialize");
     const wsIdx = tracker.calls.indexOf("wsServer.start");
     const adminIdx = tracker.calls.indexOf("adminServer.start");
 
@@ -324,7 +324,7 @@ describe("createSignetRuntime", () => {
     const startResult = await result.value.start();
     expect(Result.isOk(startResult)).toBe(true);
     expect(result.value.state).toBe("running");
-    expect(tracker.calls).not.toContain("brokerCore.initialize");
+    expect(tracker.calls).not.toContain("signetCore.initialize");
   });
 
   test("shutdown() reverses in correct order", async () => {
@@ -347,7 +347,7 @@ describe("createSignetRuntime", () => {
     // Admin stopped first, then ws, then core
     const adminIdx = tracker.calls.indexOf("adminServer.stop");
     const wsIdx = tracker.calls.indexOf("wsServer.stop");
-    const coreIdx = tracker.calls.indexOf("brokerCore.shutdown");
+    const coreIdx = tracker.calls.indexOf("signetCore.shutdown");
 
     expect(adminIdx).toBeGreaterThanOrEqual(0);
     expect(wsIdx).toBeGreaterThan(adminIdx);

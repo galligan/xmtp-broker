@@ -21,7 +21,7 @@ export type ProjectionResult =
   | { readonly action: "emit"; readonly event: MessageEvent }
   | { readonly action: "drop" };
 
-/** Broker-level content type configuration. */
-export interface BrokerContentTypeConfig {
+/** Signet-level content type configuration. */
+export interface SignetContentTypeConfig {
   readonly allowlist: ReadonlySet<ContentTypeId>;
 }

@@ -35,7 +35,7 @@ export function createTestSeal(overrides?: Partial<Seal>): Seal {
       ownerCanRevoke: true,
       adminCanRemove: false,
     },
-    issuer: "test-broker-identity",
+    issuer: "test-signet-identity",
     ...overrides,
   };
 }

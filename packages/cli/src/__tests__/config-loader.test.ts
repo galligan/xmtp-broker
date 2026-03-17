@@ -89,13 +89,13 @@ level = "info"
     expect(config.logging.level).toBe("debug");
   });
 
-  test("legacy broker env vars are ignored", async () => {
+  test("unknown legacy env vars are ignored", async () => {
     const result = await loadConfig({
       configPath: join(tempDir, "nonexistent.toml"),
       envOverrides: {
-        XMTP_BROKER_ENV: "production",
-        XMTP_BROKER_WS_PORT: "4567",
-        XMTP_BROKER_LOG_LEVEL: "debug",
+        XMTP_LEGACY_ENV: "production",
+        XMTP_LEGACY_WS_PORT: "4567",
+        XMTP_LEGACY_LOG_LEVEL: "debug",
       },
     });
     expect(result.isOk()).toBe(true);
@@ -117,11 +117,11 @@ level = "info"
     expect(result.value.signet.dataDir).toBe("/custom/data/dir");
   });
 
-  test("legacy broker data dir env var is ignored", async () => {
+  test("unknown legacy data dir env var is ignored", async () => {
     const result = await loadConfig({
       configPath: join(tempDir, "nonexistent.toml"),
       envOverrides: {
-        XMTP_BROKER_DATA_DIR: "/custom/data/dir",
+        XMTP_LEGACY_DATA_DIR: "/custom/data/dir",
       },
     });
     expect(result.isOk()).toBe(true);
@@ -172,11 +172,11 @@ level = "debug"
     expect(config.ws.port).toBe(8393);
   });
 
-  test("legacy broker TOML section is rejected", async () => {
+  test("unknown legacy TOML section is rejected", async () => {
     const tomlPath = join(tempDir, "legacy.toml");
     await writeFile(
       tomlPath,
-      `[broker]
+      `[legacy_signet]
 env = "production"
 identityMode = "shared"
 `,

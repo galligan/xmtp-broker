@@ -129,7 +129,7 @@ function createValidSeal(
       ownerCanRevoke: true,
       adminCanRemove: false,
     },
-    issuer: "broker-identity-1",
+    issuer: "signet-identity-1",
     ...overrides,
   };
 }

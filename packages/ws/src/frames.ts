@@ -38,11 +38,11 @@ export type AuthenticatedFrame = {
   resumedFromSeq: number | null;
 };
 
-/** Authenticated confirmation from broker. */
+/** Authenticated confirmation from signet. */
 export const AuthenticatedFrame: z.ZodType<AuthenticatedFrame> = z
   .object({
     type: z.literal("authenticated"),
-    connectionId: z.string().describe("Broker-assigned connection identifier"),
+    connectionId: z.string().describe("Signet-assigned connection identifier"),
     session: SessionToken.describe("Session info"),
     view: ViewConfig.describe("Active view configuration"),
     grant: GrantConfig.describe("Active grant configuration"),
@@ -53,7 +53,7 @@ export const AuthenticatedFrame: z.ZodType<AuthenticatedFrame> = z
       .nullable()
       .describe("Sequence number resume started from, null if fresh"),
   })
-  .describe("Authentication success response from broker");
+  .describe("Authentication success response from signet");
 
 export type AuthErrorFrame = {
   type: "auth_error";
@@ -61,14 +61,14 @@ export type AuthErrorFrame = {
   message: string;
 };
 
-/** Auth error from broker, sent before close. */
+/** Auth error from signet, sent before close. */
 export const AuthErrorFrame: z.ZodType<AuthErrorFrame> = z
   .object({
     type: z.literal("auth_error"),
     code: z.number().int().describe("Error code"),
     message: z.string().describe("Human-readable error description"),
   })
-  .describe("Authentication failure response from broker");
+  .describe("Authentication failure response from signet");
 
 export type BackpressureFrame = {
   type: "backpressure";
@@ -76,14 +76,14 @@ export type BackpressureFrame = {
   limit: number;
 };
 
-/** Backpressure warning from broker. */
+/** Backpressure warning from signet. */
 export const BackpressureFrame: z.ZodType<BackpressureFrame> = z
   .object({
     type: z.literal("backpressure"),
     buffered: z.number().int().describe("Current buffer depth"),
     limit: z.number().int().describe("Hard limit before disconnect"),
   })
-  .describe("Backpressure warning from broker");
+  .describe("Backpressure warning from signet");
 
 export type SequencedFrame = {
   seq: number;

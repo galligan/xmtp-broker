@@ -69,15 +69,15 @@ export interface ConversationInfo {
   readonly lastMessageAt: string | null;
 }
 
-/** The public BrokerHandler interface. */
-export interface BrokerHandler {
+/** The public SignetHandler interface. */
+export interface SignetHandler {
   /** Open the WebSocket connection and authenticate. */
   connect(): Promise<Result<void, SignetError>>;
 
   /** Close the connection gracefully. */
   disconnect(): Promise<Result<void, SignetError>>;
 
-  /** Typed async iterable of broker events. */
+  /** Typed async iterable of signet events. */
   readonly events: AsyncIterable<SignetEvent>;
 
   /** Send a text message to a conversation. */

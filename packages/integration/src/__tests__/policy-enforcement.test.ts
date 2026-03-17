@@ -21,21 +21,21 @@ import {
   isMaterialChange,
   requiresReauthorization,
 } from "@xmtp/signet-policy";
-import type { RawMessage, BrokerContentTypeConfig } from "@xmtp/signet-policy";
+import type { RawMessage, SignetContentTypeConfig } from "@xmtp/signet-policy";
 import type { PolicyDelta } from "@xmtp/signet-contracts";
 import { checkMateriality } from "@xmtp/signet-sessions";
 
 const GROUP_ID = "policy-group-1";
 
-/** Broker config that allows all baseline types. */
-const BROKER_CONFIG: BrokerContentTypeConfig = {
+/** Signet config that allows all baseline types. */
+const SIGNET_CONFIG: SignetContentTypeConfig = {
   allowlist: new Set<ContentTypeId>(BASELINE_CONTENT_TYPES),
 };
 
 function computeAllowlist(contentTypes: readonly ContentTypeId[]) {
   const result = resolveEffectiveAllowlist(
     [...BASELINE_CONTENT_TYPES],
-    BROKER_CONFIG,
+    SIGNET_CONFIG,
     contentTypes,
   );
   if (!result.isOk()) {

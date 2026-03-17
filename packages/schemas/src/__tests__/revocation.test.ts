@@ -51,7 +51,7 @@ describe("RevocationSeal", () => {
     groupId: "group-1",
     reason: "owner-initiated",
     revokedAt: "2024-01-01T00:00:00Z",
-    issuer: "broker-1",
+    issuer: "signet-1",
   };
 
   it("accepts valid revocation seal", () => {

@@ -1,7 +1,7 @@
 /**
  * Full happy-path integration tests.
  *
- * End-to-end flow: init keys -> create broker -> issue session ->
+ * End-to-end flow: init keys -> create signet -> issue session ->
  * start WS -> connect -> auth -> receive events -> send messages -> replay.
  */
 
@@ -38,12 +38,12 @@ describe("happy-path", () => {
     expect(opKey.value.groupId).toBe(runtime.groupId);
   });
 
-  test("broker starts and transitions to running state", async () => {
+  test("signet starts and transitions to running state", async () => {
     const result = await createTestRuntime();
     cleanup = result.cleanup;
     const { runtime } = result;
 
-    expect(runtime.broker.state).toBe("running");
+    expect(runtime.signet.state).toBe("running");
     expect(runtime.wsServer.state).toBe("listening");
   });
 
@@ -212,14 +212,14 @@ describe("happy-path", () => {
     await c2.close();
   });
 
-  test("full end-to-end: keys -> broker -> session -> ws -> event -> request", async () => {
+  test("full end-to-end: keys -> signet -> session -> ws -> event -> request", async () => {
     const result = await createTestRuntime();
     cleanup = result.cleanup;
     const { runtime } = result;
 
     // Verify the full chain is wired
     expect(runtime.keyManager.platform).toBe("software-vault");
-    expect(runtime.broker.state).toBe("running");
+    expect(runtime.signet.state).toBe("running");
     expect(runtime.wsServer.state).toBe("listening");
 
     // Issue session

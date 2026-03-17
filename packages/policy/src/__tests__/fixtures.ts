@@ -4,7 +4,7 @@ import type {
   GrantConfig,
 } from "@xmtp/signet-schemas";
 import type { RevealStateSnapshot } from "../reveal-state.js";
-import type { RawMessage, BrokerContentTypeConfig } from "../types.js";
+import type { RawMessage, SignetContentTypeConfig } from "../types.js";
 
 /** Creates a RawMessage fixture. */
 export function createTestRawMessage(
@@ -94,8 +94,8 @@ export function createDenyAllGrant(): GrantConfig {
   };
 }
 
-/** Creates a broker content type config with all baseline types. */
-export function createBaselineBrokerConfig(): BrokerContentTypeConfig {
+/** Creates a signet content type config with all baseline types. */
+export function createBaselineSignetConfig(): SignetContentTypeConfig {
   return {
     allowlist: new Set([
       "xmtp.org/text:1.0" as ContentTypeId,

@@ -342,7 +342,7 @@ describe("ws-edge-cases", () => {
     ).toBe(true);
 
     // Cleanup remaining resources
-    await runtime.broker.stop().catch(() => {});
+    await runtime.signet.stop().catch(() => {});
     runtime.keyManager.close();
     await rm(runtime.dataDir, { recursive: true, force: true });
   });

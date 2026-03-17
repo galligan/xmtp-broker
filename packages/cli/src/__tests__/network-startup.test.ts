@@ -127,19 +127,19 @@ function makeMockDeps(
       });
     },
     createSignetCore: () => {
-      tracker.record("brokerCore.create");
+      tracker.record("signetCore.create");
       return {
         get state() {
           if (options?.coreStateGetter) return options.coreStateGetter();
           return coreState;
         },
         initializeLocal: async () => {
-          tracker.record("brokerCore.initializeLocal");
+          tracker.record("signetCore.initializeLocal");
           coreState = "ready-local";
           return Result.ok(undefined);
         },
         initialize: async () => {
-          tracker.record("brokerCore.initialize");
+          tracker.record("signetCore.initialize");
           if (options?.coreInitializeResult) {
             return options.coreInitializeResult();
           }
@@ -147,7 +147,7 @@ function makeMockDeps(
           return Result.ok(undefined);
         },
         shutdown: async () => {
-          tracker.record("brokerCore.shutdown");
+          tracker.record("signetCore.shutdown");
           return Result.ok(undefined);
         },
         sendMessage: async () =>
@@ -249,8 +249,8 @@ describe("network startup", () => {
     const startResult = await result.value.start();
     expect(Result.isOk(startResult)).toBe(true);
     expect(result.value.state).toBe("running");
-    expect(tracker.calls).not.toContain("brokerCore.initialize");
-    expect(tracker.calls).toContain("brokerCore.initializeLocal");
+    expect(tracker.calls).not.toContain("signetCore.initialize");
+    expect(tracker.calls).toContain("signetCore.initializeLocal");
   });
 
   test("calls core.initialize() when env is dev", async () => {
@@ -265,7 +265,7 @@ describe("network startup", () => {
     const startResult = await result.value.start();
     expect(Result.isOk(startResult)).toBe(true);
     expect(result.value.state).toBe("running");
-    expect(tracker.calls).toContain("brokerCore.initialize");
+    expect(tracker.calls).toContain("signetCore.initialize");
   });
 
   test("continues running when core.initialize() fails (graceful degradation)", async () => {
@@ -284,7 +284,7 @@ describe("network startup", () => {
     const startResult = await result.value.start();
     expect(Result.isOk(startResult)).toBe(true);
     expect(result.value.state).toBe("running");
-    expect(tracker.calls).toContain("brokerCore.initialize");
+    expect(tracker.calls).toContain("signetCore.initialize");
   });
 });
 

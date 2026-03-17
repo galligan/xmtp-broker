@@ -18,37 +18,37 @@ type ReconnectOptionsInput = {
   jitter?: boolean | undefined;
 };
 
-/** Parsed broker handler configuration (all defaults applied). */
-export type BrokerHandlerConfig = {
+/** Parsed signet handler configuration (all defaults applied). */
+export type SignetHandlerConfig = {
   url: string;
   token: string;
   reconnect: ReconnectOptions;
   requestTimeoutMs: number;
 };
 
-/** Input to BrokerHandlerConfigSchema (fields with defaults are optional). */
-type BrokerHandlerConfigInput = {
+/** Input to SignetHandlerConfigSchema (fields with defaults are optional). */
+type SignetHandlerConfigInput = {
   url: string;
   token: string;
   reconnect?: ReconnectOptionsInput | undefined;
   requestTimeoutMs?: number | undefined;
 };
 
-/** Broker handler configuration schema. Validates harness-provided config. */
-export const BrokerHandlerConfigSchema: z.ZodType<
-  BrokerHandlerConfig,
+/** Signet handler configuration schema. Validates harness-provided config. */
+export const SignetHandlerConfigSchema: z.ZodType<
+  SignetHandlerConfig,
   z.ZodTypeDef,
-  BrokerHandlerConfigInput
+  SignetHandlerConfigInput
 > = z
   .object({
     url: z
       .string()
       .url()
-      .describe("Broker WebSocket URL (e.g., ws://localhost:8393/v1/agent)"),
+      .describe("Signet WebSocket URL (e.g., ws://localhost:8393/v1/agent)"),
     token: z
       .string()
       .min(1)
-      .describe("Session bearer token obtained from broker admin"),
+      .describe("Session bearer token obtained from signet admin"),
     reconnect: z
       .object({
         enabled: z
@@ -87,4 +87,4 @@ export const BrokerHandlerConfigSchema: z.ZodType<
       .default(30_000)
       .describe("Timeout for individual request/response round-trips"),
   })
-  .describe("Broker handler configuration");
+  .describe("Signet handler configuration");

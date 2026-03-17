@@ -82,7 +82,7 @@ describe("SealStamper", () => {
         groupId: "group-1",
         reason: "owner-initiated" as const,
         revokedAt: new Date().toISOString(),
-        issuer: "broker",
+        issuer: "signet",
       };
       const result = await signer.signRevocation(revocation);
       expect(Result.isOk(result)).toBe(true);

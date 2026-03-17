@@ -143,9 +143,9 @@ describe("buildSeal", () => {
   });
 
   test("sets issuer from input", () => {
-    const result = buildSeal(validInput({ issuer: "my-broker" }), null);
+    const result = buildSeal(validInput({ issuer: "my-signet" }), null);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    expect(result.value.seal.issuer).toBe("my-broker");
+    expect(result.value.seal.issuer).toBe("my-signet");
   });
 });

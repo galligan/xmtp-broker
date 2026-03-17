@@ -15,7 +15,7 @@ import type {
   XmtpGroupEvent,
 } from "./xmtp-client-factory.js";
 
-/** Broker lifecycle states. */
+/** Signet lifecycle states. */
 export type SignetState =
   | "idle"
   | "local"
@@ -200,7 +200,7 @@ export class SignetCoreImpl {
 
         // Hydrate group membership from the XMTP client.
         // Fail startup if listGroups() errors — without hydration the
-        // broker cannot route any group operations.
+        // signet cannot route any group operations.
         const groupsResult = await client.listGroups();
         if (groupsResult.isErr()) {
           return failStart(groupsResult.error);

@@ -350,13 +350,13 @@ export function createAdminClient(socketPath: string): AdminClient {
           socket = undefined;
         }
 
-        const brokerError = normalizeUnknownError(error);
-        if (brokerError.category === "auth") {
-          return Result.err(AuthError.create(brokerError.message));
+        const signetError = normalizeUnknownError(error);
+        if (signetError.category === "auth") {
+          return Result.err(AuthError.create(signetError.message));
         }
         return Result.err(
           InternalError.create("Failed to connect to admin socket", {
-            cause: brokerError.message,
+            cause: signetError.message,
           }),
         );
       }
