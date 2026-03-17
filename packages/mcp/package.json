@@ -1,0 +1,33 @@
+{
+  "name": "@xmtp-broker/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "xmtp-broker-mcp": "./src/bin/mcp-server.ts"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun && tsc --declaration --emitDeclarationOnly --outDir ./dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint .",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "@xmtp-broker/contracts": "workspace:*",
+    "@xmtp-broker/schemas": "workspace:*",
+    "better-result": "catalog:",
+    "zod": "catalog:",
+    "zod-to-json-schema": "3.24.5"
+  },
+  "devDependencies": {
+    "bun-types": "catalog:",
+    "typescript": "catalog:"
+  }
+}
