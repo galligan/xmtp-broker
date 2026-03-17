@@ -36,7 +36,7 @@ export type WsServerState = "idle" | "listening" | "draining" | "stopped";
 export interface WsServerDeps {
   readonly core: SignetCore;
   readonly sessionManager: SessionManager;
-  readonly attestationManager: SealManager;
+  readonly sealManager: SealManager;
   readonly tokenLookup: TokenLookup;
   readonly requestHandler: RequestHandler;
 }
@@ -265,7 +265,7 @@ export function createWsServer(
     // Send recovery event if client is too far behind
     if (needsRecovery) {
       sendSequenced(ws, {
-        type: "broker.recovery.complete",
+        type: "signet.recovery.complete",
         caughtUpThrough: new Date().toISOString(),
       });
     }

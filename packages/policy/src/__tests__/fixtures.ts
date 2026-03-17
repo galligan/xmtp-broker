@@ -18,7 +18,7 @@ export function createTestRawMessage(
     content: { text: "hello" },
     sentAt: "2024-01-01T00:00:00Z",
     threadId: null,
-    attestationId: null,
+    sealId: null,
     ...overrides,
   };
 }

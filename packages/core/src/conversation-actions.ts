@@ -122,7 +122,7 @@ export function createConversationActions(
       rpcMethod: "conversation.create",
     },
     mcp: {
-      toolName: "broker/conversation/create",
+      toolName: "signet/conversation/create",
       description: "Create a new group conversation",
       readOnly: false,
     },
@@ -164,7 +164,7 @@ export function createConversationActions(
       rpcMethod: "conversation.list",
     },
     mcp: {
-      toolName: "broker/conversation/list",
+      toolName: "signet/conversation/list",
       description: "List group conversations",
       readOnly: true,
     },
@@ -181,7 +181,7 @@ export function createConversationActions(
       rpcMethod: "conversation.info",
     },
     mcp: {
-      toolName: "broker/conversation/info",
+      toolName: "signet/conversation/info",
       description: "Get group conversation details",
       readOnly: true,
     },
@@ -248,7 +248,7 @@ export function createConversationActions(
       description: "Join a Convos conversation via invite URL",
     },
     mcp: {
-      toolName: "broker/conversation/join",
+      toolName: "signet/conversation/join",
       description: "Join a Convos conversation via invite URL",
       readOnly: false,
     },
@@ -359,7 +359,7 @@ export function createConversationActions(
       description: "Generate a Convos-compatible invite URL for a group",
     },
     mcp: {
-      toolName: "broker/conversation/invite",
+      toolName: "signet/conversation/invite",
       description: "Generate a Convos-compatible invite URL for a group",
       readOnly: true,
     },
@@ -416,7 +416,7 @@ export function createConversationActions(
       rpcMethod: "conversation.add-member",
     },
     mcp: {
-      toolName: "broker/conversation/add-member",
+      toolName: "signet/conversation/add-member",
       description: "Add a member to a group conversation",
       readOnly: false,
     },
@@ -450,7 +450,7 @@ export function createConversationActions(
       rpcMethod: "conversation.members",
     },
     mcp: {
-      toolName: "broker/conversation/members",
+      toolName: "signet/conversation/members",
       description: "List members of a group conversation",
       readOnly: true,
     },

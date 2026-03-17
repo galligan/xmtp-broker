@@ -1,19 +1,15 @@
 import { Result } from "better-result";
-import type {
-  Attestation,
-  GrantConfig,
-  ViewConfig,
-} from "@xmtp/signet-schemas";
-import { AttestationSchema, ValidationError } from "@xmtp/signet-schemas";
-import { generateAttestationId } from "./attestation-id.js";
+import type { GrantConfig, Seal, ViewConfig } from "@xmtp/signet-schemas";
+import { SealSchema, ValidationError } from "@xmtp/signet-schemas";
+import { generateSealId } from "./seal-id.js";
 import { canonicalize } from "./canonicalize.js";
 import { grantConfigToOps, grantConfigToToolScopes } from "./grant-ops.js";
 
-/** Default attestation validity period: 24 hours in seconds. */
+/** Default seal validity period: 24 hours in seconds. */
 const DEFAULT_TTL_SECONDS = 86400;
 
-/** Input fields for building an attestation. */
-export interface AttestationInput {
+/** Input fields for building a seal. */
+export interface SealInput {
   readonly agentInboxId: string;
   readonly ownerInboxId: string;
   readonly groupId: string;
@@ -40,28 +36,28 @@ export interface AttestationInput {
   readonly issuer: string;
 }
 
-/** Result of building an attestation. */
-export interface AttestationBuildResult {
-  readonly attestation: Attestation;
+/** Result of building a seal. */
+export interface SealBuildResult {
+  readonly seal: Seal;
   readonly serialized: Uint8Array;
 }
 
 /**
- * Builds an attestation from input fields, linking to the previous
- * attestation if one exists. Validates the result against AttestationSchema.
+ * Builds a seal from input fields, linking to the previous
+ * seal if one exists. Validates the result against SealSchema.
  */
-export function buildAttestation(
-  input: AttestationInput,
-  previousAttestationId: string | null,
+export function buildSeal(
+  input: SealInput,
+  previousSealId: string | null,
   ttlSeconds?: number,
-): Result<AttestationBuildResult, ValidationError> {
+): Result<SealBuildResult, ValidationError> {
   const now = new Date();
   const ttl = ttlSeconds ?? DEFAULT_TTL_SECONDS;
   const expiresAt = new Date(now.getTime() + ttl * 1000);
 
   const raw = {
-    attestationId: generateAttestationId(),
-    previousAttestationId,
+    sealId: generateSealId(),
+    previousSealId,
     agentInboxId: input.agentInboxId,
     ownerInboxId: input.ownerInboxId,
     groupId: input.groupId,
@@ -87,15 +83,13 @@ export function buildAttestation(
     issuer: input.issuer,
   };
 
-  const parsed = AttestationSchema.safeParse(raw);
+  const parsed = SealSchema.safeParse(raw);
   if (!parsed.success) {
-    return Result.err(
-      ValidationError.create("attestation", parsed.error.message),
-    );
+    return Result.err(ValidationError.create("seal", parsed.error.message));
   }
 
-  const attestation = parsed.data;
-  const serialized = canonicalize(attestation);
+  const seal = parsed.data;
+  const serialized = canonicalize(seal);
 
-  return Result.ok({ attestation, serialized });
+  return Result.ok({ seal, serialized });
 }

@@ -1,16 +1,13 @@
 import { z } from "zod";
-import { AttestationSchema, TrustTier } from "@xmtp/signet-schemas";
-import type {
-  Attestation,
-  TrustTier as TrustTierType,
-} from "@xmtp/signet-schemas";
+import { SealSchema, TrustTier } from "@xmtp/signet-schemas";
+import type { Seal, TrustTier as TrustTierType } from "@xmtp/signet-schemas";
 
 export type VerificationRequest = {
   requestId: string;
   agentInboxId: string;
   brokerInboxId: string;
   groupId: string | null;
-  attestation: Attestation | null;
+  seal: Seal | null;
   artifactDigest: string;
   buildProvenanceBundle: string | null;
   sourceRepoUrl: string;
@@ -32,8 +29,8 @@ export const VerificationRequestSchema: z.ZodType<VerificationRequest> = z
       .string()
       .nullable()
       .describe("Group context for verification, null for broker-wide"),
-    attestation: AttestationSchema.nullable().describe(
-      "Attestation to verify, null if only checking provenance",
+    seal: SealSchema.nullable().describe(
+      "Seal to verify, null if only checking provenance",
     ),
     artifactDigest: z
       .string()

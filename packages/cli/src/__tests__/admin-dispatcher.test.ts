@@ -17,7 +17,7 @@ function makeHandlerContext(
   overrides?: Partial<HandlerContext>,
 ): HandlerContext {
   return {
-    brokerId: "test-broker",
+    brokerId: "test-signet",
     signerProvider: {} as HandlerContext["signerProvider"],
     requestId: crypto.randomUUID(),
     signal: AbortSignal.timeout(5_000),

@@ -34,13 +34,23 @@ export const AdminServerConfigSchema: z.ZodType<
 
 // -- CLI config --
 
+type SignetConfig = {
+  env: "local" | "dev" | "production";
+  identityMode: "per-group" | "shared";
+  dataDir?: string | undefined;
+};
+
+type SignetConfigInput =
+  | {
+      env?: "local" | "dev" | "production" | undefined;
+      identityMode?: "per-group" | "shared" | undefined;
+      dataDir?: string | undefined;
+    }
+  | undefined;
+
 /** Top-level CLI configuration. Parsed from TOML with env var overrides. */
 export type CliConfig = {
-  broker: {
-    env: "local" | "dev" | "production";
-    identityMode: "per-group" | "shared";
-    dataDir?: string | undefined;
-  };
+  signet: SignetConfig;
   keys: {
     rootKeyPolicy: "biometric" | "passcode" | "open";
     operationalKeyPolicy: "biometric" | "passcode" | "open";
@@ -62,13 +72,8 @@ export type CliConfig = {
 };
 
 type CliConfigInput = {
-  broker?:
-    | {
-        env?: "local" | "dev" | "production" | undefined;
-        identityMode?: "per-group" | "shared" | undefined;
-        dataDir?: string | undefined;
-      }
-    | undefined;
+  signet?: SignetConfigInput;
+  broker?: SignetConfigInput;
   keys?:
     | {
         rootKeyPolicy?: "biometric" | "passcode" | "open" | undefined;
@@ -97,28 +102,39 @@ type CliConfigInput = {
     | undefined;
 };
 
-/**
- * Top-level CLI configuration schema.
- * Parsed from TOML config file with env var overrides.
- */
-export const CliConfigSchema: z.ZodType<
-  CliConfig,
+const SignetConfigSchema: z.ZodType<
+  SignetConfig,
   z.ZodTypeDef,
-  CliConfigInput
-> = z.object({
-  broker: z
-    .object({
-      env: z
-        .enum(["local", "dev", "production"])
-        .default("dev")
-        .describe("XMTP network environment"),
-      identityMode: z
-        .enum(["per-group", "shared"])
-        .default("per-group")
-        .describe("Identity isolation strategy"),
-      dataDir: z.string().optional().describe("Data directory override"),
-    })
-    .default({}),
+  SignetConfigInput
+> = z
+  .object({
+    env: z
+      .enum(["local", "dev", "production"])
+      .default("dev")
+      .describe("XMTP network environment"),
+    identityMode: z
+      .enum(["per-group", "shared"])
+      .default("per-group")
+      .describe("Identity isolation strategy"),
+    dataDir: z.string().optional().describe("Data directory override"),
+  })
+  .default({});
+
+function normalizeLegacyCliConfig(input: unknown): unknown {
+  if (typeof input !== "object" || input === null) {
+    return input;
+  }
+
+  const data = { ...(input as Record<string, unknown>) };
+  if (data["signet"] === undefined && data["broker"] !== undefined) {
+    data["signet"] = data["broker"];
+  }
+
+  return data;
+}
+
+const CliConfigBaseSchema = z.object({
+  signet: SignetConfigSchema,
   keys: z
     .object({
       rootKeyPolicy: z
@@ -181,3 +197,16 @@ export const CliConfigSchema: z.ZodType<
     })
     .default({}),
 });
+
+/**
+ * Top-level CLI configuration schema.
+ * Parsed from TOML config file with env var overrides.
+ */
+export const CliConfigSchema: z.ZodType<
+  CliConfig,
+  z.ZodTypeDef,
+  CliConfigInput
+> = z.preprocess(
+  normalizeLegacyCliConfig,
+  CliConfigBaseSchema,
+) as unknown as z.ZodType<CliConfig, z.ZodTypeDef, CliConfigInput>;

@@ -39,7 +39,7 @@ export interface McpServerDeps {
   readonly sessionManager: SessionManager;
 }
 
-/** Session-scoped MCP server instance exposing broker actions as MCP tools. */
+/** Session-scoped MCP server instance exposing signet actions as MCP tools. */
 export interface McpServerInstance {
   /** Start the server: validate session, discover tools, connect transport. */
   start(): Promise<Result<void, InternalError | AuthError>>;
@@ -71,7 +71,7 @@ function buildMeta(requestId: string, startTime: number): ActionResultMeta {
 // ---------------------------------------------------------------------------
 
 /**
- * Create a session-scoped MCP server that exposes broker ActionSpecs
+ * Create a session-scoped MCP server that exposes signet ActionSpecs
  * as MCP tools. Validates the session token at startup and checks
  * liveness on each tool call.
  */

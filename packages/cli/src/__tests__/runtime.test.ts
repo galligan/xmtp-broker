@@ -21,7 +21,7 @@ function makeTempDir(): string {
 
 function makeConfig(tempDir: string): CliConfig {
   return CliConfigSchema.parse({
-    broker: { dataDir: join(tempDir, "data") },
+    signet: { dataDir: join(tempDir, "data") },
     admin: { socketPath: join(tempDir, "admin.sock") },
     logging: { auditLogPath: join(tempDir, "audit.jsonl") },
   });
@@ -165,7 +165,7 @@ function makeMockDeps(tracker: {
       };
     },
     createSealManager: () => {
-      tracker.record("attestationManager.create");
+      tracker.record("sealManager.create");
       return {
         issue: async () => Result.err(InternalError.create("not impl")),
         refresh: async () => Result.err(InternalError.create("not impl")),
@@ -239,7 +239,7 @@ describe("createSignetRuntime", () => {
     expect(runtime.config).toBe(config);
     expect(runtime.core).toBeDefined();
     expect(runtime.sessionManager).toBeDefined();
-    expect(runtime.attestationManager).toBeDefined();
+    expect(runtime.sealManager).toBeDefined();
     expect(runtime.keyManager).toBeDefined();
     expect(runtime.wsServer).toBeDefined();
     expect(runtime.adminServer).toBeDefined();
@@ -289,7 +289,7 @@ describe("createSignetRuntime", () => {
     expect(adminIdx).toBeGreaterThan(wsIdx);
   });
 
-  test("registers session and broker actions before admin server is created", async () => {
+  test("registers session and signet actions before admin server is created", async () => {
     const tracker = createCallTracker();
     const config = makeConfig(tempDir);
     const deps = makeMockDeps(tracker);
@@ -304,6 +304,8 @@ describe("createSignetRuntime", () => {
     expect(dispatcher?.hasMethod("session.list")).toBe(true);
     expect(dispatcher?.hasMethod("session.inspect")).toBe(true);
     expect(dispatcher?.hasMethod("session.revoke")).toBe(true);
+    expect(dispatcher?.hasMethod("signet.status")).toBe(true);
+    expect(dispatcher?.hasMethod("signet.stop")).toBe(true);
     expect(dispatcher?.hasMethod("broker.status")).toBe(true);
     expect(dispatcher?.hasMethod("broker.stop")).toBe(true);
   });
@@ -311,7 +313,7 @@ describe("createSignetRuntime", () => {
   test("skips network init in local env", async () => {
     const tracker = createCallTracker();
     const config = CliConfigSchema.parse({
-      broker: { dataDir: join(tempDir, "data"), env: "local" },
+      signet: { dataDir: join(tempDir, "data"), env: "local" },
       admin: { socketPath: join(tempDir, "admin.sock") },
       logging: { auditLogPath: join(tempDir, "audit.jsonl") },
     });
@@ -392,7 +394,7 @@ describe("createSignetRuntime", () => {
     const tracker = createCallTracker();
     // Config with port 0 (dynamic allocation)
     const config = CliConfigSchema.parse({
-      broker: { dataDir: join(tempDir, "data") },
+      signet: { dataDir: join(tempDir, "data") },
       admin: { socketPath: join(tempDir, "admin.sock") },
       logging: { auditLogPath: join(tempDir, "audit.jsonl") },
       ws: { port: 0 },

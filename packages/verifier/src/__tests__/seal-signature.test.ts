@@ -1,26 +1,23 @@
 import { describe, expect, test } from "bun:test";
-import { createAttestationSignatureCheck } from "../checks/attestation-signature.js";
-import {
-  createTestVerificationRequest,
-  createTestAttestation,
-} from "./fixtures.js";
+import { createSealSignatureCheck } from "../checks/seal-signature.js";
+import { createTestVerificationRequest, createTestSeal } from "./fixtures.js";
 
-describe("attestation_signature check", () => {
-  test("skips when no attestation provided", async () => {
-    const check = createAttestationSignatureCheck();
+describe("seal_signature check", () => {
+  test("skips when no seal provided", async () => {
+    const check = createSealSignatureCheck();
     const result = await check.execute(
-      createTestVerificationRequest({ attestation: null }),
+      createTestVerificationRequest({ seal: null }),
     );
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.verdict).toBe("skip");
-      expect(result.value.checkId).toBe("attestation_signature");
+      expect(result.value.checkId).toBe("seal_signature");
     }
   });
 
-  test("skips when attestation has valid structure (v0: no crypto verification)", async () => {
-    const check = createAttestationSignatureCheck();
+  test("skips when seal has valid structure (v0: no crypto verification)", async () => {
+    const check = createSealSignatureCheck();
     const result = await check.execute(createTestVerificationRequest());
 
     expect(result.isOk()).toBe(true);
@@ -29,11 +26,11 @@ describe("attestation_signature check", () => {
     }
   });
 
-  test("fails when attestation has empty issuer", async () => {
-    const check = createAttestationSignatureCheck();
+  test("fails when seal has empty issuer", async () => {
+    const check = createSealSignatureCheck();
     const result = await check.execute(
       createTestVerificationRequest({
-        attestation: createTestAttestation({ issuer: "" }),
+        seal: createTestSeal({ issuer: "" }),
       }),
     );
 
@@ -45,11 +42,11 @@ describe("attestation_signature check", () => {
   });
 
   test("fails when agentInboxId does not match", async () => {
-    const check = createAttestationSignatureCheck();
+    const check = createSealSignatureCheck();
     const result = await check.execute(
       createTestVerificationRequest({
         agentInboxId: "agent-inbox-001",
-        attestation: createTestAttestation({
+        seal: createTestSeal({
           agentInboxId: "different-agent",
         }),
       }),

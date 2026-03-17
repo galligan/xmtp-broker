@@ -119,7 +119,7 @@ describe("SealError", () => {
     expect(err._tag).toBe("SealError");
     expect(err.code).toBe(1010);
     expect(err.category).toBe("validation");
-    expect(err.context.attestationId).toBe("att-1");
+    expect(err.context.sealId).toBe("att-1");
     expect(err.message).toBe("Seal 'att-1': expired");
   });
 
@@ -257,7 +257,7 @@ describe("matchError", () => {
     const err: AnySignetError = GrantDeniedError.create("send", "messaging");
     const result = matchError(err, {
       ValidationError: () => "validation",
-      SealError: () => "attestation",
+      SealError: () => "seal",
       NotFoundError: () => "not_found",
       PermissionError: () => "permission",
       GrantDeniedError: (e) => `denied:${e.context.operation}`,

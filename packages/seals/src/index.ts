@@ -1,30 +1,30 @@
-// Attestation ID generation
-export { generateAttestationId } from "./attestation-id.js";
+// Seal ID generation
+export { generateSealId } from "./seal-id.js";
 
 // Canonical serialization
 export { canonicalize } from "./canonicalize.js";
 
 // Content type IDs and codec functions
 export {
-  ATTESTATION_CONTENT_TYPE_ID,
+  SEAL_CONTENT_TYPE_ID,
   REVOCATION_CONTENT_TYPE_ID,
-  AttestationMessage,
+  SealMessage,
   RevocationMessage,
-  encodeAttestationMessage,
+  encodeSealMessage,
   encodeRevocationMessage,
 } from "./content-type.js";
 
 // Grant-to-ops mapping
 export { grantConfigToOps, grantConfigToToolScopes } from "./grant-ops.js";
 
-// Attestation builder
-export { buildAttestation } from "./build.js";
-export type { AttestationInput, AttestationBuildResult } from "./build.js";
+// Seal builder
+export { buildSeal } from "./build.js";
+export type { SealInput, SealBuildResult } from "./build.js";
 
 // Input delta computation
 export { computeInputDelta } from "./compute-delta.js";
 
-// Attestation manager
+// Seal manager
 export { createSealManager } from "./manager.js";
 export type {
   SealManagerDeps,

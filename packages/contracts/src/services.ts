@@ -5,8 +5,9 @@ import type {
   IssuedSession,
   SessionConfig,
   SessionRevocationReason,
+  Seal,
 } from "@xmtp/signet-schemas";
-import type { Seal } from "./attestation-types.js";
+import type { SealEnvelope } from "./seal-envelope.js";
 import type { CoreState, GroupInfo } from "./core-types.js";
 import type { SessionRecord } from "./session-types.js";
 
@@ -41,16 +42,20 @@ export interface SessionManager {
   isActive(sessionId: string): Promise<Result<boolean, SignetError>>;
 }
 
-/** Attestation lifecycle: issue, refresh, revoke, query. */
+/** Seal lifecycle: issue, refresh, revoke, query. */
 export interface SealManager {
-  issue(sessionId: string, groupId: string): Promise<Result<Seal, SignetError>>;
-  refresh(attestationId: string): Promise<Result<Seal, SignetError>>;
+  issue(
+    sessionId: string,
+    groupId: string,
+  ): Promise<Result<SealEnvelope, SignetError>>;
+  refresh(sealId: string): Promise<Result<SealEnvelope, SignetError>>;
   revoke(
-    attestationId: string,
+    sealId: string,
     reason: AgentRevocationReason,
   ): Promise<Result<void, SignetError>>;
   current(
     agentInboxId: string,
     groupId: string,
-  ): Promise<Result<Seal | null, SignetError>>;
+  ): Promise<Result<SealEnvelope | null, SignetError>>;
+  needsRenewal(seal: Seal): boolean;
 }

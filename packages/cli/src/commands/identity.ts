@@ -100,7 +100,7 @@ export function createIdentityCommands(): Command {
         }
 
         // 7. Register XMTP identity (skip for local env)
-        const env = resolveEnv(options.env, config.broker.env);
+        const env = resolveEnv(options.env, config.signet.env);
         if (env !== "local") {
           await registerXmtpIdentity({
             km,
@@ -131,7 +131,7 @@ export function createIdentityCommands(): Command {
       }
 
       // 7. Register XMTP identity (skip for local env)
-      const env = resolveEnv(options.env, config.broker.env);
+      const env = resolveEnv(options.env, config.signet.env);
       if (env !== "local") {
         await registerXmtpIdentity({
           km,
@@ -297,7 +297,7 @@ async function registerXmtpIdentity(opts: {
       config: {
         dataDir: paths.dataDir,
         env,
-        appVersion: "xmtp-broker/0.1.0",
+        appVersion: "xmtp-signet/0.1.0",
       },
     },
     { label },

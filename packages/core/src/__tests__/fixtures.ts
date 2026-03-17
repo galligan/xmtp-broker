@@ -119,7 +119,7 @@ export function createTestConfig(
     identityMode: "per-group",
     heartbeatIntervalMs: 30_000,
     syncTimeoutMs: 30_000,
-    appVersion: "xmtp-broker/test",
+    appVersion: "xmtp-signet/test",
     ...overrides,
   };
 }

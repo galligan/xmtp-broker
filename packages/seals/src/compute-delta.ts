@@ -1,14 +1,14 @@
 import type { PolicyDelta } from "@xmtp/signet-contracts";
-import type { AttestationInput } from "./build.js";
+import type { SealInput } from "./build.js";
 
 /**
- * Computes a PolicyDelta between a previous and new AttestationInput.
+ * Computes a PolicyDelta between a previous and new SealInput.
  * Used to determine whether a policy change is material enough
- * to warrant a new attestation.
+ * to warrant a new seal.
  */
 export function computeInputDelta(
-  previous: AttestationInput,
-  next: AttestationInput,
+  previous: SealInput,
+  next: SealInput,
 ): PolicyDelta {
   const viewChanges: Array<{ field: string; from: unknown; to: unknown }> = [];
   const grantChanges: Array<{ field: string; from: unknown; to: unknown }> = [];

@@ -129,7 +129,7 @@ export const JsonRpcNotificationSchema: z.ZodType<JsonRpcNotification> =
 // JSON-RPC error codes
 // ---------------------------------------------------------------------------
 
-/** Standard JSON-RPC 2.0 error codes and broker extensions. */
+/** Standard JSON-RPC 2.0 error codes and signet extensions. */
 export const JSON_RPC_ERRORS = {
   PARSE_ERROR: -32700,
   INVALID_REQUEST: -32600,

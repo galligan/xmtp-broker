@@ -1,5 +1,5 @@
 /**
- * Production dependency factory for the broker runtime.
+ * Production dependency factory for the signet runtime.
  *
  * Wires real implementations from each package into the
  * SignetRuntimeDeps interface expected by createSignetRuntime.
@@ -183,12 +183,12 @@ export function createProductionDeps(): SignetRuntimeDeps {
     },
 
     createSealManager(_deps: unknown) {
-      // The runtime passes {} for deps. The real attestation manager
-      // needs signer, publisher, and resolveInput. For the initial
-      // startup these are stubs -- attestation operations happen
-      // later when sessions are created and groups are joined.
+      // The runtime passes {} for deps. The real seal manager needs
+      // signer, publisher, and resolveInput. For the initial startup
+      // these are stubs -- seal operations happen later when sessions
+      // are created and groups are joined.
       const stubSigner: import("@xmtp/signet-contracts").SealStamper = {
-        async sign(_attestation) {
+        async sign(_seal) {
           return Result.err(
             InternalError.create("SealStamper not wired -- no sessions active"),
           );
@@ -235,7 +235,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
       const d = deps as {
         core: SignetCore;
         sessionManager: import("@xmtp/signet-contracts").SessionManager;
-        attestationManager: import("@xmtp/signet-contracts").SealManager;
+        sealManager: import("@xmtp/signet-contracts").SealManager;
       };
 
       // Build the WsServerDeps with tokenLookup and requestHandler
@@ -250,7 +250,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
       const wsDeps: WsServerDeps = {
         core: d.core,
         sessionManager: d.sessionManager,
-        attestationManager: d.attestationManager,
+        sealManager: d.sealManager,
         async tokenLookup(token: string) {
           return d.sessionManager.lookupByToken(token);
         },

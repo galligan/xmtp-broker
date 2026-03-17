@@ -1,9 +1,9 @@
 # Content Type Allowlists
 
-## How content types flow through the broker
+## How content types flow through the signet
 
 XMTP messages carry typed content — text, reactions, replies, read receipts,
-group updates, and custom types defined through the XIP process. The broker
+group updates, and custom types defined through the XIP process. The signet
 filters which content types reach each agent.
 
 ## Three-tier allowlist
@@ -24,8 +24,8 @@ Current baseline types:
 
 ### 2. Broker-level configuration
 
-The broker operator can expand or restrict beyond the baseline across all
-agents the broker manages. For example, a broker might:
+The signet operator can expand or restrict beyond the baseline across all
+agents the signet manages. For example, a signet might:
 
 - **Restrict:** Block `readReceipt` to reduce metadata leakage
 - **Expand:** Allow custom content types specific to the application
@@ -33,7 +33,7 @@ agents the broker manages. For example, a broker might:
 ### 3. Per-agent view configuration
 
 The agent owner can further scope what a specific agent sees, within what the
-broker allows. This is part of the view configuration.
+signet allows. This is part of the view configuration.
 
 ## Effective allowlist resolution
 
@@ -41,8 +41,8 @@ broker allows. This is part of the view configuration.
 Effective = Baseline ∩ Broker Config ∩ Agent View Config
 ```
 
-If a content type is not in the effective allowlist, the broker holds the
-message and the agent never sees it. The raw message stays in the broker's
+If a content type is not in the effective allowlist, the signet holds the
+message and the agent never sees it. The raw message stays in the signet's
 XMTP database — it's not deleted, just not forwarded.
 
 ## Default-deny for new types
@@ -50,7 +50,7 @@ XMTP database — it's not deleted, just not forwarded.
 When the XMTP spec adds a new content type:
 
 1. The baseline list updates to include it
-2. Existing broker configurations are unchanged
+2. Existing signet configurations are unchanged
 3. Existing agent views are unchanged
 4. **The agent does NOT automatically start seeing the new type**
 
@@ -60,7 +60,7 @@ types after protocol updates.
 
 ## Content type schemas
 
-Each content type has a Zod schema in `@xmtp-broker/schemas` that validates
+Each content type has a Zod schema in `@xmtp/signet-schemas` that validates
 the payload structure:
 
 | Content type | Schema | Payload shape |

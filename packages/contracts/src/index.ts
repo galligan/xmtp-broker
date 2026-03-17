@@ -13,9 +13,15 @@ export type { SessionRecord, MaterialityCheck } from "./session-types.js";
 // Policy types
 export type { PolicyDelta, GrantError } from "./policy-types.js";
 
-// Attestation types and wire format schemas
-export { SealEnvelope, SignedRevocationEnvelope } from "./attestation-types.js";
-export type { Seal, MessageProvenanceMetadata } from "./attestation-types.js";
+// Seal types and wire format schemas
+export {
+  SealEnvelopeSchema,
+  SignedRevocationEnvelope,
+} from "./seal-envelope.js";
+export type {
+  MessageProvenanceMetadata,
+  SealEnvelope,
+} from "./seal-envelope.js";
 
 // Handler types
 export type {

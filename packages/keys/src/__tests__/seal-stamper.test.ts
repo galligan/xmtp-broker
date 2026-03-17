@@ -4,14 +4,14 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createKeyManager, type KeyManager } from "../key-manager.js";
-import { createSealStamper } from "../attestation-signer.js";
+import { createSealStamper } from "../seal-stamper.js";
 import type { SealStamper } from "@xmtp/signet-contracts";
-import type { Attestation } from "@xmtp/signet-schemas";
+import type { Seal } from "@xmtp/signet-schemas";
 
-function makeTestAttestation(): Attestation {
+function makeTestSeal(): Seal {
   return {
     version: "0.1.0",
-    attestationId: "att_test_123",
+    sealId: "att_test_123",
     agentAddress: "0xabc",
     sessionId: "ses_test",
     issuedAt: new Date().toISOString(),
@@ -58,14 +58,14 @@ describe("SealStamper", () => {
   });
 
   describe("sign", () => {
-    test("signs an attestation and returns a Seal", async () => {
-      const attestation = makeTestAttestation();
-      const result = await signer.sign(attestation);
+    test("signs a seal and returns a sealed envelope", async () => {
+      const seal = makeTestSeal();
+      const result = await signer.sign(seal);
       expect(Result.isOk(result)).toBe(true);
       if (Result.isError(result)) throw new Error("sign failed");
 
       const signed = result.value;
-      expect(signed.attestation).toEqual(attestation);
+      expect(signed.seal).toEqual(seal);
       expect(signed.signature).toBeDefined();
       expect(signed.signature.length).toBeGreaterThan(0);
       expect(signed.signatureAlgorithm).toBe("Ed25519");
@@ -74,10 +74,10 @@ describe("SealStamper", () => {
   });
 
   describe("signRevocation", () => {
-    test("signs a revocation attestation", async () => {
+    test("signs a revocation seal", async () => {
       const revocation = {
-        attestationId: "rev_test_456",
-        previousAttestationId: "att_test_123",
+        sealId: "rev_test_456",
+        previousSealId: "att_test_123",
         agentInboxId: "0xabc",
         groupId: "group-1",
         reason: "owner-initiated" as const,

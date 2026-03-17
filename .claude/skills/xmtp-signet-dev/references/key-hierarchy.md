@@ -1,6 +1,6 @@
 # Key Hierarchy
 
-The broker uses a three-tier key hierarchy inspired by keypo-cli's Secure
+The signet uses a three-tier key hierarchy inspired by keypo-cli's Secure
 Enclave patterns. Each tier has a different lifetime and security posture.
 
 ## Tiers
@@ -67,7 +67,7 @@ manages operational and session key lifecycles, and provides the
 
 Packages never interact with raw key material directly — they receive
 signing/verification capabilities through the provider interfaces defined in
-`@xmtp-broker/contracts`.
+`@xmtp/signet-contracts`.
 
 ## Admin keys
 
@@ -76,7 +76,7 @@ operations. They are **peers** to the root key, not derived from it.
 
 ### Purpose
 
-- Authenticate CLI commands against the broker daemon
+- Authenticate CLI commands against the signet daemon
 - Sign JWTs for admin socket JSON-RPC requests
 - Separate management auth from message signing and harness session auth
 

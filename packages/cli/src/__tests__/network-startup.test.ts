@@ -24,7 +24,7 @@ function makeConfig(
   overrides?: { env?: "local" | "dev" | "production" },
 ): CliConfig {
   return CliConfigSchema.parse({
-    broker: { dataDir: join(tempDir, "data"), env: overrides?.env },
+    signet: { dataDir: join(tempDir, "data"), env: overrides?.env },
     admin: { socketPath: join(tempDir, "admin.sock") },
     logging: { auditLogPath: join(tempDir, "audit.jsonl") },
   });
@@ -180,7 +180,7 @@ function makeMockDeps(
       };
     },
     createSealManager: () => {
-      tracker.record("attestationManager.create");
+      tracker.record("sealManager.create");
       return {
         issue: async () => Result.err(InternalError.create("not impl")),
         refresh: async () => Result.err(InternalError.create("not impl")),

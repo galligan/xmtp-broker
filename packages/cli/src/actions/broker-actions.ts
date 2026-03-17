@@ -18,22 +18,30 @@ function widenActionSpec<TInput, TOutput>(
 export function createBrokerActions(
   deps: BrokerActionDeps,
 ): ActionSpec<unknown, unknown, SignetError>[] {
-  const status: ActionSpec<Record<string, never>, DaemonStatus, SignetError> = {
-    id: "broker.status",
+  const createStatusSpec = (
+    id: string,
+    command: string,
+    rpcMethod: string,
+  ): ActionSpec<Record<string, never>, DaemonStatus, SignetError> => ({
+    id,
     input: z.object({}),
     handler: async () => Result.ok(await deps.status()),
     cli: {
-      command: "broker:status",
-      rpcMethod: "broker.status",
+      command,
+      rpcMethod,
     },
-  };
+  });
 
-  const stop: ActionSpec<
+  const createStopSpec = (
+    id: string,
+    command: string,
+    rpcMethod: string,
+  ): ActionSpec<
     { force?: boolean | undefined },
     { stopped: true },
     SignetError
-  > = {
-    id: "broker.stop",
+  > => ({
+    id,
     input: z.object({
       force: z.boolean().optional(),
     }),
@@ -45,10 +53,24 @@ export function createBrokerActions(
       return Result.ok({ stopped: true as const });
     },
     cli: {
-      command: "broker:stop",
-      rpcMethod: "broker.stop",
+      command,
+      rpcMethod,
     },
-  };
+  });
 
-  return [widenActionSpec(status), widenActionSpec(stop)];
+  return [
+    widenActionSpec(
+      createStatusSpec("signet.status", "signet:status", "signet.status"),
+    ),
+    widenActionSpec(
+      createStopSpec("signet.stop", "signet:stop", "signet.stop"),
+    ),
+    // Keep broker-prefixed methods for backward compatibility with older clients.
+    widenActionSpec(
+      createStatusSpec("broker.status", "broker:status", "broker.status"),
+    ),
+    widenActionSpec(
+      createStopSpec("broker.stop", "broker:stop", "broker.stop"),
+    ),
+  ];
 }

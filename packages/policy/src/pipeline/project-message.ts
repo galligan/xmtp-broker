@@ -60,7 +60,7 @@ export function projectMessage(
     content,
     visibility,
     sentAt: message.sentAt,
-    attestationId: message.attestationId,
+    sealId: message.sealId,
   };
 
   return { action: "emit", event };

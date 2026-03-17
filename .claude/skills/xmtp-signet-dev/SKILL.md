@@ -1,16 +1,16 @@
 ---
-name: xmtp-broker-dev
+name: xmtp-signet-dev
 description: >
-  Work on the xmtp-broker codebase — add features, fix bugs, write handlers,
+  Work on the xmtp-signet codebase — add features, fix bugs, write handlers,
   extend transports, create schemas, and understand the architecture. Teaches
   the handler contract, package tiers, error taxonomy, Result types, and testing
   patterns. Use this skill whenever working on any packages/* code, adding a new
-  feature to the broker, writing or modifying a handler, creating or updating
-  Zod schemas, extending a transport adapter, debugging broker internals,
+  feature to the signet, writing or modifying a handler, creating or updating
+  Zod schemas, extending a transport adapter, debugging signet internals,
   understanding how the packages relate, or asking "where does this code go?"
 ---
 
-# Working on xmtp-broker
+# Working on xmtp-signet
 
 > [!IMPORTANT]
 > **Core security invariant:** The harness never touches raw keys, raw DB, or
@@ -19,7 +19,7 @@ description: >
 
 ## Where does my code go?
 
-Start here. The broker is 9 packages organized into three tiers. Dependencies
+Start here. The signet is 9 packages organized into three tiers. Dependencies
 flow downward only — never import from a higher tier.
 
 ```
@@ -70,13 +70,13 @@ For the full package API surface, see `references/packages.md`.
 All domain logic uses transport-agnostic handlers:
 
 ```typescript
-type Handler<TInput, TOutput, TError extends BrokerError> = (
+type Handler<TInput, TOutput, TError extends SignetError> = (
   input: TInput,
   ctx: HandlerContext,
 ) => Promise<Result<TOutput, TError>>;
 ```
 
-Note: `HandlerContext` is the planned canonical type. The current implementation uses `CoreContext` from `@xmtp-broker/contracts`.
+Note: `HandlerContext` is the planned canonical type. The current implementation uses `CoreContext` from `@xmtp/signet-contracts`.
 
 **Rules:**
 - Handlers receive pre-validated input (Zod parsing happens at the transport
@@ -146,14 +146,14 @@ transports:
 | `timeout`    | Operation exceeded time limit         | Yes       |
 | `cancelled`  | Cancelled by signal or user           | No        |
 
-Use the error constructors from `@xmtp-broker/schemas`:
+Use the error constructors from `@xmtp/signet-schemas`:
 
 ```typescript
 import {
   ValidationError,
   PermissionError,
   NotFoundError,
-} from "@xmtp-broker/schemas";
+} from "@xmtp/signet-schemas";
 ```
 
 ## Schema-first types
@@ -235,7 +235,7 @@ Use `ws` as the template. A transport adapter:
 3. Validates session tokens via the auth handler
 4. Routes requests through the handler contract
 5. Formats Result values into protocol-specific responses
-6. Broadcasts events from the broker to connected harnesses
+6. Broadcasts events from the signet to connected harnesses
 
 The transport never contains domain logic. If you're writing an `if` statement
 about grants or views inside a transport adapter, that logic belongs in

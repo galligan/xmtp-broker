@@ -1,28 +1,26 @@
 # Remaining Work: Phase 1 Completion and Phase 2 Delivery
 
 **Created:** 2026-03-17
+**Updated:** 2026-03-17
 **Context:** Phase 2C (Convos interop, conversation management, devnet connectivity) is complete across 38 stacked PRs. This document tracks what remains before the signet is feature-complete for Phase 1 (PRD) and ready for Phase 2 delivery to external developers.
 
-**Note:** The rename from xmtp-broker to XMTP Signet is planned but not yet executed. See [RENAME-SIGNET.md](RENAME-SIGNET.md) for the full plan. This document uses "signet" for forward-looking items and "broker" where referring to current code.
+**Note:** The XMTP Signet rename is now complete in the live code and public runtime surface. This document reflects the current `signet` naming. Historical planning notes may still use `broker` or `attestation` terminology where they describe earlier design phases.
 
 ## Current State
 
-The broker runs on XMTP devnet with:
+The signet runs on XMTP devnet with:
 - Dual-identity registration and management
 - Group creation, listing, info, add-member, members
 - Convos invite generate/parse/verify/join roundtrip
 - Session-scoped WebSocket with policy enforcement
+- WebSocket event streaming and heartbeat/liveness handling
 - Vault-backed key hierarchy (root, operational, session)
+- Seal lifecycle and Ed25519 seal stamping in package/integration flows
+- Session-scoped MCP transport with conversation tools wired from ActionSpecs
 - Reference verifier (trust chain, seal chain)
 - CLI daemon with admin socket
 
 Validated end-to-end via tracer bullet on devnet (17/17 steps, 3 bugs fixed).
-
----
-
-## Pre-Merge: Rename to XMTP Signet
-
-Execute as a single mechanical commit after the current stack merges to main. See [RENAME-SIGNET.md](RENAME-SIGNET.md) for the full terminology map and execution plan.
 
 ---
 
@@ -54,107 +52,73 @@ Items the PRD scopes to Phase 1 that are not yet complete.
 
 ---
 
-### P1-3: Event Stream (Signet → Harness)
-
-**What:** Implement canonical signet events and stream them to connected WebSocket clients.
-
-**Why:** The PRD defines 15 event types. Currently the broker emits raw XMTP events internally but doesn't project them to harness clients. The WebSocket connection is request/response only — no server-initiated events. Without this, agents can't react to incoming messages.
-
-**Events to implement (priority order):**
-1. `message.visible` — new message in the agent's view scope
-2. `session.expired` — session reached its `expiresAt`
-3. `message.visible.historical` — backfill of messages from before the session started
-4. `view.updated` — view scope changed (when editing is implemented)
-5. `grant.updated` — grant scope changed
-6. `seal.stamped` — new seal applied
-
-**Scope:** `packages/ws/` for the WebSocket streaming, `packages/core/` for event projection through the policy engine (filter events by session view).
-
-**Effort:** Medium-large. The raw event infrastructure exists (`streamAllMessages`, `streamGroups`). Needs: event type schemas, view-scoped filtering, WebSocket push frames, client SDK event handlers.
-
----
-
-### P1-4: Heartbeat and Liveness
-
-**What:** Implement heartbeat signals so clients can detect signet liveness. The seal includes a `heartbeatInterval` field; clients should be able to infer "agent unreachable" when the interval is exceeded.
-
-**Why:** PRD section "Liveness and Graceful Degradation" — without heartbeats, a crashed signet is indistinguishable from an agent that chooses not to respond.
-
-**Scope:** `packages/ws/` — periodic ping/pong or lightweight keepalive frames. `packages/sessions/` — heartbeat interval in session/seal metadata.
-
-**Effort:** Small. WebSocket ping/pong is mostly built-in. The seal field already exists in the schema.
-
----
-
 ## Phase 2 Gaps (from PRD)
 
-### P2-1: MCP Transport Wiring
-
-**What:** Wire conversation ActionSpecs as MCP tools. Currently the MCP server exists with session-scoped tool infrastructure but conversation actions aren't exposed.
-
-**Effort:** Small-medium.
-
-### P2-2: Deployment Templates
+### P2-1: Deployment Templates
 
 **What:** Dockerfile, docker-compose.yml, Railway template for running the signet outside the source tree.
 
 **Effort:** Small-medium.
 
-### P2-3: Full Seal Signing
+### P2-2: Runtime Seal Publishing Wiring
 
-**What:** Replace seal signer/publisher stubs with real Ed25519 signing and XMTP message publishing.
+**What:** Replace the CLI/runtime startup stubs in `packages/cli/src/start.ts` with real seal manager wiring so daemon-issued sessions and group operations publish real seals through the runtime composition root.
+
+**Why:** The package layer already has real Ed25519 seal stamping and publish interfaces, and integration tests exercise that path. The remaining gap is the production runtime composition root, which still creates a stub signer/publisher during startup.
 
 **Effort:** Medium.
 
-### P2-4: Build Provenance Verification
+### P2-3: Build Provenance Verification
 
 **What:** Real Sigstore/GitHub OIDC verification in the verifier (currently v0 stub).
 
 **Effort:** Medium.
 
-### P2-5: Session Permission Editing
+### P2-4: Session Permission Editing
 
 **What:** Modify a session's view/grant without revoke + reissue.
 
 **Effort:** Medium.
 
-### P2-6: HTTP API Adapter
+### P2-5: HTTP API Adapter
 
 **What:** REST API for non-streaming operations.
 
 **Effort:** Medium.
 
-### P2-7: Action Confirmations
+### P2-6: Action Confirmations
 
 **What:** Confirmation flow for sensitive actions (tool calls, group management).
 
 **Effort:** Medium-large.
 
+### P2-7: Historical Docs Terminology Cleanup
+
+**What:** Update historical plans, skills, and notes that still say `broker` / `attestation` where they now refer to `signet` / `seal`.
+
+**Why:** The live code and public runtime surface are renamed, but hidden docs under `.agents/`, `.claude/`, and `.trail/` still contain older terminology. This is not a runtime blocker, but it does create friction for future agent and contributor onboarding.
+
+**Effort:** Small-medium.
+
 ---
 
 ## Suggested Execution Order
 
-### Next: Rename to XMTP Signet
-
-Single mechanical commit after the current stack merges. See RENAME-SIGNET.md.
-
-### Then: Phase 1 Close-Out
+### Next: Phase 1 Close-Out
 
 | Order | Item | Effort | Rationale |
 |-------|------|--------|-----------|
-| 1 | P1-4: Heartbeat/Liveness | Small | Quick win, closes a PRD gap |
-| 2 | P1-3: Event Stream | Medium-large | Unlocks real-time agent UX |
-| 3 | P1-2: Reveal-Only View Mode | Medium | Core privacy feature |
-| 4 | P2-1: MCP Transport Wiring | Small-medium | Enables agent framework integration |
-| 5 | P2-3: Full Seal Signing | Medium | Makes trust chain real |
-| 6 | P1-1: Secure Enclave | Large | Platform-specific, can ship without on Linux |
+| 1 | P1-2: Reveal-Only View Mode | Medium | Core privacy feature still missing from Phase 1 |
+| 2 | P1-1: Secure Enclave | Large | Important PRD security gap; platform-specific |
+| 3 | P2-2: Runtime Seal Publishing Wiring | Medium | Completes the production seal path |
 
 ### Follow-On: Phase 2 Delivery
 
 | Order | Item | Effort |
 |-------|------|--------|
-| 7 | P2-2: Deployment Templates | Small-medium |
-| 8 | P2-4: Build Provenance | Medium |
-| 9 | P2-5: Session Permission Editing | Medium |
-| 10 | P2-6: HTTP API | Medium |
-| 11 | P2-7: Action Confirmations | Medium-large |
+| 4 | P2-1: Deployment Templates | Small-medium |
+| 5 | P2-3: Build Provenance | Medium |
+| 6 | P2-4: Session Permission Editing | Medium |
+| 7 | P2-5: HTTP API | Medium |
+| 8 | P2-6: Action Confirmations | Medium-large |
+| 9 | P2-7: Historical Docs Terminology Cleanup | Small-medium |

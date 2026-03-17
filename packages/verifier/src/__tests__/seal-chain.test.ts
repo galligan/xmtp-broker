@@ -1,30 +1,27 @@
 import { describe, expect, test } from "bun:test";
-import { createAttestationChainCheck } from "../checks/attestation-chain.js";
-import {
-  createTestVerificationRequest,
-  createTestAttestation,
-} from "./fixtures.js";
+import { createSealChainCheck } from "../checks/seal-chain.js";
+import { createTestVerificationRequest, createTestSeal } from "./fixtures.js";
 
-describe("attestation_chain check", () => {
-  test("skips when no attestation provided", async () => {
-    const check = createAttestationChainCheck();
+describe("seal_chain check", () => {
+  test("skips when no seal provided", async () => {
+    const check = createSealChainCheck();
     const result = await check.execute(
-      createTestVerificationRequest({ attestation: null }),
+      createTestVerificationRequest({ seal: null }),
     );
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.verdict).toBe("skip");
-      expect(result.value.checkId).toBe("attestation_chain");
+      expect(result.value.checkId).toBe("seal_chain");
     }
   });
 
-  test("passes for initial attestation (null previous)", async () => {
-    const check = createAttestationChainCheck();
+  test("passes for initial seal (null previous)", async () => {
+    const check = createSealChainCheck();
     const result = await check.execute(
       createTestVerificationRequest({
-        attestation: createTestAttestation({
-          previousAttestationId: null,
+        seal: createTestSeal({
+          previousSealId: null,
         }),
       }),
     );
@@ -32,17 +29,17 @@ describe("attestation_chain check", () => {
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
       expect(result.value.verdict).toBe("pass");
-      expect(result.value.reason).toContain("Initial attestation");
+      expect(result.value.reason).toContain("Initial seal");
     }
   });
 
-  test("passes for attestation with valid previous ID", async () => {
-    const check = createAttestationChainCheck();
+  test("passes for seal with valid previous ID", async () => {
+    const check = createSealChainCheck();
     const result = await check.execute(
       createTestVerificationRequest({
-        attestation: createTestAttestation({
-          attestationId: "att-002",
-          previousAttestationId: "att-001",
+        seal: createTestSeal({
+          sealId: "att-002",
+          previousSealId: "att-001",
         }),
       }),
     );
@@ -54,13 +51,13 @@ describe("attestation_chain check", () => {
     }
   });
 
-  test("fails when attestation references itself", async () => {
-    const check = createAttestationChainCheck();
+  test("fails when seal references itself", async () => {
+    const check = createSealChainCheck();
     const result = await check.execute(
       createTestVerificationRequest({
-        attestation: createTestAttestation({
-          attestationId: "att-001",
-          previousAttestationId: "att-001",
+        seal: createTestSeal({
+          sealId: "att-001",
+          previousSealId: "att-001",
         }),
       }),
     );
@@ -73,12 +70,12 @@ describe("attestation_chain check", () => {
   });
 
   test("includes chain evidence", async () => {
-    const check = createAttestationChainCheck();
+    const check = createSealChainCheck();
     const result = await check.execute(
       createTestVerificationRequest({
-        attestation: createTestAttestation({
-          attestationId: "att-002",
-          previousAttestationId: "att-001",
+        seal: createTestSeal({
+          sealId: "att-002",
+          previousSealId: "att-001",
         }),
       }),
     );

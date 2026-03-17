@@ -63,7 +63,7 @@ Protocol adapters. Each transport is a thin layer that maps protocol concerns to
 
 SDK for harness developers. Lives outside the signet's runtime boundary.
 
-**`@xmtp/signet-handler`** — Client SDK for agent harnesses. Provides `SignetHandler`, a WebSocket client with typed events (`AsyncIterable<SignetEvent>`), Result-based request methods (`sendMessage`, `sendReaction`, `listConversations`), automatic reconnection with exponential backoff, and a connection state machine (disconnected → connecting → authenticating → connected → reconnecting → closed). No runtime dependencies beyond `@xmtp/signet-schemas` and `better-result`.
+**`@xmtp/signet-sdk`** — Client SDK for agent harnesses. Provides `BrokerHandler`, a WebSocket client with typed events (`AsyncIterable<SignetEvent>`), Result-based request methods (`sendMessage`, `sendReaction`, `listConversations`), automatic reconnection with exponential backoff, and a connection state machine (disconnected → connecting → authenticating → connected → reconnecting → closed). No runtime dependencies beyond `@xmtp/signet-schemas` and `better-result`.
 
 ### Test
 

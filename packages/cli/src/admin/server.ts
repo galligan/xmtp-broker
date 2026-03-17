@@ -71,7 +71,7 @@ export function createAdminServer(
 ): AdminServer {
   let serverState: "idle" | "listening" | "stopped" = "idle";
   let listener: ReturnType<typeof Bun.listen> | undefined;
-  const socketPath = config.socketPath ?? "/tmp/xmtp-broker/admin.sock";
+  const socketPath = config.socketPath ?? "/tmp/xmtp-signet/admin.sock";
 
   const connectionStates = new WeakMap<object, ConnectionState>();
 

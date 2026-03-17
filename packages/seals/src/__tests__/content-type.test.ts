@@ -1,21 +1,24 @@
 import { describe, expect, test } from "bun:test";
 import {
-  ATTESTATION_CONTENT_TYPE_ID,
+  SEAL_CONTENT_TYPE_ID,
   REVOCATION_CONTENT_TYPE_ID,
-  AttestationMessage,
+  SealMessage,
   RevocationMessage,
-  encodeAttestationMessage,
+  encodeSealMessage,
   encodeRevocationMessage,
 } from "../content-type.js";
-import type { Seal, SignedRevocationEnvelope } from "@xmtp/signet-contracts";
-import type { Attestation, RevocationAttestation } from "@xmtp/signet-schemas";
+import type {
+  SealEnvelope,
+  SignedRevocationEnvelope,
+} from "@xmtp/signet-contracts";
+import type { Seal, RevocationSeal } from "@xmtp/signet-schemas";
 
-/** Minimal valid signed attestation for testing codec functions. */
-function stubSeal(): Seal {
+/** Minimal valid signed seal for testing codec functions. */
+function stubSeal(): SealEnvelope {
   return {
-    attestation: {
-      attestationId: "att_00000000000000000000000000000001",
-      previousAttestationId: null,
+    seal: {
+      sealId: "att_00000000000000000000000000000001",
+      previousSealId: null,
       agentInboxId: "agent-1",
       ownerInboxId: "owner-1",
       groupId: "group-1",
@@ -44,7 +47,7 @@ function stubSeal(): Seal {
         adminCanRemove: true,
       },
       issuer: "broker-1",
-    } as Attestation,
+    } as Seal,
     signature: "dGVzdA==",
     signatureAlgorithm: "Ed25519",
     signerKeyRef: "test-key",
@@ -55,14 +58,14 @@ function stubSeal(): Seal {
 function stubSignedRevocation(): SignedRevocationEnvelope {
   return {
     revocation: {
-      attestationId: "att_00000000000000000000000000000002",
-      previousAttestationId: "att_00000000000000000000000000000001",
+      sealId: "att_00000000000000000000000000000002",
+      previousSealId: "att_00000000000000000000000000000001",
       agentInboxId: "agent-1",
       groupId: "group-1",
       reason: "owner-initiated",
       revokedAt: new Date().toISOString(),
       issuer: "broker-1",
-    } as RevocationAttestation,
+    } as RevocationSeal,
     signature: "dGVzdA==",
     signatureAlgorithm: "Ed25519",
     signerKeyRef: "test-key",
@@ -70,8 +73,8 @@ function stubSignedRevocation(): SignedRevocationEnvelope {
 }
 
 describe("content type IDs", () => {
-  test("ATTESTATION_CONTENT_TYPE_ID follows authority/type:version format", () => {
-    expect(ATTESTATION_CONTENT_TYPE_ID).toBe("xmtp.org/agentAttestation:1.0");
+  test("SEAL_CONTENT_TYPE_ID follows authority/type:version format", () => {
+    expect(SEAL_CONTENT_TYPE_ID).toBe("xmtp.org/agentSeal:1.0");
   });
 
   test("REVOCATION_CONTENT_TYPE_ID follows authority/type:version format", () => {
@@ -79,23 +82,23 @@ describe("content type IDs", () => {
   });
 
   test("content type IDs are distinct", () => {
-    expect(ATTESTATION_CONTENT_TYPE_ID).not.toBe(REVOCATION_CONTENT_TYPE_ID);
+    expect(SEAL_CONTENT_TYPE_ID).not.toBe(REVOCATION_CONTENT_TYPE_ID);
   });
 });
 
-describe("encodeAttestationMessage", () => {
-  test("wraps signed attestation with contentType field", () => {
+describe("encodeSealMessage", () => {
+  test("wraps signed seal with contentType field", () => {
     const envelope = stubSeal();
-    const message = encodeAttestationMessage(envelope);
-    expect(message.contentType).toBe(ATTESTATION_CONTENT_TYPE_ID);
-    expect(message.attestation).toBe(envelope.attestation);
+    const message = encodeSealMessage(envelope);
+    expect(message.contentType).toBe(SEAL_CONTENT_TYPE_ID);
+    expect(message.seal).toBe(envelope.seal);
     expect(message.signature).toBe(envelope.signature);
   });
 
-  test("result validates against AttestationMessage schema", () => {
+  test("result validates against SealMessage schema", () => {
     const envelope = stubSeal();
-    const message = encodeAttestationMessage(envelope);
-    const parsed = AttestationMessage.safeParse(message);
+    const message = encodeSealMessage(envelope);
+    const parsed = SealMessage.safeParse(message);
     expect(parsed.success).toBe(true);
   });
 });
@@ -117,16 +120,16 @@ describe("encodeRevocationMessage", () => {
   });
 });
 
-describe("AttestationMessage schema", () => {
+describe("SealMessage schema", () => {
   test("rejects messages without contentType", () => {
     const envelope = stubSeal();
-    const parsed = AttestationMessage.safeParse(envelope);
+    const parsed = SealMessage.safeParse(envelope);
     expect(parsed.success).toBe(false);
   });
 
   test("rejects messages with wrong contentType", () => {
     const envelope = stubSeal();
-    const parsed = AttestationMessage.safeParse({
+    const parsed = SealMessage.safeParse({
       ...envelope,
       contentType: "wrong/type:1.0",
     });

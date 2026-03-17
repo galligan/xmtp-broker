@@ -29,7 +29,7 @@ inferred types (including action result and pagination schemas). `contracts`
 defines service interfaces, provider interfaces, the `ActionSpec`/`ActionRegistry`
 system, `HandlerContext`, and `ActionResult` envelope.
 
-**Runtime** — Core broker functionality. Each package has a focused
+**Runtime** — Core signet functionality. Each package has a focused
 responsibility. `core` is the only package that touches the XMTP SDK (now wired
 via `createSdkClientFactory`). `policy` handles all filtering and grant
 enforcement. `keys` manages the cryptographic hierarchy plus admin keys and JWT.

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "bin": {
-    "xmtp-broker-mcp": "./src/bin/mcp-server.ts"
+    "xmtp-signet-mcp": "./src/bin/mcp-server.ts"
   },
   "type": "module",
   "exports": {

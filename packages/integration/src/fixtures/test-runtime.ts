@@ -12,7 +12,7 @@ import { join } from "node:path";
 import type { SignetError } from "@xmtp/signet-schemas";
 import type {
   SealPublisher,
-  Seal,
+  SealEnvelope,
   SignedRevocationEnvelope,
 } from "@xmtp/signet-contracts";
 import { SignetCoreImpl } from "@xmtp/signet-core";
@@ -35,11 +35,11 @@ import {
   type MockXmtpClientFactory,
 } from "./mock-xmtp-factory.js";
 
-/** In-memory attestation publisher that records publications. */
+/** In-memory seal publisher that records publications. */
 function createTestPublisher(): SealPublisher & {
   readonly published: ReadonlyArray<{
     groupId: string;
-    attestation: Seal;
+    seal: SealEnvelope;
   }>;
   readonly revokedPublished: ReadonlyArray<{
     groupId: string;
@@ -48,7 +48,7 @@ function createTestPublisher(): SealPublisher & {
 } {
   const published: Array<{
     groupId: string;
-    attestation: Seal;
+    seal: SealEnvelope;
   }> = [];
   const revokedPublished: Array<{
     groupId: string;
@@ -62,8 +62,8 @@ function createTestPublisher(): SealPublisher & {
     get revokedPublished() {
       return revokedPublished;
     },
-    async publish(groupId, attestation) {
-      published.push({ groupId, attestation });
+    async publish(groupId, seal) {
+      published.push({ groupId, seal });
       return Result.ok(undefined);
     },
     async publishRevocation(groupId, revocation) {
@@ -77,7 +77,7 @@ export interface TestRuntime {
   readonly keyManager: KeyManager;
   readonly broker: SignetCoreImpl;
   readonly sessionManager: InternalSessionManager;
-  readonly attestationManager: SealManagerImpl;
+  readonly sealManager: SealManagerImpl;
   readonly publisher: ReturnType<typeof createTestPublisher>;
   readonly wsServer: WsServer;
   readonly wsPort: number;
@@ -105,7 +105,7 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
   };
   cleanup: () => Promise<void>;
 }> {
-  const dataDir = await mkdtemp(join(tmpdir(), "xmtp-broker-test-"));
+  const dataDir = await mkdtemp(join(tmpdir(), "xmtp-signet-test-"));
   const groupId = options?.groupId ?? "test-group";
 
   // 1. Key manager
@@ -185,12 +185,12 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
     ...options?.sessionConfig,
   });
 
-  // 5. Attestation manager
-  const attestationSigner = createSealStamper(keyManager, identityId);
+  // 5. Seal manager
+  const sealStamper = createSealStamper(keyManager, identityId);
   const publisher = createTestPublisher();
 
-  const attestationDeps: SealManagerDeps = {
-    signer: attestationSigner,
+  const sealManagerDeps: SealManagerDeps = {
+    signer: sealStamper,
     publisher,
     resolveInput: async (sessionId, gId) => {
       const session = sessionManager.getSessionById(sessionId);
@@ -226,7 +226,7 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
       });
     },
   };
-  const attestationManager = createSealManager(attestationDeps);
+  const sealManager = createSealManager(sealManagerDeps);
 
   // 6. Token lookup for WS
   const tokenLookup = async (token: string) => {
@@ -403,7 +403,7 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
           return Result.ok(result.value.state === "active");
         },
       },
-      attestationManager,
+      sealManager,
       tokenLookup,
       requestHandler,
     },
@@ -432,7 +432,7 @@ export async function createTestRuntime(options?: TestRuntimeOptions): Promise<{
     keyManager,
     broker,
     sessionManager,
-    attestationManager,
+    sealManager,
     publisher,
     wsServer,
     wsPort,

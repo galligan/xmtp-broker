@@ -26,11 +26,11 @@ import { createBrokerActions } from "./actions/broker-actions.js";
 // Types
 // ---------------------------------------------------------------------------
 
-/** The fully wired broker runtime returned by the composition root. */
+/** The fully wired signet runtime returned by the composition root. */
 export interface SignetRuntime {
   readonly core: SignetCore;
   readonly sessionManager: SessionManager;
-  readonly attestationManager: SealManager;
+  readonly sealManager: SealManager;
   readonly keyManager: KeyManager;
   readonly wsServer: WsServer;
   readonly adminServer: AdminServer;
@@ -89,7 +89,7 @@ export interface SignetRuntimeDeps {
 // ---------------------------------------------------------------------------
 
 /**
- * Composition root: wire all broker packages into a running runtime.
+ * Composition root: wire all signet packages into a running runtime.
  *
  * The `deps` parameter enables full dependency injection for testing.
  * In production, pass the real factory functions from each package.
@@ -119,8 +119,8 @@ export async function createSignetRuntime(
   // -- Step 2: Create remaining services --
   const core = deps.createSignetCore(
     {
-      env: config.broker.env,
-      identityMode: config.broker.identityMode,
+      env: config.signet.env,
+      identityMode: config.signet.identityMode,
       dataDir: paths.dataDir,
     },
     null, // signerFactory -- wired by production code
@@ -135,14 +135,14 @@ export async function createSignetRuntime(
     keyManager,
   );
 
-  const attestationManager = deps.createSealManager({});
+  const sealManager = deps.createSealManager({});
 
   const wsServer = deps.createWsServer(
     { port: config.ws.port, host: config.ws.host },
     {
       core,
       sessionManager,
-      attestationManager,
+      sealManager,
     },
   );
 
@@ -218,7 +218,7 @@ export async function createSignetRuntime(
     {
       keyManager,
       dispatcher: createAdminDispatcher(registry),
-      brokerId: "broker",
+      brokerId: "signet",
       signerProvider: adminSignerStub,
     },
   );
@@ -227,7 +227,7 @@ export async function createSignetRuntime(
   const runtime: SignetRuntime = {
     core,
     sessionManager,
-    attestationManager,
+    sealManager,
     keyManager,
     wsServer,
     adminServer,
@@ -258,8 +258,8 @@ export async function createSignetRuntime(
           ? sessionsResult.value.length
           : 0,
         activeConnections: wsServer.connectionCount,
-        xmtpEnv: config.broker.env,
-        identityMode: config.broker.identityMode,
+        xmtpEnv: config.signet.env,
+        identityMode: config.signet.identityMode,
         wsPort: boundWsPort,
         version: "0.1.0",
         identityCount: identitySnapshot.length,
@@ -289,7 +289,7 @@ export async function createSignetRuntime(
           return initResult;
         }
 
-        // 2. Initialize broker core locally
+        // 2. Initialize signet core locally
         const coreLocalResult = await core.initializeLocal();
         if (Result.isError(coreLocalResult)) {
           currentState = "error";
@@ -297,7 +297,7 @@ export async function createSignetRuntime(
         }
 
         // 2b. Attempt network startup if env is not "local"
-        if (config.broker.env !== "local") {
+        if (config.signet.env !== "local") {
           const coreNetworkResult = await core.initialize();
           if (Result.isError(coreNetworkResult)) {
             // Graceful degradation: log and continue in local mode
@@ -407,7 +407,7 @@ export async function createSignetRuntime(
           errors.push(`ws: ${wsStopResult.error.message}`);
         }
 
-        // 3. Stop broker core
+        // 3. Stop signet core
         const coreStopResult = await core.shutdown();
         if (Result.isError(coreStopResult)) {
           errors.push(`core: ${coreStopResult.error.message}`);

@@ -224,18 +224,21 @@ describe("contract-verification", () => {
     };
 
     // SealManager contract
-    const _attestationManager: SealManager = {
+    const _sealManager: SealManager = {
       async issue(_sessionId, _groupId) {
         return Result.err(InternalError.create("stub"));
       },
-      async refresh(_attestationId) {
+      async refresh(_sealId) {
         return Result.err(InternalError.create("stub"));
       },
-      async revoke(_attestationId, _reason) {
+      async revoke(_sealId, _reason) {
         return Result.ok(undefined);
       },
       async current(_agentInboxId, _groupId) {
         return Result.ok(null);
+      },
+      needsRenewal(_seal) {
+        return false;
       },
     };
 
@@ -261,7 +264,7 @@ describe("contract-verification", () => {
     };
 
     // SealStamper contract
-    const _attestationSigner: SealStamper = {
+    const _sealStamper: SealStamper = {
       async sign(_payload) {
         return Result.err(InternalError.create("stub") as SignetError);
       },
@@ -273,8 +276,8 @@ describe("contract-verification", () => {
     // If we reach here without type errors, all contracts are satisfied
     expect(_brokerCore).toBeDefined();
     expect(_sessionManager).toBeDefined();
-    expect(_attestationManager).toBeDefined();
+    expect(_sealManager).toBeDefined();
     expect(_signerProvider).toBeDefined();
-    expect(_attestationSigner).toBeDefined();
+    expect(_sealStamper).toBeDefined();
   });
 });

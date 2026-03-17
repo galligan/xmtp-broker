@@ -6,8 +6,8 @@ import {
   HostingMode,
   TrustTier,
   RevocationRules,
-  AttestationSchema,
-} from "../attestation.js";
+  SealSchema,
+} from "../seal.js";
 
 describe("InferenceMode", () => {
   it("accepts all valid modes", () => {
@@ -96,12 +96,12 @@ describe("RevocationRules", () => {
   });
 });
 
-function createValidAttestation(
+function createValidSeal(
   overrides?: Record<string, unknown>,
 ): Record<string, unknown> {
   return {
-    attestationId: "att-001",
-    previousAttestationId: null,
+    sealId: "att-001",
+    previousSealId: null,
     agentInboxId: "agent-inbox-1",
     ownerInboxId: "owner-inbox-1",
     groupId: "group-1",
@@ -134,21 +134,21 @@ function createValidAttestation(
   };
 }
 
-describe("AttestationSchema", () => {
-  it("accepts a valid full attestation", () => {
-    const result = AttestationSchema.safeParse(createValidAttestation());
+describe("SealSchema", () => {
+  it("accepts a valid full seal", () => {
+    const result = SealSchema.safeParse(createValidSeal());
     expect(result.success).toBe(true);
   });
 
   it("has exactly 25 fields", () => {
-    const keys = Object.keys(AttestationSchema.shape);
+    const keys = Object.keys(SealSchema.shape);
     expect(keys).toHaveLength(25);
   });
 
   it("defaults heartbeatInterval to 30", () => {
-    const input = createValidAttestation();
+    const input = createValidSeal();
     delete input["heartbeatInterval"];
-    const result = AttestationSchema.safeParse(input);
+    const result = SealSchema.safeParse(input);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.heartbeatInterval).toBe(30);
@@ -156,15 +156,15 @@ describe("AttestationSchema", () => {
   });
 
   it("rejects undefined for nullable fields (must be explicit null)", () => {
-    const input = createValidAttestation();
+    const input = createValidSeal();
     delete input["buildProvenanceRef"];
-    expect(AttestationSchema.safeParse(input).success).toBe(false);
+    expect(SealSchema.safeParse(input).success).toBe(false);
   });
 
   it("accepts null for all nullable fields", () => {
-    const result = AttestationSchema.safeParse(
-      createValidAttestation({
-        previousAttestationId: null,
+    const result = SealSchema.safeParse(
+      createValidSeal({
+        previousSealId: null,
         threadScope: null,
         buildProvenanceRef: null,
         verifierStatementRef: null,
@@ -176,24 +176,20 @@ describe("AttestationSchema", () => {
 
   it("rejects invalid datetime format", () => {
     expect(
-      AttestationSchema.safeParse(
-        createValidAttestation({ issuedAt: "not-a-date" }),
-      ).success,
+      SealSchema.safeParse(createValidSeal({ issuedAt: "not-a-date" })).success,
     ).toBe(false);
   });
 
   it("rejects invalid viewMode", () => {
     expect(
-      AttestationSchema.safeParse(createValidAttestation({ viewMode: "bad" }))
-        .success,
+      SealSchema.safeParse(createValidSeal({ viewMode: "bad" })).success,
     ).toBe(false);
   });
 
   it("rejects invalid content type in contentTypes array", () => {
     expect(
-      AttestationSchema.safeParse(
-        createValidAttestation({ contentTypes: ["invalid"] }),
-      ).success,
+      SealSchema.safeParse(createValidSeal({ contentTypes: ["invalid"] }))
+        .success,
     ).toBe(false);
   });
 });

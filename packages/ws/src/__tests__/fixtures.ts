@@ -153,7 +153,7 @@ export function createMockSealManager(): SealManager {
     async issue() {
       return Result.ok({
         envelope: {
-          attestation: {},
+          seal: {},
           signature: new Uint8Array(),
           publicKey: new Uint8Array(),
         },
@@ -182,7 +182,7 @@ export function createMockDeps(validToken = "valid_token"): {
     deps: {
       sessionManager,
       core: createMockSignetCore(),
-      attestationManager: createMockSealManager(),
+      sealManager: createMockSealManager(),
       tokenLookup: async (token: string) => {
         if (
           token ===

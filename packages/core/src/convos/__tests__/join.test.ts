@@ -183,7 +183,7 @@ function createDeps(overrides?: {
     config: {
       dataDir: ":memory:",
       env: "dev",
-      appVersion: "xmtp-broker/test",
+      appVersion: "xmtp-signet/test",
     },
   };
 }
@@ -317,7 +317,7 @@ describe("joinConversation", () => {
       config: {
         dataDir: ":memory:",
         env: "dev",
-        appVersion: "xmtp-broker/test",
+        appVersion: "xmtp-signet/test",
       },
     };
 

@@ -27,7 +27,7 @@ const _VerifierCapabilities = z
 export const VerifierCapabilities: z.ZodType<VerifierCapabilities> =
   _VerifierCapabilities;
 
-export type VerifierSelfAttestation = {
+export type VerifierSelfSeal = {
   verifierInboxId: string;
   capabilities: VerifierCapabilities;
   sourceRepoUrl: string;
@@ -35,19 +35,15 @@ export type VerifierSelfAttestation = {
   signature: string;
 };
 
-export const VerifierSelfAttestationSchema: z.ZodType<VerifierSelfAttestation> =
-  z
-    .object({
-      verifierInboxId: z.string().describe("XMTP inbox ID of this verifier"),
-      capabilities: _VerifierCapabilities.describe("What this verifier can do"),
-      sourceRepoUrl: z
-        .string()
-        .url()
-        .describe("URL of the verifier's source code"),
-      issuedAt: z
-        .string()
-        .datetime()
-        .describe("When this self-attestation was created"),
-      signature: z.string().describe("Base64-encoded self-signature"),
-    })
-    .describe("Self-attestation published by the verifier");
+export const VerifierSelfSealSchema: z.ZodType<VerifierSelfSeal> = z
+  .object({
+    verifierInboxId: z.string().describe("XMTP inbox ID of this verifier"),
+    capabilities: _VerifierCapabilities.describe("What this verifier can do"),
+    sourceRepoUrl: z
+      .string()
+      .url()
+      .describe("URL of the verifier's source code"),
+    issuedAt: z.string().datetime().describe("When this self-seal was created"),
+    signature: z.string().describe("Base64-encoded self-seal signature"),
+  })
+  .describe("Self-seal published by the verifier");

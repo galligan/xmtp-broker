@@ -36,15 +36,15 @@ export class SealError extends Error implements SignetError {
 
   constructor(
     message: string,
-    readonly context: { attestationId: string } & Record<string, unknown>,
+    readonly context: { sealId: string } & Record<string, unknown>,
   ) {
     super(message);
     this.name = "SealError";
   }
 
-  static create(attestationId: string, reason: string): SealError {
-    return new SealError(`Seal '${attestationId}': ${reason}`, {
-      attestationId,
+  static create(sealId: string, reason: string): SealError {
+    return new SealError(`Seal '${sealId}': ${reason}`, {
+      sealId,
       reason,
     });
   }

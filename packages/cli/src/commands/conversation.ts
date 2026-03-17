@@ -30,7 +30,7 @@ const defaultDeps: ConversationCommandDeps = {
 /**
  * Conversation operation commands. All require daemon and admin auth.
  *
- * - list: List conversations the broker participates in
+ * - list: List conversations the signet participates in
  * - info: Show group metadata
  * - create: Create a new group conversation
  * - add-member: Add a member to a group

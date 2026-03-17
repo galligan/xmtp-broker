@@ -9,7 +9,7 @@ export const RELEASE_SIGNING_CHECK_ID = "release_signing" as const;
 /**
  * Verifies the release artifact is signed.
  * v0: stub that returns "skip" since full GitHub API
- * attestation verification is deferred.
+ * release-signing verification is deferred.
  */
 export function createReleaseSigningCheck(): CheckHandler {
   return {

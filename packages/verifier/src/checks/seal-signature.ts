@@ -4,39 +4,39 @@ import type { VerificationCheck } from "../schemas/check.js";
 import type { VerificationRequest } from "../schemas/request.js";
 import type { CheckHandler } from "./handler.js";
 
-export const ATTESTATION_SIGNATURE_CHECK_ID = "attestation_signature" as const;
+export const SEAL_SIGNATURE_CHECK_ID = "seal_signature" as const;
 
 /**
- * Verifies the attestation's cryptographic signature.
- * v0: structural check -- verifies the attestation has all required
+ * Verifies the seal's cryptographic signature.
+ * v0: structural check -- verifies the seal has all required
  * fields and that the issuer field is present. Full Ed25519 verification
  * against the agent's inbox key requires XMTP identity lookup, which
  * is deferred.
  */
-export function createAttestationSignatureCheck(): CheckHandler {
+export function createSealSignatureCheck(): CheckHandler {
   return {
-    checkId: ATTESTATION_SIGNATURE_CHECK_ID,
+    checkId: SEAL_SIGNATURE_CHECK_ID,
 
     async execute(
       request: VerificationRequest,
     ): Promise<Result<VerificationCheck, InternalError>> {
-      if (request.attestation === null) {
+      if (request.seal === null) {
         return Result.ok({
-          checkId: ATTESTATION_SIGNATURE_CHECK_ID,
+          checkId: SEAL_SIGNATURE_CHECK_ID,
           verdict: "skip",
-          reason: "No attestation provided",
+          reason: "No seal provided",
           evidence: null,
         });
       }
 
-      const attestation = request.attestation;
+      const seal = request.seal;
 
       // Structural check: verify required signing-related fields exist
-      if (!attestation.issuer || attestation.issuer.length === 0) {
+      if (!seal.issuer || seal.issuer.length === 0) {
         return Result.ok({
-          checkId: ATTESTATION_SIGNATURE_CHECK_ID,
+          checkId: SEAL_SIGNATURE_CHECK_ID,
           verdict: "fail",
-          reason: "Attestation missing issuer field",
+          reason: "Seal missing issuer field",
           evidence: {
             signerKeyRef: null,
             signatureValid: false,
@@ -44,15 +44,14 @@ export function createAttestationSignatureCheck(): CheckHandler {
         });
       }
 
-      // Check that the attestation's agentInboxId matches the request
-      if (attestation.agentInboxId !== request.agentInboxId) {
+      // Check that the seal's agentInboxId matches the request.
+      if (seal.agentInboxId !== request.agentInboxId) {
         return Result.ok({
-          checkId: ATTESTATION_SIGNATURE_CHECK_ID,
+          checkId: SEAL_SIGNATURE_CHECK_ID,
           verdict: "fail",
-          reason:
-            "Attestation agentInboxId does not match request agentInboxId",
+          reason: "Seal agentInboxId does not match request agentInboxId",
           evidence: {
-            attestationAgentInboxId: attestation.agentInboxId,
+            sealAgentInboxId: seal.agentInboxId,
             requestAgentInboxId: request.agentInboxId,
             signatureValid: false,
           },
@@ -62,11 +61,11 @@ export function createAttestationSignatureCheck(): CheckHandler {
       // v0: structural validation passes -- full signature verification
       // requires XMTP identity lookup
       return Result.ok({
-        checkId: ATTESTATION_SIGNATURE_CHECK_ID,
+        checkId: SEAL_SIGNATURE_CHECK_ID,
         verdict: "skip",
         reason: "v0: no cryptographic verification performed",
         evidence: {
-          signerKeyRef: attestation.issuer,
+          signerKeyRef: seal.issuer,
           signatureValid: null,
         },
       });

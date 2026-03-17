@@ -45,7 +45,7 @@ describe("SignetCoreConfigSchema", () => {
     expect(config.identityMode).toBe("per-group");
     expect(config.heartbeatIntervalMs).toBe(30_000);
     expect(config.syncTimeoutMs).toBe(30_000);
-    expect(config.appVersion).toBe("xmtp-broker/0.1.0");
+    expect(config.appVersion).toBe("xmtp-signet/0.1.0");
   });
 
   test("accepts fully specified config", () => {

@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { AttestationSchema, RevocationAttestation } from "@xmtp/signet-schemas";
+import { SealSchema, RevocationSeal } from "@xmtp/signet-schemas";
 
 /** Provenance info attached to outbound messages. */
 export interface MessageProvenanceMetadata {
-  readonly attestationId: string;
+  readonly sealId: string;
   readonly sessionKeyFingerprint: string;
   readonly policyHash: string;
 }
@@ -15,16 +15,16 @@ const BASE64_SIGNATURE: z.ZodString = z
   .describe("Base64-encoded signature bytes");
 
 type SealEnvelopeShape = {
-  attestation: typeof AttestationSchema;
+  seal: typeof SealSchema;
   signature: typeof BASE64_SIGNATURE;
   signatureAlgorithm: z.ZodString;
   signerKeyRef: z.ZodString;
 };
 
-const signedAttestationEnvelopeShape: SealEnvelopeShape = {
-  attestation: AttestationSchema.describe("The attestation payload"),
+const sealEnvelopeShape: SealEnvelopeShape = {
+  seal: SealSchema.describe("The seal payload"),
   signature: BASE64_SIGNATURE.describe(
-    "Base64-encoded signature over the canonical attestation bytes",
+    "Base64-encoded signature over the canonical seal bytes",
   ),
   signatureAlgorithm: z
     .string()
@@ -34,22 +34,23 @@ const signedAttestationEnvelopeShape: SealEnvelopeShape = {
     .describe("Reference to the key that produced the signature"),
 };
 
-/** Signed attestation ready for group publication. */
+/** Signed seal ready for group publication. */
 export const SealEnvelope: z.ZodObject<SealEnvelopeShape> = z
-  .object(signedAttestationEnvelopeShape)
-  .describe("Signed attestation ready for group publication");
+  .object(sealEnvelopeShape)
+  .describe("Signed seal ready for group publication");
 
-export type Seal = z.infer<typeof SealEnvelope>;
+export const SealEnvelopeSchema: z.ZodObject<SealEnvelopeShape> = SealEnvelope;
+export type SealEnvelope = z.infer<typeof SealEnvelopeSchema>;
 
 type SignedRevocationEnvelopeShape = {
-  revocation: typeof RevocationAttestation;
+  revocation: typeof RevocationSeal;
   signature: typeof BASE64_SIGNATURE;
   signatureAlgorithm: z.ZodString;
   signerKeyRef: z.ZodString;
 };
 
 const signedRevocationEnvelopeShape: SignedRevocationEnvelopeShape = {
-  revocation: RevocationAttestation.describe("The revocation payload"),
+  revocation: RevocationSeal.describe("The revocation payload"),
   signature: BASE64_SIGNATURE.describe(
     "Base64-encoded signature over the canonical revocation bytes",
   ),

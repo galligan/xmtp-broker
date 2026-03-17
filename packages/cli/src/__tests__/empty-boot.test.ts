@@ -43,7 +43,7 @@ async function createTempConfig(rootDir: string): Promise<{
   await writeFile(
     configPath,
     [
-      "[broker]",
+      "[signet]",
       `dataDir = "${dataDir}"`,
       "",
       "[ws]",
@@ -76,7 +76,7 @@ afterEach(async () => {
 
 let testCounter = 0;
 
-describe("empty-dir broker boot", () => {
+describe("empty-dir signet boot", () => {
   test("runtime starts from an empty dir without creating admin or operational keys", async () => {
     testCounter += 1;
     const rootDir = join(tmpdir(), `xbe-${Date.now()}-${testCounter}`);

@@ -39,12 +39,7 @@ export const HostingMode: z.ZodEnum<["local", "self-hosted", "managed"]> = z
 export type HostingMode = z.infer<typeof HostingMode>;
 
 export const TrustTier: z.ZodEnum<
-  [
-    "unverified",
-    "source-verified",
-    "reproducibly-verified",
-    "runtime-attested",
-  ]
+  ["unverified", "source-verified", "reproducibly-verified", "runtime-attested"]
 > = z
   .enum([
     "unverified",
@@ -69,7 +64,7 @@ export const RevocationRules: z.ZodType<RevocationRules> = z
       .number()
       .int()
       .positive()
-      .describe("Maximum attestation lifetime in seconds"),
+      .describe("Maximum seal lifetime in seconds"),
     requireHeartbeat: z
       .boolean()
       .describe("Whether missed heartbeats trigger auto-revocation"),
@@ -80,11 +75,11 @@ export const RevocationRules: z.ZodType<RevocationRules> = z
       .boolean()
       .describe("Whether group admins can remove the agent"),
   })
-  .describe("Rules governing how this attestation can be revoked");
+  .describe("Rules governing how this seal can be revoked");
 
-export type Attestation = {
-  attestationId: string;
-  previousAttestationId: string | null;
+export type Seal = {
+  sealId: string;
+  previousSealId: string | null;
   agentInboxId: string;
   ownerInboxId: string;
   groupId: string;
@@ -110,18 +105,16 @@ export type Attestation = {
   issuer: string;
 };
 
-export const AttestationSchema: z.ZodType<Attestation> = z
+export const SealSchema: z.ZodType<Seal> = z
   .object({
-    attestationId: z
-      .string()
-      .describe("Unique identifier for this attestation"),
-    previousAttestationId: z
+    sealId: z.string().describe("Unique identifier for this seal"),
+    previousSealId: z
       .string()
       .nullable()
-      .describe("ID of the attestation this supersedes, null for initial"),
+      .describe("ID of the seal this supersedes, null for initial"),
     agentInboxId: z.string().describe("XMTP inbox ID of the agent"),
     ownerInboxId: z.string().describe("XMTP inbox ID of the agent's owner"),
-    groupId: z.string().describe("Group this attestation applies to"),
+    groupId: z.string().describe("Group this seal applies to"),
     threadScope: z
       .string()
       .nullable()
@@ -172,18 +165,16 @@ export const AttestationSchema: z.ZodType<Attestation> = z
     issuedAt: z
       .string()
       .datetime()
-      .describe("ISO 8601 timestamp when this attestation was issued"),
+      .describe("ISO 8601 timestamp when this seal was issued"),
     expiresAt: z
       .string()
       .datetime()
-      .describe("ISO 8601 timestamp when this attestation expires"),
+      .describe("ISO 8601 timestamp when this seal expires"),
     revocationRules: RevocationRules.describe(
-      "Rules governing revocation of this attestation",
+      "Rules governing revocation of this seal",
     ),
     issuer: z
       .string()
-      .describe(
-        "Identity of the attestation issuer (broker's signing identity)",
-      ),
+      .describe("Identity of the seal issuer (signet's signing identity)"),
   })
-  .describe("Group-visible capability attestation for an agent");
+  .describe("Group-visible capability seal for an agent");

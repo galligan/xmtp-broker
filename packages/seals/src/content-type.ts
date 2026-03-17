@@ -1,15 +1,17 @@
 import { z } from "zod";
-import { SealEnvelope } from "@xmtp/signet-contracts";
-import type { Seal, SignedRevocationEnvelope } from "@xmtp/signet-contracts";
-import { RevocationAttestation } from "@xmtp/signet-schemas";
-import type { RevocationAttestation as RevocationAttestationType } from "@xmtp/signet-schemas";
+import {
+  SealEnvelopeSchema,
+  type SealEnvelope,
+  type SignedRevocationEnvelope,
+} from "@xmtp/signet-contracts";
+import { RevocationSeal } from "@xmtp/signet-schemas";
+import type { RevocationSeal as RevocationSealType } from "@xmtp/signet-schemas";
 
 /**
- * Custom XMTP content type for attestations.
+ * Custom XMTP content type for seals.
  * Follows the authority/type:version convention.
  */
-export const ATTESTATION_CONTENT_TYPE_ID =
-  "xmtp.org/agentAttestation:1.0" as const;
+export const SEAL_CONTENT_TYPE_ID = "xmtp.org/agentSeal:1.0" as const;
 
 /**
  * Custom XMTP content type for revocations.
@@ -18,31 +20,30 @@ export const ATTESTATION_CONTENT_TYPE_ID =
 export const REVOCATION_CONTENT_TYPE_ID =
   "xmtp.org/agentRevocation:1.0" as const;
 
-export type AttestationMessage = z.infer<typeof SealEnvelope> & {
-  contentType: typeof ATTESTATION_CONTENT_TYPE_ID;
+export type SealMessage = z.infer<typeof SealEnvelopeSchema> & {
+  contentType: typeof SEAL_CONTENT_TYPE_ID;
 };
 
-/** Schema for a full attestation message with contentType discriminator. */
-const _AttestationMessage = SealEnvelope.extend({
-  contentType: z.literal(ATTESTATION_CONTENT_TYPE_ID),
-}).describe("Attestation message with content type discriminator");
+/** Schema for a full seal message with contentType discriminator. */
+const _SealMessage = SealEnvelopeSchema.extend({
+  contentType: z.literal(SEAL_CONTENT_TYPE_ID),
+}).describe("Seal message with content type discriminator");
 
-export const AttestationMessage: z.ZodType<AttestationMessage> =
-  _AttestationMessage;
+export const SealMessage: z.ZodType<SealMessage> = _SealMessage;
 
 /**
  * Signed revocation envelope schema, reconstructed here to avoid a
  * name-collision export issue in the contracts package dist.
  */
 const SignedRevocationEnvelopeLocal = z.object({
-  revocation: RevocationAttestation,
+  revocation: RevocationSeal,
   signature: z.string(),
   signatureAlgorithm: z.string(),
   signerKeyRef: z.string(),
 });
 
 export type RevocationMessage = {
-  revocation: RevocationAttestationType;
+  revocation: RevocationSealType;
   signature: string;
   signatureAlgorithm: string;
   signerKeyRef: string;
@@ -57,9 +58,9 @@ const _RevocationMessage = SignedRevocationEnvelopeLocal.extend({
 export const RevocationMessage: z.ZodType<RevocationMessage> =
   _RevocationMessage;
 
-/** Wraps a signed attestation with the contentType discriminator field. */
-export function encodeAttestationMessage(envelope: Seal): AttestationMessage {
-  return { contentType: ATTESTATION_CONTENT_TYPE_ID, ...envelope };
+/** Wraps a signed seal with the contentType discriminator field. */
+export function encodeSealMessage(envelope: SealEnvelope): SealMessage {
+  return { contentType: SEAL_CONTENT_TYPE_ID, ...envelope };
 }
 
 /** Wraps a signed revocation with the contentType discriminator field. */

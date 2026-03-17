@@ -13,7 +13,7 @@ function makeEvent(text: string): SignetEvent {
     content: { text },
     visibility: "visible",
     sentAt: "2024-01-01T00:00:00Z",
-    attestationId: null,
+    sealId: null,
   };
 }
 

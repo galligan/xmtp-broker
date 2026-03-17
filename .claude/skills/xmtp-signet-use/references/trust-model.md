@@ -6,11 +6,11 @@ Today, nobody should trust an XMTP agent just because it exists in a chat. An
 agent is just another XMTP inbox — you don't know what code is behind it,
 whether it has raw credentials, or whether its claimed limits are real.
 
-The broker model doesn't solve trust by decree. It moves from **opaque trust**
+The signet model doesn't solve trust by decree. It moves from **opaque trust**
 (take the agent's word for it) to **inspectable trust** (verify what it can
 actually do via signed attestations).
 
-**The honesty clause:** A broker doesn't magically make an agent trustworthy.
+**The honesty clause:** A signet doesn't magically make an agent trustworthy.
 It makes the system auditable and constrainable in a way today's pattern is
 not. A determined operator could still lie — but they'd have to sign a false
 attestation, which creates a verifiable record.
@@ -58,7 +58,7 @@ A broken chain indicates tampering or a gap in the record.
 
 Verifies that the attestation conforms to the expected schema. Checks field
 presence, types, and value constraints. A non-compliant attestation may
-indicate a buggy or outdated broker.
+indicate a buggy or outdated signet.
 
 ## Trust tiers
 
@@ -79,7 +79,7 @@ interaction) is up to the client app.
 
 ## Verifier service architecture
 
-The verifier is a standalone service that can run independently of the broker.
+The verifier is a standalone service that can run independently of the signet.
 It:
 
 - Accepts verification requests via XMTP content types
@@ -94,10 +94,10 @@ assessments. This avoids single points of trust.
 
 ## Materiality and attestation noise
 
-Not every broker state change warrants a group-visible attestation. The
+Not every signet state change warrants a group-visible seal. The
 system classifies changes as material or routine:
 
-**Material** (produces attestation):
+**Material** (produces seal):
 - View mode or scope changes
 - Grant additions or removals
 - Egress or inference policy changes
@@ -108,9 +108,9 @@ system classifies changes as material or routine:
 **Routine** (stays silent):
 - Session rotation within the same view and grant
 - Heartbeat and liveness signals
-- Internal broker housekeeping
+- Internal signet housekeeping
 
 Changes that expand the security boundary (e.g., upgrading from `reveal-only`
-to `full` visibility) also require **session reauthorization** — the broker
+to `full` visibility) also require **session reauthorization** — the signet
 terminates the current session and requires the harness to re-authenticate
 under the updated policy.

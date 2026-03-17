@@ -1,15 +1,13 @@
-import type { Attestation } from "@xmtp/signet-schemas";
+import type { Seal } from "@xmtp/signet-schemas";
 import type { VerificationRequest } from "../schemas/request.js";
 import type { VerifierConfig } from "../config.js";
 
 const BASE_TIME = new Date("2025-01-15T00:00:00.000Z");
 
-export function createTestAttestation(
-  overrides?: Partial<Attestation>,
-): Attestation {
+export function createTestSeal(overrides?: Partial<Seal>): Seal {
   return {
-    attestationId: "att-001",
-    previousAttestationId: null,
+    sealId: "att-001",
+    previousSealId: null,
     agentInboxId: "agent-inbox-001",
     ownerInboxId: "owner-inbox-001",
     groupId: "group-001",
@@ -50,11 +48,11 @@ export function createTestVerificationRequest(
     agentInboxId: "agent-inbox-001",
     brokerInboxId: "broker-inbox-001",
     groupId: "group-001",
-    attestation: createTestAttestation(),
+    seal: createTestSeal(),
     artifactDigest:
       "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
     buildProvenanceBundle: null,
-    sourceRepoUrl: "https://github.com/xmtp/xmtp-broker",
+    sourceRepoUrl: "https://github.com/xmtp/xmtp-signet",
     releaseTag: null,
     requestedTier: "source-verified",
     challengeNonce: "deadbeef".repeat(8),

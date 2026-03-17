@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { ContentTypeId } from "./content-types.js";
-import { AttestationSchema } from "./attestation.js";
-import type { Attestation } from "./attestation.js";
+import { SealSchema } from "./seal.js";
+import type { Seal } from "./seal.js";
 import { SessionToken } from "./session.js";
 import { ViewConfig } from "./view.js";
 import { GrantConfig } from "./grant.js";
-import { RevocationAttestation } from "./revocation.js";
+import { RevocationSeal } from "./revocation.js";
 
 export const MessageVisibility: z.ZodEnum<
   ["visible", "historical", "hidden", "revealed", "redacted"]
@@ -24,7 +24,7 @@ export type MessageEvent = {
   content?: unknown;
   visibility: MessageVisibility;
   sentAt: string;
-  attestationId: string | null;
+  sealId: string | null;
 };
 
 const _MessageEvent = z
@@ -37,28 +37,28 @@ const _MessageEvent = z
     content: z.unknown().describe("Decoded message payload"),
     visibility: MessageVisibility.describe("How this message is projected"),
     sentAt: z.string().datetime().describe("When the message was sent"),
-    attestationId: z
+    sealId: z
       .string()
       .nullable()
-      .describe("Attestation ID if sent by a brokered agent, null otherwise"),
+      .describe("Seal ID if sent by a signet-managed agent, null otherwise"),
   })
   .describe("A message projected to the agent according to its view");
 
 export const MessageEvent: z.ZodType<MessageEvent> = _MessageEvent;
 
-export type AttestationEvent = {
-  type: "attestation.updated";
-  attestation: Attestation;
+export type SealStampedEvent = {
+  type: "seal.stamped";
+  seal: Seal;
 };
 
-const _AttestationEvent = z
+const _SealStampedEvent = z
   .object({
-    type: z.literal("attestation.updated").describe("Event type discriminator"),
-    attestation: AttestationSchema.describe("The updated attestation"),
+    type: z.literal("seal.stamped").describe("Event type discriminator"),
+    seal: SealSchema.describe("The stamped seal"),
   })
-  .describe("Attestation was published or updated");
+  .describe("Seal was stamped or updated");
 
-export const AttestationEvent: z.ZodType<AttestationEvent> = _AttestationEvent;
+export const SealStampedEvent: z.ZodType<SealStampedEvent> = _SealStampedEvent;
 
 export type SessionStartedEvent = {
   type: "session.started";
@@ -127,7 +127,7 @@ const _HeartbeatEvent = z
     sessionId: z.string().describe("Session this heartbeat is for"),
     timestamp: z.string().datetime().describe("Heartbeat timestamp"),
   })
-  .describe("Liveness signal from the broker");
+  .describe("Liveness signal from the signet");
 
 export const HeartbeatEvent: z.ZodType<HeartbeatEvent> = _HeartbeatEvent;
 
@@ -184,13 +184,13 @@ export const GrantUpdatedEvent: z.ZodType<GrantUpdatedEvent> =
 
 export type AgentRevokedEvent = {
   type: "agent.revoked";
-  revocation: z.infer<typeof RevocationAttestation>;
+  revocation: z.infer<typeof RevocationSeal>;
 };
 
 const _AgentRevokedEvent = z
   .object({
     type: z.literal("agent.revoked").describe("Event type discriminator"),
-    revocation: RevocationAttestation.describe("The revocation details"),
+    revocation: RevocationSeal.describe("The revocation details"),
   })
   .describe("Agent has been revoked from the group");
 
@@ -219,19 +219,19 @@ export const ActionConfirmationEvent: z.ZodType<ActionConfirmationEvent> =
   _ActionConfirmationEvent;
 
 export type SignetRecoveryEvent = {
-  type: "broker.recovery.complete";
+  type: "signet.recovery.complete";
   caughtUpThrough: string;
 };
 
 const _SignetRecoveryEvent = z
   .object({
     type: z
-      .literal("broker.recovery.complete")
+      .literal("signet.recovery.complete")
       .describe("Event type discriminator"),
     caughtUpThrough: z
       .string()
       .datetime()
-      .describe("Timestamp through which the broker has resynced"),
+      .describe("Timestamp through which the signet has resynced"),
   })
   .describe("Signet has recovered and resynced");
 
@@ -240,7 +240,7 @@ export const SignetRecoveryEvent: z.ZodType<SignetRecoveryEvent> =
 
 export type SignetEvent =
   | MessageEvent
-  | AttestationEvent
+  | SealStampedEvent
   | SessionStartedEvent
   | SessionExpiredEvent
   | SessionReauthRequiredEvent
@@ -256,7 +256,7 @@ export type SignetEvent =
 export const SignetEvent: z.ZodType<SignetEvent> = z
   .discriminatedUnion("type", [
     _MessageEvent,
-    _AttestationEvent,
+    _SealStampedEvent,
     _SessionStartedEvent,
     _SessionExpiredEvent,
     _SessionReauthRequiredEvent,

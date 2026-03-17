@@ -1,8 +1,8 @@
 /**
- * Attestation lifecycle integration tests.
+ * Seal lifecycle integration tests.
  *
- * Validates attestation issuance, chaining, refresh, revocation,
- * and querying through real packages (keys + sessions + attestations).
+ * Validates seal issuance, chaining, refresh, revocation,
+ * and querying through real packages (keys + sessions + seals).
  */
 
 import { describe, test, expect, afterEach } from "bun:test";
@@ -15,8 +15,11 @@ import type {
   ViewConfig,
   GrantConfig,
 } from "@xmtp/signet-schemas";
-import type { Seal, SignedRevocationEnvelope } from "@xmtp/signet-contracts";
-import type { SealPublisher } from "@xmtp/signet-contracts";
+import type {
+  SealEnvelope,
+  SignedRevocationEnvelope,
+  SealPublisher,
+} from "@xmtp/signet-contracts";
 import { createKeyManager, createSealStamper } from "@xmtp/signet-keys";
 import type { KeyManager } from "@xmtp/signet-keys";
 import { createSessionManager } from "@xmtp/signet-sessions";
@@ -61,8 +64,8 @@ let dataDir = "";
 interface TestCtx {
   keyManager: KeyManager;
   sessionManager: InternalSessionManager;
-  attestationManager: SealManagerImpl;
-  published: Array<{ groupId: string; attestation: Seal }>;
+  sealManager: SealManagerImpl;
+  published: Array<{ groupId: string; seal: SealEnvelope }>;
   revokedPublished: Array<{
     groupId: string;
     revocation: SignedRevocationEnvelope;
@@ -87,7 +90,7 @@ async function setup(): Promise<TestCtx> {
 
   const published: Array<{
     groupId: string;
-    attestation: Seal;
+    seal: SealEnvelope;
   }> = [];
   const revokedPublished: Array<{
     groupId: string;
@@ -95,8 +98,8 @@ async function setup(): Promise<TestCtx> {
   }> = [];
 
   const publisher: SealPublisher = {
-    async publish(groupId, attestation) {
-      published.push({ groupId, attestation });
+    async publish(groupId, seal) {
+      published.push({ groupId, seal });
       return Result.ok(undefined);
     },
     async publishRevocation(groupId, revocation) {
@@ -105,7 +108,7 @@ async function setup(): Promise<TestCtx> {
     },
   };
 
-  const attestationManager = createSealManager({
+  const sealManager = createSealManager({
     signer,
     publisher,
     resolveInput: async (sessionId, gId) => {
@@ -146,7 +149,7 @@ async function setup(): Promise<TestCtx> {
   return {
     keyManager: km,
     sessionManager,
-    attestationManager,
+    sealManager,
     published,
     revokedPublished,
   };
@@ -173,19 +176,19 @@ async function createSession(
   return { sessionId: result.value.sessionId, token: result.value.token };
 }
 
-describe("attestation-lifecycle", () => {
-  test("issue attestation -- signed with operational key", async () => {
+describe("seal-lifecycle", () => {
+  test("issue seal -- signed with operational key", async () => {
     const ctx = await setup();
     const { sessionId } = await createSession(ctx);
 
-    const issueResult = await ctx.attestationManager.issue(sessionId, GROUP_ID);
+    const issueResult = await ctx.sealManager.issue(sessionId, GROUP_ID);
     expect(issueResult.isOk()).toBe(true);
     if (!issueResult.isOk()) return;
 
     const signed = issueResult.value;
-    expect(signed.attestation.attestationId).toBeTruthy();
-    expect(signed.attestation.agentInboxId).toBe(AGENT_INBOX_ID);
-    expect(signed.attestation.groupId).toBe(GROUP_ID);
+    expect(signed.seal.sealId).toBeTruthy();
+    expect(signed.seal.agentInboxId).toBe(AGENT_INBOX_ID);
+    expect(signed.seal.groupId).toBe(GROUP_ID);
     expect(signed.signature).toBeTruthy();
     expect(signed.signatureAlgorithm).toBe("Ed25519");
     expect(signed.signerKeyRef).toBeTruthy();
@@ -195,52 +198,52 @@ describe("attestation-lifecycle", () => {
     expect(ctx.published[0]!.groupId).toBe(GROUP_ID);
   });
 
-  test("first attestation has null previousAttestationId", async () => {
+  test("first seal has null previousSealId", async () => {
     const ctx = await setup();
     const { sessionId } = await createSession(ctx);
 
-    const issueResult = await ctx.attestationManager.issue(sessionId, GROUP_ID);
+    const issueResult = await ctx.sealManager.issue(sessionId, GROUP_ID);
     expect(issueResult.isOk()).toBe(true);
     if (!issueResult.isOk()) return;
 
-    expect(issueResult.value.attestation.previousAttestationId).toBeNull();
+    expect(issueResult.value.seal.previousSealId).toBeNull();
   });
 
-  test("refresh creates chained attestation", async () => {
+  test("refresh creates chained seal", async () => {
     const ctx = await setup();
     const { sessionId } = await createSession(ctx);
 
-    const firstResult = await ctx.attestationManager.issue(sessionId, GROUP_ID);
+    const firstResult = await ctx.sealManager.issue(sessionId, GROUP_ID);
     expect(firstResult.isOk()).toBe(true);
     if (!firstResult.isOk()) return;
 
-    const firstId = firstResult.value.attestation.attestationId;
+    const firstId = firstResult.value.seal.sealId;
 
-    const refreshResult = await ctx.attestationManager.refresh(firstId);
+    const refreshResult = await ctx.sealManager.refresh(firstId);
     expect(refreshResult.isOk()).toBe(true);
     if (!refreshResult.isOk()) return;
 
     const refreshed = refreshResult.value;
-    // New attestation chains to previous
-    expect(refreshed.attestation.previousAttestationId).toBe(firstId);
-    // New attestation has different ID
-    expect(refreshed.attestation.attestationId).not.toBe(firstId);
+    // New seal chains to previous
+    expect(refreshed.seal.previousSealId).toBe(firstId);
+    // New seal has different ID
+    expect(refreshed.seal.sealId).not.toBe(firstId);
     // Published twice (original + refresh)
     expect(ctx.published.length).toBe(2);
   });
 
-  test("revoke attestation produces signed revocation", async () => {
+  test("revoke seal produces signed revocation", async () => {
     const ctx = await setup();
     const { sessionId } = await createSession(ctx);
 
-    const issueResult = await ctx.attestationManager.issue(sessionId, GROUP_ID);
+    const issueResult = await ctx.sealManager.issue(sessionId, GROUP_ID);
     expect(issueResult.isOk()).toBe(true);
     if (!issueResult.isOk()) return;
 
-    const attestationId = issueResult.value.attestation.attestationId;
+    const sealId = issueResult.value.seal.sealId;
 
-    const revokeResult = await ctx.attestationManager.revoke(
-      attestationId,
+    const revokeResult = await ctx.sealManager.revoke(
+      sealId,
       "owner-initiated",
     );
     expect(revokeResult.isOk()).toBe(true);
@@ -254,23 +257,23 @@ describe("attestation-lifecycle", () => {
     expect(ctx.revokedPublished[0]!.revocation.signature).toBeTruthy();
   });
 
-  test("query current attestation returns latest", async () => {
+  test("query current seal returns latest", async () => {
     const ctx = await setup();
     const { sessionId } = await createSession(ctx);
 
-    const issueResult = await ctx.attestationManager.issue(sessionId, GROUP_ID);
+    const issueResult = await ctx.sealManager.issue(sessionId, GROUP_ID);
     expect(issueResult.isOk()).toBe(true);
     if (!issueResult.isOk()) return;
 
-    const currentResult = await ctx.attestationManager.current(
+    const currentResult = await ctx.sealManager.current(
       AGENT_INBOX_ID,
       GROUP_ID,
     );
     expect(currentResult.isOk()).toBe(true);
     if (!currentResult.isOk()) return;
     expect(currentResult.value).not.toBeNull();
-    expect(currentResult.value!.attestation.attestationId).toBe(
-      issueResult.value.attestation.attestationId,
+    expect(currentResult.value!.seal.sealId).toBe(
+      issueResult.value.seal.sealId,
     );
   });
 
@@ -278,16 +281,16 @@ describe("attestation-lifecycle", () => {
     const ctx = await setup();
     const { sessionId } = await createSession(ctx);
 
-    const issueResult = await ctx.attestationManager.issue(sessionId, GROUP_ID);
+    const issueResult = await ctx.sealManager.issue(sessionId, GROUP_ID);
     expect(issueResult.isOk()).toBe(true);
     if (!issueResult.isOk()) return;
 
-    await ctx.attestationManager.revoke(
-      issueResult.value.attestation.attestationId,
+    await ctx.sealManager.revoke(
+      issueResult.value.seal.sealId,
       "owner-initiated",
     );
 
-    const currentResult = await ctx.attestationManager.current(
+    const currentResult = await ctx.sealManager.current(
       AGENT_INBOX_ID,
       GROUP_ID,
     );

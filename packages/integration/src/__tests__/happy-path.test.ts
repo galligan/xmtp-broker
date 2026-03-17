@@ -104,7 +104,7 @@ describe("happy-path", () => {
       content: { text: "hello from broadcast" },
       visibility: "visible",
       sentAt: new Date().toISOString(),
-      attestationId: null,
+      sealId: null,
     });
 
     const frame = (await client.nextMessage()) as Record<string, unknown>;
@@ -229,14 +229,14 @@ describe("happy-path", () => {
     const { client, authFrame } = await connectAndAuth(runtime.wsPort, token);
     expect(authFrame["type"]).toBe("authenticated");
 
-    // Issue attestation for this session
-    const attestResult = await runtime.attestationManager.issue(
+    // Issue seal for this session
+    const attestResult = await runtime.sealManager.issue(
       sessionId,
       runtime.groupId,
     );
     expect(attestResult.isOk()).toBe(true);
     if (!attestResult.isOk()) return;
-    expect(attestResult.value.attestation.agentInboxId).toBeTruthy();
+    expect(attestResult.value.seal.agentInboxId).toBeTruthy();
     expect(runtime.publisher.published.length).toBeGreaterThan(0);
 
     // Send a message request

@@ -30,7 +30,7 @@ describe("Integration: full round-trip", () => {
       content: { text: "hello" },
       visibility: "visible",
       sentAt: "2024-01-01T00:00:00Z",
-      attestationId: null,
+      sealId: null,
     });
 
     const events = await take(harness.handler.events, 1);

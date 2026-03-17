@@ -62,7 +62,7 @@ See [docs/architecture.md](docs/architecture.md) for the full architecture guide
 | `@xmtp/signet-verifier`    | Runtime    | 6-check verification service for signet trust            |
 | `@xmtp/signet-ws`          | Transport  | WebSocket transport with Bun.serve()                     |
 | `@xmtp/signet-mcp`         | Transport  | MCP transport with session-scoped tools                  |
-| `@xmtp/signet-handler`     | Transport  | TypeScript client SDK for harness developers             |
+| `@xmtp/signet-sdk`         | Transport  | TypeScript client SDK for harness developers             |
 | `@xmtp/signet-cli`         | Transport  | CLI daemon, admin socket, 8 command groups               |
 | `@xmtp/signet-integration` | Test       | Cross-package integration tests and fixtures             |
 
@@ -112,6 +112,7 @@ See [docs/development.md](docs/development.md) for the full development guide.
 | `status`         | Show signet status                                    |
 | `identity`       | `init`, `list`                                        |
 | `session`        | `issue`, `list`, `inspect`, `revoke`                  |
+| `seal`           | `inspect`, `verify`, `history`                        |
 | `conversation`   | `create`, `list`, `info`, `join`, `invite`, `add-member`, `members` |
 | `admin`          | `token`                                               |
 
@@ -135,7 +136,7 @@ See [docs/development.md](docs/development.md) for the full development guide.
 
 ## Design
 
-For the complete product requirements document, see [.agents/docs/init/xmtp-broker.md](.agents/docs/init/xmtp-broker.md).
+For the complete product requirements document, see [.agents/docs/init/xmtp-signet.md](.agents/docs/init/xmtp-signet.md).
 
 ## Contributing
 

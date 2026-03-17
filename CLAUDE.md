@@ -1,6 +1,6 @@
 # CLAUDE.md -- xmtp-signet
 
-An agent signet for XMTP. The signet is the real XMTP client; agent harnesses connect through a controlled interface with scoped views and grants. See [README.md](README.md) for an overview and [.agents/docs/init/xmtp-broker.md](.agents/docs/init/xmtp-broker.md) for the full PRD.
+An agent signet for XMTP. The signet is the real XMTP client; agent harnesses connect through a controlled interface with scoped views and grants. See [README.md](README.md) for an overview and [.agents/docs/init/xmtp-signet.md](.agents/docs/init/xmtp-signet.md) for the full PRD.
 
 ## Status
 

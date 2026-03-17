@@ -32,17 +32,17 @@ describe("MessageEvent", () => {
     content: { text: "hello" },
     visibility: "visible",
     sentAt: "2024-01-01T00:00:00Z",
-    attestationId: null,
+    sealId: null,
   };
 
   it("accepts valid message event", () => {
     expect(MessageEvent.safeParse(valid).success).toBe(true);
   });
 
-  it("accepts message with attestation ID", () => {
-    expect(
-      MessageEvent.safeParse({ ...valid, attestationId: "att-1" }).success,
-    ).toBe(true);
+  it("accepts message with seal ID", () => {
+    expect(MessageEvent.safeParse({ ...valid, sealId: "att-1" }).success).toBe(
+      true,
+    );
   });
 
   it("rejects wrong type discriminator", () => {
@@ -105,7 +105,7 @@ describe("HeartbeatEvent", () => {
 describe("SignetRecoveryEvent", () => {
   it("accepts valid recovery event", () => {
     const valid = {
-      type: "broker.recovery.complete",
+      type: "signet.recovery.complete",
       caughtUpThrough: "2024-01-01T00:00:00Z",
     };
     expect(SignetRecoveryEvent.safeParse(valid).success).toBe(true);
@@ -132,9 +132,9 @@ describe("SignetEvent discriminated union", () => {
   });
 
   it("accepts all 12 event types", () => {
-    const validAttestation = {
-      attestationId: "att-001",
-      previousAttestationId: null,
+    const validSeal = {
+      sealId: "att-001",
+      previousSealId: null,
       agentInboxId: "agent-1",
       ownerInboxId: "owner-1",
       groupId: "group-1",
@@ -193,9 +193,9 @@ describe("SignetEvent discriminated union", () => {
         content: {},
         visibility: "visible",
         sentAt: "2024-01-01T00:00:00Z",
-        attestationId: null,
+        sealId: null,
       },
-      { type: "attestation.updated", attestation: validAttestation },
+      { type: "seal.stamped", seal: validSeal },
       {
         type: "session.started",
         session: {
@@ -243,8 +243,8 @@ describe("SignetEvent discriminated union", () => {
       {
         type: "agent.revoked",
         revocation: {
-          attestationId: "rev-1",
-          previousAttestationId: "att-001",
+          sealId: "rev-1",
+          previousSealId: "att-001",
           agentInboxId: "a1",
           groupId: "g1",
           reason: "owner-initiated",
@@ -259,7 +259,7 @@ describe("SignetEvent discriminated union", () => {
         preview: { text: "hello" },
       },
       {
-        type: "broker.recovery.complete",
+        type: "signet.recovery.complete",
         caughtUpThrough: "2024-01-01T00:00:00Z",
       },
     ];

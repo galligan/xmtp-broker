@@ -1,26 +1,22 @@
 import { Result } from "better-result";
-import type {
-  Attestation,
-  SignetError,
-  RevocationAttestation,
-} from "@xmtp/signet-schemas";
+import type { Seal, SignetError, RevocationSeal } from "@xmtp/signet-schemas";
 import type {
   SealStamper,
-  Seal,
+  SealEnvelope,
   SignedRevocationEnvelope,
 } from "@xmtp/signet-contracts";
 import type { KeyManager } from "./key-manager.js";
 
 /**
- * Create an SealStamper backed by a KeyManager's operational key.
- * Signs attestation and revocation payloads with Ed25519.
+ * Create a SealStamper backed by a KeyManager's operational key.
+ * Signs seal and revocation payloads with Ed25519.
  */
 export function createSealStamper(
   manager: KeyManager,
   identityId: string,
 ): SealStamper {
   return {
-    async sign(payload: Attestation): Promise<Result<Seal, SignetError>> {
+    async sign(payload: Seal): Promise<Result<SealEnvelope, SignetError>> {
       const canonical = canonicalize(payload);
       const sig = await manager.signWithOperationalKey(identityId, canonical);
       if (Result.isError(sig)) return sig;
@@ -28,8 +24,8 @@ export function createSealStamper(
       const opKey = manager.getOperationalKey(identityId);
       if (Result.isError(opKey)) return opKey;
 
-      const signed: Seal = {
-        attestation: payload,
+      const signed: SealEnvelope = {
+        seal: payload,
         signature: toBase64(sig.value),
         signatureAlgorithm: "Ed25519",
         signerKeyRef: opKey.value.fingerprint,
@@ -38,7 +34,7 @@ export function createSealStamper(
     },
 
     async signRevocation(
-      payload: RevocationAttestation,
+      payload: RevocationSeal,
     ): Promise<Result<SignedRevocationEnvelope, SignetError>> {
       const canonical = canonicalize(payload);
       const sig = await manager.signWithOperationalKey(identityId, canonical);

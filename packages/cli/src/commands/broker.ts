@@ -16,7 +16,7 @@ import {
   type WithDaemonClient,
 } from "./daemon-client.js";
 
-export interface BrokerCommandDeps {
+export interface SignetLifecycleCommandDeps {
   readonly loadConfig: typeof loadConfig;
   readonly resolvePaths: typeof resolvePaths;
   readonly createSignetRuntime: typeof createSignetRuntime;
@@ -28,7 +28,9 @@ export interface BrokerCommandDeps {
   readonly exit: (code: number) => void;
 }
 
-const defaultDeps: BrokerCommandDeps = {
+export type BrokerCommandDeps = SignetLifecycleCommandDeps;
+
+const defaultDeps: SignetLifecycleCommandDeps = {
   loadConfig,
   resolvePaths,
   createSignetRuntime,
@@ -47,25 +49,21 @@ const defaultDeps: BrokerCommandDeps = {
 };
 
 /**
- * Daemon lifecycle commands.
+ * Top-level signet lifecycle commands.
  *
  * - start: Create and start the SignetRuntime (does not use admin socket)
- * - stop: Send daemon.stop via admin socket
- * - status: Send daemon.status via admin socket
+ * - stop: Send signet.stop via admin socket
+ * - status: Send signet.status via admin socket
  * - config show: Show active merged configuration
  * - config validate: Validate config file (no daemon required)
  */
-export function createDaemonCommands(
-  deps: Partial<BrokerCommandDeps> = {},
-): Command {
-  const resolvedDeps: BrokerCommandDeps = { ...defaultDeps, ...deps };
-  const cmd = new Command("daemon").description(
-    "Signet daemon lifecycle management",
-  );
+export function createLifecycleCommands(
+  deps: Partial<SignetLifecycleCommandDeps> = {},
+): Command[] {
+  const resolvedDeps: SignetLifecycleCommandDeps = { ...defaultDeps, ...deps };
 
-  cmd
-    .command("start")
-    .description("Start the broker daemon")
+  const start = new Command("start")
+    .description("Start the signet daemon")
     .option("--daemon", "Fork and run as background daemon")
     .option("--config <path>", "Path to config file")
     .option("--json", "JSON output")
@@ -115,7 +113,7 @@ export function createDaemonCommands(
       if (!json) {
         write(`Loading config from ${paths.configFile}`);
         write(`Data directory: ${paths.dataDir}`);
-        write("Initializing broker runtime...");
+        write("Initializing signet runtime...");
       }
 
       const runtimeResult = await resolvedDeps.createSignetRuntime(
@@ -141,7 +139,7 @@ export function createDaemonCommands(
       const runtime = runtimeResult.value;
 
       if (!json) {
-        write("Starting broker...");
+        write("Starting signet...");
       }
 
       const startResult = await runtime.start();
@@ -164,7 +162,7 @@ export function createDaemonCommands(
 
       resolvedDeps.setupSignalHandlers(async () => {
         if (!json) {
-          write("Shutting down broker...");
+          write("Shutting down signet...");
         }
         const shutdownResult = await runtime.shutdown();
         if (Result.isError(shutdownResult)) {
@@ -189,7 +187,7 @@ export function createDaemonCommands(
             pid: process.pid,
             ws: `ws://${config.ws.host}:${config.ws.port}`,
             adminSocket: paths.adminSocket,
-            env: config.broker.env,
+            env: config.signet.env,
             dataDir: paths.dataDir,
           },
           { json },
@@ -197,9 +195,8 @@ export function createDaemonCommands(
       );
     });
 
-  cmd
-    .command("stop")
-    .description("Stop the broker daemon")
+  const stop = new Command("stop")
+    .description("Stop the signet daemon")
     .option("--config <path>", "Path to config file")
     .option("--timeout <ms>", "Shutdown timeout in milliseconds", "10000")
     .option("--json", "JSON output")
@@ -209,7 +206,7 @@ export function createDaemonCommands(
           configPath:
             typeof options.config === "string" ? options.config : undefined,
         },
-        (client) => client.request<{ stopped: true }>("broker.stop"),
+        (client) => client.request<{ stopped: true }>("signet.stop"),
       );
 
       if (result.isErr()) {
@@ -222,9 +219,8 @@ export function createDaemonCommands(
       );
     });
 
-  cmd
-    .command("status")
-    .description("Show broker daemon status")
+  const status = new Command("status")
+    .description("Show signet daemon status")
     .option("--config <path>", "Path to config file")
     .option("--json", "JSON output")
     .action(async (options) => {
@@ -233,7 +229,7 @@ export function createDaemonCommands(
           configPath:
             typeof options.config === "string" ? options.config : undefined,
         },
-        (client) => client.request<DaemonStatus>("broker.status"),
+        (client) => client.request<DaemonStatus>("signet.status"),
       );
 
       if (result.isErr()) {
@@ -306,13 +302,39 @@ export function createDaemonCommands(
       );
     });
 
-  cmd.addCommand(config);
+  return [start, stop, status, config];
+}
 
-  return cmd;
+function createLegacyLifecycleGroup(
+  name: string,
+  deps: Partial<SignetLifecycleCommandDeps> = {},
+): Command {
+  const group = new Command(name).description(
+    "Legacy alias for signet lifecycle commands",
+  );
+  Object.assign(group, { _hidden: true });
+
+  for (const command of createLifecycleCommands(deps)) {
+    group.addCommand(command);
+  }
+
+  return group;
+}
+
+export function createDaemonCommands(
+  deps: Partial<SignetLifecycleCommandDeps> = {},
+): Command {
+  return createLegacyLifecycleGroup("daemon", deps);
+}
+
+export function createBrokerCommands(
+  deps: Partial<SignetLifecycleCommandDeps> = {},
+): Command {
+  return createLegacyLifecycleGroup("broker", deps);
 }
 
 function writeError(
-  deps: BrokerCommandDeps,
+  deps: SignetLifecycleCommandDeps,
   error: SignetError,
   json: boolean,
 ): void {

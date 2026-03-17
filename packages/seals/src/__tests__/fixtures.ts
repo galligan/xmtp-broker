@@ -1,23 +1,17 @@
 import { Result } from "better-result";
-import type {
-  Attestation,
-  SignetError,
-  RevocationAttestation,
-} from "@xmtp/signet-schemas";
+import type { Seal, SignetError, RevocationSeal } from "@xmtp/signet-schemas";
 import type {
   SealStamper,
   SealPublisher,
-  Seal,
+  SealEnvelope,
   SignedRevocationEnvelope,
 } from "@xmtp/signet-contracts";
-import type { AttestationInput } from "../build.js";
+import type { SealInput } from "../build.js";
 import type { InputResolver } from "../manager.js";
 import { canonicalize } from "../canonicalize.js";
 
-/** Creates a valid AttestationInput for testing. */
-export function validInput(
-  overrides?: Partial<AttestationInput>,
-): AttestationInput {
+/** Creates a valid SealInput for testing. */
+export function validInput(overrides?: Partial<SealInput>): SealInput {
   return {
     agentInboxId: "agent-inbox-1",
     ownerInboxId: "owner-inbox-1",
@@ -77,12 +71,12 @@ export function validInput(
  * session+group pair. Override-able per call via the overrides map.
  */
 export function createTestInputResolver(
-  overrides?: Map<string, AttestationInput>,
+  overrides?: Map<string, SealInput>,
 ): InputResolver {
   return async (
     sessionId: string,
     groupId: string,
-  ): Promise<Result<AttestationInput, SignetError>> => {
+  ): Promise<Result<SealInput, SignetError>> => {
     const key = `${sessionId}:${groupId}`;
     const input = overrides?.get(key) ?? validInput({ groupId });
     return Result.ok(input);
@@ -92,21 +86,21 @@ export function createTestInputResolver(
 /** Creates a mock SealStamper that produces deterministic signatures. */
 export function createTestSigner(): SealStamper {
   return {
-    async sign(payload: Attestation): Promise<Result<Seal, SignetError>> {
+    async sign(payload: Seal): Promise<Result<SealEnvelope, SignetError>> {
       const bytes = canonicalize(payload);
       // Simple test signature: base64 of the first 16 bytes of canonical form
       const sig = btoa(
         String.fromCharCode(...new Uint8Array(bytes.slice(0, 16))),
       );
       return Result.ok({
-        attestation: payload,
+        seal: payload,
         signature: sig,
         signatureAlgorithm: "Ed25519",
         signerKeyRef: "test-key-ref",
       });
     },
     async signRevocation(
-      payload: RevocationAttestation,
+      payload: RevocationSeal,
     ): Promise<Result<SignedRevocationEnvelope, SignetError>> {
       const bytes = canonicalize(payload);
       const sig = btoa(
@@ -122,21 +116,21 @@ export function createTestSigner(): SealStamper {
   };
 }
 
-/** Creates a mock SealPublisher that records published attestations. */
+/** Creates a mock SealPublisher that records published seals. */
 export function createTestPublisher(): SealPublisher & {
-  readonly published: Seal[];
+  readonly published: SealEnvelope[];
   readonly publishedRevocations: SignedRevocationEnvelope[];
 } {
-  const published: Seal[] = [];
+  const published: SealEnvelope[] = [];
   const publishedRevocations: SignedRevocationEnvelope[] = [];
   return {
     published,
     publishedRevocations,
     async publish(
       _groupId: string,
-      attestation: Seal,
+      seal: SealEnvelope,
     ): Promise<Result<void, SignetError>> {
-      published.push(attestation);
+      published.push(seal);
       return Result.ok();
     },
     async publishRevocation(

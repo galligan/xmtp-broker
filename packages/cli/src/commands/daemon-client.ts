@@ -117,7 +117,7 @@ async function runWithKeyManager<T>(
     if (!keyManager.admin.exists()) {
       return Result.err(
         AuthError.create(
-          "No admin key found. Run 'xmtp-broker identity init' first.",
+          "No admin key found. Run 'xmtp-signet identity init' first.",
         ),
       );
     }

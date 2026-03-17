@@ -122,7 +122,7 @@ describe("AdminSocket round-trip", () => {
       {
         keyManager: makeKeyManager(),
         dispatcher,
-        brokerId: "test-broker",
+        brokerId: "test-signet",
         signerProvider: makeStubSignerProvider(),
       },
     );
@@ -139,13 +139,13 @@ describe("AdminSocket round-trip", () => {
     const socketPath = testSocketPath();
     const registry = createActionRegistry();
     const spec = makeTestSpec(
-      "broker.status",
+      "signet.status",
       async () =>
         Result.ok({
           state: "running",
           uptime: 123,
         }),
-      "broker.status",
+      "signet.status",
     );
     registry.register(spec);
     const dispatcher = createAdminDispatcher(registry);
@@ -155,7 +155,7 @@ describe("AdminSocket round-trip", () => {
       {
         keyManager: makeKeyManager(),
         dispatcher,
-        brokerId: "test-broker",
+        brokerId: "test-signet",
         signerProvider: makeStubSignerProvider(),
       },
     );
@@ -168,7 +168,7 @@ describe("AdminSocket round-trip", () => {
     const response = await client.request<{
       state: string;
       uptime: number;
-    }>("broker.status");
+    }>("signet.status");
     expect(response.isOk()).toBe(true);
     if (response.isOk()) {
       expect(response.value.state).toBe("running");
@@ -186,7 +186,7 @@ describe("AdminSocket round-trip", () => {
       {
         keyManager: makeKeyManager(),
         dispatcher,
-        brokerId: "test-broker",
+        brokerId: "test-signet",
         signerProvider: makeStubSignerProvider(),
       },
     );
@@ -218,7 +218,7 @@ describe("AdminSocket round-trip", () => {
       {
         keyManager: makeKeyManager(),
         dispatcher,
-        brokerId: "test-broker",
+        brokerId: "test-signet",
         signerProvider: makeStubSignerProvider(),
       },
     );
@@ -240,7 +240,7 @@ describe("AdminSocket round-trip", () => {
     }
   });
 
-  test("client preserves structured broker errors from JSON-RPC failures", async () => {
+  test("client preserves structured signet errors from JSON-RPC failures", async () => {
     const socketPath = testSocketPath();
     const registry = createActionRegistry();
     const spec = makeTestSpec(
@@ -261,7 +261,7 @@ describe("AdminSocket round-trip", () => {
       {
         keyManager: makeKeyManager(),
         dispatcher,
-        brokerId: "test-broker",
+        brokerId: "test-signet",
         signerProvider: makeStubSignerProvider(),
       },
     );
@@ -294,7 +294,7 @@ describe("AdminSocket round-trip", () => {
       {
         keyManager: makeKeyManager(),
         dispatcher,
-        brokerId: "test-broker",
+        brokerId: "test-signet",
         signerProvider: makeStubSignerProvider(),
       },
     );

@@ -53,7 +53,7 @@ function makeRawMessage(overrides?: Partial<RawMessage>): RawMessage {
     content: { text: "hello" },
     sentAt: new Date().toISOString(),
     threadId: null,
-    attestationId: null,
+    sealId: null,
     ...overrides,
   };
 }

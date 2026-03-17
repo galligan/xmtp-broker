@@ -1,85 +1,79 @@
 import { describe, expect, test } from "bun:test";
 import { Result } from "better-result";
-import { buildAttestation } from "../build.js";
+import { buildSeal } from "../build.js";
 import { validInput } from "./fixtures.js";
 
-describe("buildAttestation", () => {
-  test("builds attestation from valid input with null previousAttestationId", () => {
-    const result = buildAttestation(validInput(), null);
+describe("buildSeal", () => {
+  test("builds seal from valid input with null previousSealId", () => {
+    const result = buildSeal(validInput(), null);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    expect(result.value.attestation.previousAttestationId).toBeNull();
+    expect(result.value.seal.previousSealId).toBeNull();
   });
 
-  test("generates attestation ID with att_ prefix", () => {
-    const result = buildAttestation(validInput(), null);
+  test("generates seal ID with att_ prefix", () => {
+    const result = buildSeal(validInput(), null);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    expect(result.value.attestation.attestationId).toMatch(
-      /^att_[0-9a-f]{32}$/,
-    );
+    expect(result.value.seal.sealId).toMatch(/^att_[0-9a-f]{32}$/);
   });
 
-  test("chains to previous attestation when provided", () => {
-    const result = buildAttestation(validInput(), "att_previous123");
+  test("chains to previous seal when provided", () => {
+    const result = buildSeal(validInput(), "att_previous123");
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    expect(result.value.attestation.previousAttestationId).toBe(
-      "att_previous123",
-    );
+    expect(result.value.seal.previousSealId).toBe("att_previous123");
   });
 
   test("sets issuedAt to current time", () => {
     const before = new Date();
-    const result = buildAttestation(validInput(), null);
+    const result = buildSeal(validInput(), null);
     const after = new Date();
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    const issuedAt = new Date(result.value.attestation.issuedAt);
+    const issuedAt = new Date(result.value.seal.issuedAt);
     expect(issuedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
     expect(issuedAt.getTime()).toBeLessThanOrEqual(after.getTime());
   });
 
   test("sets expiresAt to 24 hours after issuedAt by default", () => {
-    const result = buildAttestation(validInput(), null);
+    const result = buildSeal(validInput(), null);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    const issued = new Date(result.value.attestation.issuedAt).getTime();
-    const expires = new Date(result.value.attestation.expiresAt).getTime();
+    const issued = new Date(result.value.seal.issuedAt).getTime();
+    const expires = new Date(result.value.seal.expiresAt).getTime();
     expect(expires - issued).toBe(86400 * 1000);
   });
 
   test("respects custom ttlSeconds", () => {
-    const result = buildAttestation(validInput(), null, 3600);
+    const result = buildSeal(validInput(), null, 3600);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    const issued = new Date(result.value.attestation.issuedAt).getTime();
-    const expires = new Date(result.value.attestation.expiresAt).getTime();
+    const issued = new Date(result.value.seal.issuedAt).getTime();
+    const expires = new Date(result.value.seal.expiresAt).getTime();
     expect(expires - issued).toBe(3600 * 1000);
   });
 
   test("maps view mode from input", () => {
-    const result = buildAttestation(validInput(), null);
+    const result = buildSeal(validInput(), null);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    expect(result.value.attestation.viewMode).toBe("full");
+    expect(result.value.seal.viewMode).toBe("full");
   });
 
   test("maps content types from view config", () => {
-    const result = buildAttestation(validInput(), null);
+    const result = buildSeal(validInput(), null);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    expect(result.value.attestation.contentTypes).toEqual([
-      "xmtp.org/text:1.0",
-    ]);
+    expect(result.value.seal.contentTypes).toEqual(["xmtp.org/text:1.0"]);
   });
 
   test("maps grantedOps from grant config", () => {
-    const result = buildAttestation(validInput(), null);
+    const result = buildSeal(validInput(), null);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    expect(result.value.attestation.grantedOps).toContain("messaging:send");
-    expect(result.value.attestation.grantedOps).toContain("messaging:reply");
+    expect(result.value.seal.grantedOps).toContain("messaging:send");
+    expect(result.value.seal.grantedOps).toContain("messaging:reply");
   });
 
   test("maps toolScopes from grant config", () => {
@@ -91,21 +85,21 @@ describe("buildAttestation", () => {
         },
       },
     });
-    const result = buildAttestation(input, null);
+    const result = buildSeal(input, null);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    expect(result.value.attestation.toolScopes).toEqual(["search"]);
+    expect(result.value.seal.toolScopes).toEqual(["search"]);
   });
 
-  test("produces serialized bytes of the attestation", () => {
-    const result = buildAttestation(validInput(), null);
+  test("produces serialized bytes of the seal", () => {
+    const result = buildSeal(validInput(), null);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
     expect(result.value.serialized).toBeInstanceOf(Uint8Array);
     expect(result.value.serialized.length).toBeGreaterThan(0);
   });
 
-  test("copies all input fields to attestation", () => {
+  test("copies all input fields to seal", () => {
     const input = validInput({
       inferenceMode: "external",
       inferenceProviders: ["openai"],
@@ -119,10 +113,10 @@ describe("buildAttestation", () => {
       policyHash: "sha256:xyz",
       heartbeatInterval: 60,
     });
-    const result = buildAttestation(input, null);
+    const result = buildSeal(input, null);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    const att = result.value.attestation;
+    const att = result.value.seal;
     expect(att.inferenceMode).toBe("external");
     expect(att.inferenceProviders).toEqual(["openai"]);
     expect(att.contentEgressScope).toBe("summaries-only");
@@ -137,10 +131,10 @@ describe("buildAttestation", () => {
   });
 
   test("copies revocationRules from input", () => {
-    const result = buildAttestation(validInput(), null);
+    const result = buildSeal(validInput(), null);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    expect(result.value.attestation.revocationRules).toEqual({
+    expect(result.value.seal.revocationRules).toEqual({
       maxTtlSeconds: 86400,
       requireHeartbeat: true,
       ownerCanRevoke: true,
@@ -149,9 +143,9 @@ describe("buildAttestation", () => {
   });
 
   test("sets issuer from input", () => {
-    const result = buildAttestation(validInput({ issuer: "my-broker" }), null);
+    const result = buildSeal(validInput({ issuer: "my-broker" }), null);
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    expect(result.value.attestation.issuer).toBe("my-broker");
+    expect(result.value.seal.issuer).toBe("my-broker");
   });
 });

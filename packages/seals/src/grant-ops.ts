@@ -2,7 +2,7 @@ import type { GrantConfig } from "@xmtp/signet-schemas";
 
 /**
  * Converts a structured GrantConfig into the flat string array stored
- * in attestation.grantedOps. This is the canonical mapping.
+ * in seal.grantedOps. This is the canonical mapping.
  */
 export function grantConfigToOps(grant: GrantConfig): readonly string[] {
   const ops: string[] = [];
@@ -31,7 +31,7 @@ export function grantConfigToOps(grant: GrantConfig): readonly string[] {
 
 /**
  * Converts a GrantConfig's tool scopes into the flat string array
- * stored in attestation.toolScopes. Only includes allowed tools.
+ * stored in seal.toolScopes. Only includes allowed tools.
  */
 export function grantConfigToToolScopes(grant: GrantConfig): readonly string[] {
   return grant.tools.scopes
