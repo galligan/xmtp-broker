@@ -13,7 +13,9 @@ import type { WsServer } from "@xmtp/signet-ws";
 import {
   createSessionActions,
   createRevealActions,
+  createUpdateActions,
 } from "@xmtp/signet-sessions";
+import type { InternalSessionManager } from "@xmtp/signet-sessions";
 import type { AdminServer } from "./admin/server.js";
 import type { CliConfig } from "./config/schema.js";
 import type { ResolvedPaths } from "./config/paths.js";
@@ -82,6 +84,9 @@ export interface SignetRuntimeDeps {
   /** Optional factory for conversation action specs, wired in production by start.ts. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createConversationActions?: () => ActionSpec<any, any, SignetError>[];
+
+  /** Optional factory to expose the internal session manager for update actions. */
+  getInternalSessionManager?: () => InternalSessionManager;
 
   /** Optional callback to list registered identities with their inbox IDs. */
   listIdentities?: () => Promise<readonly { inboxId: string | null }[]>;
@@ -196,6 +201,15 @@ export async function createSignetRuntime(
 
   for (const spec of createRevealActions({ sessionManager })) {
     registry.register(spec);
+  }
+
+  if (deps.getInternalSessionManager) {
+    for (const spec of createUpdateActions({
+      sessionManager,
+      internalManager: deps.getInternalSessionManager(),
+    })) {
+      registry.register(spec);
+    }
   }
 
   for (const spec of createSignetActions({

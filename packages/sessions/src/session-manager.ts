@@ -113,6 +113,10 @@ export interface InternalSessionManager {
     newGrant: GrantConfig,
   ): Result<MaterialityCheck, NotFoundError>;
   getRevealState(sessionId: string): Result<RevealStateStore, NotFoundError>;
+  setSessionState(
+    sessionId: string,
+    state: InternalSessionRecord["state"],
+  ): Result<InternalSessionRecord, NotFoundError>;
   sweepExpired(): readonly InternalSessionRecord[];
 }
 
@@ -429,6 +433,18 @@ export function createSessionManager(
         revealStates.set(sessionId, store);
       }
       return Result.ok(store);
+    },
+
+    setSessionState(sessionId, state) {
+      const record = byId.get(sessionId);
+      if (!record) {
+        return Result.err(NotFoundError.create("session", sessionId));
+      }
+      const updateResult = mutateRecord(sessionId, { state });
+      if (!updateResult.isOk()) {
+        return Result.err(NotFoundError.create("session", sessionId));
+      }
+      return Result.ok(updateResult.value);
     },
 
     checkMateriality(sessionId, newView, newGrant) {

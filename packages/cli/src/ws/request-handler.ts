@@ -8,12 +8,14 @@ import type {
   SignetError,
   HarnessRequest,
   SendMessageRequest,
+  UpdateViewRequest,
   RevealContentRequest,
   RevealGrant,
 } from "@xmtp/signet-schemas";
 import type { SessionManager, SessionRecord } from "@xmtp/signet-contracts";
 import { validateSendMessage } from "@xmtp/signet-policy";
 import type { RequestHandler } from "@xmtp/signet-ws";
+import type { InternalSessionManager } from "@xmtp/signet-sessions";
 
 export interface HarnessRequestHandlerDeps {
   readonly ensureCoreReady: () => Promise<Result<void, SignetError>>;
@@ -26,6 +28,7 @@ export interface HarnessRequestHandlerDeps {
     SessionManager,
     "heartbeat" | "lookup" | "getRevealState"
   >;
+  readonly internalSessionManager?: InternalSessionManager;
 }
 
 export function createWsRequestHandler(
@@ -163,6 +166,51 @@ export function createWsRequestHandler(
     return Result.ok(grant);
   }
 
+  async function handleUpdateView(
+    request: UpdateViewRequest,
+    session: SessionRecord,
+  ): Promise<Result<unknown, SignetError>> {
+    if (!deps.internalSessionManager) {
+      return Result.err(
+        InternalError.create("Internal session manager not available"),
+      );
+    }
+
+    const materialityResult = deps.internalSessionManager.checkMateriality(
+      session.sessionId,
+      request.view,
+      session.grant,
+    );
+    if (Result.isError(materialityResult)) {
+      return materialityResult;
+    }
+
+    const check = materialityResult.value;
+
+    if (check.isMaterial) {
+      deps.internalSessionManager.setSessionState(
+        session.sessionId,
+        "reauthorization-required",
+      );
+      return Result.ok({
+        updated: false,
+        material: true,
+        reason: check.reason,
+      });
+    }
+
+    const updateResult = deps.internalSessionManager.updateSessionPolicy(
+      session.sessionId,
+      request.view,
+      session.grant,
+    );
+    if (Result.isError(updateResult)) {
+      return updateResult;
+    }
+
+    return Result.ok({ updated: true, material: false, reason: null });
+  }
+
   return async (
     request: HarnessRequest,
     session: SessionRecord,
@@ -174,6 +222,8 @@ export function createWsRequestHandler(
         return handleHeartbeat(request, session);
       case "reveal_content":
         return handleRevealContent(request, session);
+      case "update_view":
+        return handleUpdateView(request, session);
       default:
         return Result.err(
           InternalError.create(
