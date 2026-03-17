@@ -49,6 +49,14 @@ export type {
   SignerProviderLike,
 } from "./xmtp-client-factory.js";
 
+// Identity registration
+export { registerIdentity } from "./identity-registration.js";
+export type {
+  IdentityRegistrationDeps,
+  RegisterIdentityInput,
+  RegisteredIdentity,
+} from "./identity-registration.js";
+
 // SDK integration (production XmtpClientFactory implementation)
 export {
   createSdkClientFactory,
