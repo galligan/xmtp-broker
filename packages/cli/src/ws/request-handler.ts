@@ -2,11 +2,14 @@ import { Result } from "better-result";
 import {
   AuthError,
   InternalError,
+  NotFoundError,
   PermissionError,
 } from "@xmtp/signet-schemas";
 import type {
   SignetError,
+  SignetEvent,
   HarnessRequest,
+  ConfirmActionRequest,
   SendMessageRequest,
   UpdateViewRequest,
   RevealContentRequest,
@@ -16,6 +19,10 @@ import type { SessionManager, SessionRecord } from "@xmtp/signet-contracts";
 import { validateSendMessage } from "@xmtp/signet-policy";
 import type { RequestHandler } from "@xmtp/signet-ws";
 import type { InternalSessionManager } from "@xmtp/signet-sessions";
+import type { PendingActionStore } from "@xmtp/signet-sessions";
+
+/** Default expiry for pending actions: 5 minutes. */
+const PENDING_ACTION_TTL_MS = 5 * 60 * 1000;
 
 export interface HarnessRequestHandlerDeps {
   readonly ensureCoreReady: () => Promise<Result<void, SignetError>>;
@@ -29,6 +36,8 @@ export interface HarnessRequestHandlerDeps {
     "heartbeat" | "lookup" | "getRevealState"
   >;
   readonly internalSessionManager?: InternalSessionManager;
+  readonly pendingActions?: PendingActionStore;
+  readonly broadcast?: (sessionId: string, event: SignetEvent) => void;
 }
 
 export function createWsRequestHandler(
@@ -37,7 +46,12 @@ export function createWsRequestHandler(
   async function handleSendMessage(
     request: SendMessageRequest,
     session: SessionRecord,
-  ): Promise<Result<{ messageId: string }, SignetError>> {
+  ): Promise<
+    Result<
+      { messageId: string } | { pending: true; actionId: string },
+      SignetError
+    >
+  > {
     if (!session.view.contentTypes.includes(request.contentType)) {
       return Result.err(
         PermissionError.create(
@@ -60,6 +74,38 @@ export function createWsRequestHandler(
     }
 
     if (validation.value.draftOnly) {
+      if (deps.pendingActions && deps.broadcast) {
+        const actionId = crypto.randomUUID();
+        const now = new Date();
+        deps.pendingActions.add({
+          actionId,
+          sessionId: session.sessionId,
+          actionType: "send_message",
+          payload: {
+            groupId: request.groupId,
+            contentType: request.contentType,
+            content: request.content,
+          },
+          createdAt: now.toISOString(),
+          expiresAt: new Date(
+            now.getTime() + PENDING_ACTION_TTL_MS,
+          ).toISOString(),
+        });
+
+        deps.broadcast(session.sessionId, {
+          type: "action.confirmation_required",
+          actionId,
+          actionType: "send_message",
+          preview: {
+            groupId: request.groupId,
+            contentType: request.contentType,
+            content: request.content,
+          },
+        });
+
+        return Result.ok({ pending: true, actionId });
+      }
+
       return Result.err(
         PermissionError.create(
           "Draft-only sessions cannot send live messages",
@@ -211,6 +257,122 @@ export function createWsRequestHandler(
     return Result.ok({ updated: true, material: false, reason: null });
   }
 
+  async function handleConfirmAction(
+    request: ConfirmActionRequest,
+    session: SessionRecord,
+  ): Promise<Result<unknown, SignetError>> {
+    if (!deps.pendingActions) {
+      return Result.err(
+        InternalError.create("Pending action store not available"),
+      );
+    }
+
+    const pending = deps.pendingActions.get(request.actionId);
+    if (pending === null) {
+      return Result.err(
+        NotFoundError.create("PendingAction", request.actionId),
+      );
+    }
+
+    if (pending.sessionId !== session.sessionId) {
+      return Result.err(
+        PermissionError.create(
+          "Pending action does not belong to this session",
+          {
+            actionId: request.actionId,
+            sessionId: session.sessionId,
+          },
+        ),
+      );
+    }
+
+    // Reject expired pending actions
+    if (
+      pending.expiresAt &&
+      new Date(pending.expiresAt).getTime() < Date.now()
+    ) {
+      deps.pendingActions.deny(request.actionId);
+      return Result.err(
+        PermissionError.create("Pending action has expired", {
+          actionId: request.actionId,
+          expiresAt: pending.expiresAt,
+        }),
+      );
+    }
+
+    if (!request.confirmed) {
+      deps.pendingActions.deny(request.actionId);
+      return Result.ok({ denied: true, actionId: request.actionId });
+    }
+
+    // Re-validate queued send_message against current session policy
+    // (session may have been narrowed since the action was queued)
+    if (pending.actionType === "send_message") {
+      const payload = pending.payload as {
+        groupId: string;
+        contentType: string;
+        content: unknown;
+      };
+
+      // Check content type still allowed
+      const allowedTypes = new Set(session.view.contentTypes);
+      if (!allowedTypes.has(payload.contentType)) {
+        deps.pendingActions.deny(request.actionId);
+        return Result.err(
+          PermissionError.create(
+            "Content type no longer allowed by session view",
+            {
+              contentType: payload.contentType,
+              sessionId: session.sessionId,
+            },
+          ),
+        );
+      }
+
+      // Re-run grant/view validation
+      const revalidation = validateSendMessage(
+        { groupId: payload.groupId, contentType: payload.contentType },
+        session.grant,
+        session.view,
+      );
+      if (revalidation.isErr()) {
+        deps.pendingActions.deny(request.actionId);
+        return revalidation;
+      }
+    }
+
+    const action = deps.pendingActions.confirm(request.actionId);
+    if (action === null) {
+      return Result.err(
+        NotFoundError.create("PendingAction", request.actionId),
+      );
+    }
+
+    // Execute the original action
+    if (action.actionType === "send_message") {
+      const payload = action.payload as {
+        groupId: string;
+        contentType: string;
+        content: unknown;
+      };
+
+      const readyResult = await deps.ensureCoreReady();
+      if (readyResult.isErr()) {
+        return readyResult;
+      }
+
+      return deps.sendMessage(
+        payload.groupId,
+        payload.contentType,
+        payload.content,
+      );
+    }
+
+    return Result.err(
+      InternalError.create(`Unknown pending action type: ${action.actionType}`),
+    );
+  }
+
   return async (
     request: HarnessRequest,
     session: SessionRecord,
@@ -224,6 +386,8 @@ export function createWsRequestHandler(
         return handleRevealContent(request, session);
       case "update_view":
         return handleUpdateView(request, session);
+      case "confirm_action":
+        return handleConfirmAction(request, session);
       default:
         return Result.err(
           InternalError.create(

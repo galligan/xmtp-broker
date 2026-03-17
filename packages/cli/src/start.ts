@@ -41,6 +41,7 @@ import type { SignetRuntimeDeps } from "./runtime.js";
 import { createWsRequestHandler } from "./ws/request-handler.js";
 import { createLazyCoreUpgrade } from "./ws/core-upgrade.js";
 import { createEventProjector } from "./ws/event-projector.js";
+import { createPendingActionStore } from "@xmtp/signet-sessions";
 
 /** Map SignetCoreImpl states to the contract's CoreState. */
 function mapSignetState(state: SignetState): CoreState {
@@ -293,6 +294,12 @@ export function createProductionDeps(): SignetRuntimeDeps {
         sealManager: import("@xmtp/signet-contracts").SealManager;
       };
 
+      const pendingActions = createPendingActionStore();
+
+      // Late-bound broadcast: the WS server isn't created yet when
+      // the request handler is wired, so we capture a mutable ref.
+      let wsServerRef: WsServer | null = null;
+
       // Build the WsServerDeps with tokenLookup and requestHandler
       const ensureCoreReady = createLazyCoreUpgrade(d.core);
       const requestHandler = createWsRequestHandler({
@@ -300,6 +307,10 @@ export function createProductionDeps(): SignetRuntimeDeps {
         sendMessage: (groupId, contentType, content) =>
           d.core.sendMessage(groupId, contentType, content),
         sessionManager: d.sessionManager,
+        pendingActions,
+        broadcast: (sessionId: string, event: unknown) => {
+          wsServerRef?.broadcast(sessionId, event as import("@xmtp/signet-schemas").SignetEvent);
+        },
       });
 
       const projector = createEventProjector({
@@ -320,7 +331,10 @@ export function createProductionDeps(): SignetRuntimeDeps {
         projectEvent: projector,
       };
 
-      return createWsServerImpl(cfg, wsDeps);
+      const server = createWsServerImpl(cfg, wsDeps);
+      wsServerRef = server;
+      globalWsServerRef = server;
+      return server;
     },
 
     createAdminServer(config: unknown, deps: unknown): AdminServer {
