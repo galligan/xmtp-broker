@@ -31,7 +31,7 @@ export function createSessionActions(
       rpcMethod: "session.issue",
     },
     mcp: {
-      toolName: "broker/session/issue",
+      toolName: "signet/session/issue",
       description: "Issue a new session",
       readOnly: false,
     },
@@ -52,7 +52,7 @@ export function createSessionActions(
       rpcMethod: "session.list",
     },
     mcp: {
-      toolName: "broker/session/list",
+      toolName: "signet/session/list",
       description: "List active sessions",
       readOnly: true,
     },
@@ -69,7 +69,7 @@ export function createSessionActions(
       rpcMethod: "session.inspect",
     },
     mcp: {
-      toolName: "broker/session/inspect",
+      toolName: "signet/session/inspect",
       description: "Inspect a session",
       readOnly: true,
     },
@@ -100,7 +100,7 @@ export function createSessionActions(
       rpcMethod: "session.revoke",
     },
     mcp: {
-      toolName: "broker/session/revoke",
+      toolName: "signet/session/revoke",
       description: "Revoke a session",
       readOnly: false,
       destructive: true,

@@ -550,7 +550,7 @@ export function createWsServer(
           sendSequenced(ws, {
             type: "session.expired",
             sessionId: ws.data.sessionRecord.sessionId,
-            reason: "broker_shutdown",
+            reason: "signet_shutdown",
           });
           transition(ws.data, "draining");
         }

@@ -15,7 +15,7 @@ export type VerificationStatement = {
   statementId: string;
   requestId: string;
   verifierInboxId: string;
-  brokerInboxId: string;
+  signetInboxId: string;
   agentInboxId: string;
   verdict: VerificationVerdict;
   verifiedTier: TrustTierType;
@@ -34,9 +34,9 @@ export const VerificationStatementSchema: z.ZodType<VerificationStatement> = z
     verifierInboxId: z
       .string()
       .describe("XMTP inbox ID of the verifier that issued this statement"),
-    brokerInboxId: z
+    signetInboxId: z
       .string()
-      .describe("XMTP inbox ID of the broker being verified"),
+      .describe("XMTP inbox ID of the signet being verified"),
     agentInboxId: z
       .string()
       .describe("XMTP inbox ID of the agent being verified"),

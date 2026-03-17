@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Command } from "commander";
-import {
-  createDaemonCommands,
-  createLifecycleCommands,
-} from "../commands/broker.js";
+import { createLifecycleCommands } from "../commands/lifecycle.js";
 import { createIdentityCommands } from "../commands/identity.js";
 import { createSessionCommands } from "../commands/session.js";
 import { createGrantCommands } from "../commands/grant.js";
@@ -66,18 +63,6 @@ describe("lifecycle commands", () => {
     const configSubs = getSubcommandNames(config!);
     expect(configSubs).toContain("show");
     expect(configSubs).toContain("validate");
-  });
-});
-
-describe("legacy daemon alias commands", () => {
-  const cmd = createDaemonCommands();
-
-  test("registers all legacy subcommands", () => {
-    const names = getSubcommandNames(cmd);
-    expect(names).toContain("start");
-    expect(names).toContain("stop");
-    expect(names).toContain("status");
-    expect(names).toContain("config");
   });
 });
 

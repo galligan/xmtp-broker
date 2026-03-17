@@ -4,7 +4,7 @@ import type { ActionSpec } from "@xmtp/signet-contracts";
 import type { SignetError } from "@xmtp/signet-schemas";
 import type { DaemonStatus } from "../daemon/status.js";
 
-export interface BrokerActionDeps {
+export interface SignetActionDeps {
   readonly status: () => Promise<DaemonStatus>;
   readonly shutdown: () => Promise<Result<void, SignetError>>;
 }
@@ -15,8 +15,8 @@ function widenActionSpec<TInput, TOutput>(
   return spec as ActionSpec<unknown, unknown, SignetError>;
 }
 
-export function createBrokerActions(
-  deps: BrokerActionDeps,
+export function createSignetActions(
+  deps: SignetActionDeps,
 ): ActionSpec<unknown, unknown, SignetError>[] {
   const createStatusSpec = (
     id: string,
@@ -64,13 +64,6 @@ export function createBrokerActions(
     ),
     widenActionSpec(
       createStopSpec("signet.stop", "signet:stop", "signet.stop"),
-    ),
-    // Keep broker-prefixed methods for backward compatibility with older clients.
-    widenActionSpec(
-      createStatusSpec("broker.status", "broker:status", "broker.status"),
-    ),
-    widenActionSpec(
-      createStopSpec("broker.stop", "broker:stop", "broker.stop"),
     ),
   ];
 }

@@ -122,7 +122,7 @@ describe("AdminSocket round-trip", () => {
       {
         keyManager: makeKeyManager(),
         dispatcher,
-        brokerId: "test-signet",
+        signetId: "test-signet",
         signerProvider: makeStubSignerProvider(),
       },
     );
@@ -155,7 +155,7 @@ describe("AdminSocket round-trip", () => {
       {
         keyManager: makeKeyManager(),
         dispatcher,
-        brokerId: "test-signet",
+        signetId: "test-signet",
         signerProvider: makeStubSignerProvider(),
       },
     );
@@ -186,7 +186,7 @@ describe("AdminSocket round-trip", () => {
       {
         keyManager: makeKeyManager(),
         dispatcher,
-        brokerId: "test-signet",
+        signetId: "test-signet",
         signerProvider: makeStubSignerProvider(),
       },
     );
@@ -218,7 +218,7 @@ describe("AdminSocket round-trip", () => {
       {
         keyManager: makeKeyManager(),
         dispatcher,
-        brokerId: "test-signet",
+        signetId: "test-signet",
         signerProvider: makeStubSignerProvider(),
       },
     );
@@ -261,7 +261,7 @@ describe("AdminSocket round-trip", () => {
       {
         keyManager: makeKeyManager(),
         dispatcher,
-        brokerId: "test-signet",
+        signetId: "test-signet",
         signerProvider: makeStubSignerProvider(),
       },
     );
@@ -294,7 +294,7 @@ describe("AdminSocket round-trip", () => {
       {
         keyManager: makeKeyManager(),
         dispatcher,
-        brokerId: "test-signet",
+        signetId: "test-signet",
         signerProvider: makeStubSignerProvider(),
       },
     );

@@ -306,8 +306,6 @@ describe("createSignetRuntime", () => {
     expect(dispatcher?.hasMethod("session.revoke")).toBe(true);
     expect(dispatcher?.hasMethod("signet.status")).toBe(true);
     expect(dispatcher?.hasMethod("signet.stop")).toBe(true);
-    expect(dispatcher?.hasMethod("broker.status")).toBe(true);
-    expect(dispatcher?.hasMethod("broker.stop")).toBe(true);
   });
 
   test("skips network init in local env", async () => {

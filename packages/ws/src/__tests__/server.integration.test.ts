@@ -572,7 +572,7 @@ describe("Graceful shutdown", () => {
       const event = msg["event"] as Record<string, unknown> | undefined;
       if (event) {
         expect(event["type"]).toBe("session.expired");
-        expect(event["reason"]).toBe("broker_shutdown");
+        expect(event["reason"]).toBe("signet_shutdown");
       }
     }
 

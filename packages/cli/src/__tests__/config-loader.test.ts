@@ -89,7 +89,7 @@ level = "info"
     expect(config.logging.level).toBe("debug");
   });
 
-  test("legacy broker env vars still override for compatibility", async () => {
+  test("legacy broker env vars are ignored", async () => {
     const result = await loadConfig({
       configPath: join(tempDir, "nonexistent.toml"),
       envOverrides: {
@@ -100,9 +100,9 @@ level = "info"
     });
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
-    expect(result.value.signet.env).toBe("production");
-    expect(result.value.ws.port).toBe(4567);
-    expect(result.value.logging.level).toBe("debug");
+    expect(result.value.signet.env).toBe("dev");
+    expect(result.value.ws.port).toBe(8393);
+    expect(result.value.logging.level).toBe("info");
   });
 
   test("XMTP_SIGNET_DATA_DIR env var overrides dataDir", async () => {
@@ -117,7 +117,7 @@ level = "info"
     expect(result.value.signet.dataDir).toBe("/custom/data/dir");
   });
 
-  test("legacy broker data dir env var still works", async () => {
+  test("legacy broker data dir env var is ignored", async () => {
     const result = await loadConfig({
       configPath: join(tempDir, "nonexistent.toml"),
       envOverrides: {
@@ -126,7 +126,7 @@ level = "info"
     });
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
-    expect(result.value.signet.dataDir).toBe("/custom/data/dir");
+    expect(result.value.signet.dataDir).toBeUndefined();
   });
 
   test("invalid TOML returns ValidationError", async () => {
@@ -172,7 +172,7 @@ level = "debug"
     expect(config.ws.port).toBe(8393);
   });
 
-  test("legacy broker TOML section still parses", async () => {
+  test("legacy broker TOML section is rejected", async () => {
     const tomlPath = join(tempDir, "legacy.toml");
     await writeFile(
       tomlPath,
@@ -183,10 +183,7 @@ identityMode = "shared"
     );
 
     const result = await loadConfig({ configPath: tomlPath });
-    expect(result.isOk()).toBe(true);
-    if (!result.isOk()) return;
-    expect(result.value.signet.env).toBe("production");
-    expect(result.value.signet.identityMode).toBe("shared");
+    expect(result.isOk()).toBe(false);
   });
 
   test("env var with invalid port returns ValidationError", async () => {

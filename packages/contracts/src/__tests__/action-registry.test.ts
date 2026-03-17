@@ -14,7 +14,7 @@ const testCliSurface: CliSurface = {
 
 /** Minimal MCP surface for testing. */
 const testMcpSurface: McpSurface = {
-  toolName: "broker/test/run",
+  toolName: "signet/test/run",
   description: "A test tool",
   readOnly: true,
 };
@@ -72,7 +72,7 @@ describe("ActionRegistry", () => {
 
   it("filters by mcp surface", () => {
     const registry = createActionRegistry();
-    const cliOnly = createTestSpec("broker.stop", {
+    const cliOnly = createTestSpec("signet.stop", {
       cli: testCliSurface,
     });
     const mcpOnly = createTestSpec("message.list", {
@@ -94,7 +94,7 @@ describe("ActionRegistry", () => {
 
   it("filters by cli surface", () => {
     const registry = createActionRegistry();
-    const cliOnly = createTestSpec("broker.stop", {
+    const cliOnly = createTestSpec("signet.stop", {
       cli: testCliSurface,
     });
     const mcpOnly = createTestSpec("message.list", {

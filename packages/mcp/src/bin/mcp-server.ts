@@ -28,7 +28,7 @@ const server = createMcpServer(
   },
   {
     registry,
-    brokerId: process.env["XMTP_SIGNET_ID"] ?? "signet_default",
+    signetId: process.env["XMTP_SIGNET_ID"] ?? "signet_default",
     signerProvider: {
       // Placeholder -- real signer injected by daemon
       async sign() {

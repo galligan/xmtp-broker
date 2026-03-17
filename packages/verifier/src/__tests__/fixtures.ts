@@ -35,7 +35,7 @@ export function createTestSeal(overrides?: Partial<Seal>): Seal {
       ownerCanRevoke: true,
       adminCanRemove: true,
     },
-    issuer: "broker-signer-001",
+    issuer: "signet-signer-001",
     ...overrides,
   };
 }
@@ -46,7 +46,7 @@ export function createTestVerificationRequest(
   return {
     requestId: "req-001",
     agentInboxId: "agent-inbox-001",
-    brokerInboxId: "broker-inbox-001",
+    signetInboxId: "signet-inbox-001",
     groupId: "group-001",
     seal: createTestSeal(),
     artifactDigest:

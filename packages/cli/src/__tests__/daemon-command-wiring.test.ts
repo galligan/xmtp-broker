@@ -3,7 +3,7 @@ import { Result } from "better-result";
 import type { SignetError } from "@xmtp/signet-schemas";
 import type { Command } from "commander";
 import type { AdminClient } from "../admin/client.js";
-import { createLifecycleCommands } from "../commands/broker.js";
+import { createLifecycleCommands } from "../commands/lifecycle.js";
 import { createSessionCommands } from "../commands/session.js";
 
 const view = {

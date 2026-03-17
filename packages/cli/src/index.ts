@@ -6,11 +6,7 @@
  */
 
 import { Command } from "commander";
-import {
-  createBrokerCommands,
-  createDaemonCommands,
-  createLifecycleCommands,
-} from "./commands/broker.js";
+import { createLifecycleCommands } from "./commands/lifecycle.js";
 import { createIdentityCommands } from "./commands/identity.js";
 import { createSessionCommands } from "./commands/session.js";
 import { createGrantCommands } from "./commands/grant.js";
@@ -35,8 +31,6 @@ program.addCommand(createSealCommands());
 program.addCommand(createMessageCommands());
 program.addCommand(createConversationCommands());
 program.addCommand(createAdminCommands());
-program.addCommand(createDaemonCommands());
-program.addCommand(createBrokerCommands());
 
 export { program };
 
@@ -80,11 +74,7 @@ export type {
   AdminAuthFrame,
 } from "./admin/protocol.js";
 
-export {
-  createBrokerCommands,
-  createDaemonCommands,
-  createLifecycleCommands,
-} from "./commands/broker.js";
+export { createLifecycleCommands } from "./commands/lifecycle.js";
 export { createIdentityCommands } from "./commands/identity.js";
 export { createSessionCommands } from "./commands/session.js";
 export { createGrantCommands } from "./commands/grant.js";

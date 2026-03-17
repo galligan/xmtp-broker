@@ -28,8 +28,6 @@ export interface SignetLifecycleCommandDeps {
   readonly exit: (code: number) => void;
 }
 
-export type BrokerCommandDeps = SignetLifecycleCommandDeps;
-
 const defaultDeps: SignetLifecycleCommandDeps = {
   loadConfig,
   resolvePaths,
@@ -303,34 +301,6 @@ export function createLifecycleCommands(
     });
 
   return [start, stop, status, config];
-}
-
-function createLegacyLifecycleGroup(
-  name: string,
-  deps: Partial<SignetLifecycleCommandDeps> = {},
-): Command {
-  const group = new Command(name).description(
-    "Legacy alias for signet lifecycle commands",
-  );
-  Object.assign(group, { _hidden: true });
-
-  for (const command of createLifecycleCommands(deps)) {
-    group.addCommand(command);
-  }
-
-  return group;
-}
-
-export function createDaemonCommands(
-  deps: Partial<SignetLifecycleCommandDeps> = {},
-): Command {
-  return createLegacyLifecycleGroup("daemon", deps);
-}
-
-export function createBrokerCommands(
-  deps: Partial<SignetLifecycleCommandDeps> = {},
-): Command {
-  return createLegacyLifecycleGroup("broker", deps);
 }
 
 function writeError(

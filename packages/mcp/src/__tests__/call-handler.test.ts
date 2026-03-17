@@ -11,7 +11,7 @@ import {
 
 function makeCallContext() {
   return {
-    brokerId: "broker_1",
+    signetId: "signet_1",
     signerProvider: createMockSignerProvider(),
     sessionRecord: makeSessionRecord(),
     requestTimeoutMs: 30_000,

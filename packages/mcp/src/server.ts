@@ -34,7 +34,7 @@ export type McpServerState = "idle" | "running" | "stopping" | "stopped";
 /** Dependencies injected into the MCP server. */
 export interface McpServerDeps {
   readonly registry: ActionRegistry;
-  readonly brokerId: string;
+  readonly signetId: string;
   readonly signerProvider: SignerProvider;
   readonly sessionManager: SessionManager;
 }
@@ -185,7 +185,7 @@ export function createMcpServer(
           },
           deps.registry,
           {
-            brokerId: deps.brokerId,
+            signetId: deps.signetId,
             signerProvider: deps.signerProvider,
             sessionRecord: cachedSession,
             requestTimeoutMs: config.requestTimeoutMs,

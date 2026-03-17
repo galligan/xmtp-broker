@@ -42,7 +42,7 @@ export interface AdminServerDeps {
     };
   };
   readonly dispatcher: AdminDispatcher;
-  readonly brokerId: string;
+  readonly signetId: string;
   readonly signerProvider: HandlerContext["signerProvider"];
 }
 
@@ -114,7 +114,7 @@ export function createAdminServer(
 
   function makeHandlerContext(fingerprint: string): HandlerContext {
     return {
-      brokerId: deps.brokerId,
+      signetId: deps.signetId,
       signerProvider: deps.signerProvider,
       requestId: crypto.randomUUID(),
       signal: AbortSignal.timeout(30_000),

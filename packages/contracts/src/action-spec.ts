@@ -57,8 +57,8 @@ export interface CliSurface {
  */
 export interface McpSurface {
   /**
-   * MCP tool name. Convention: `broker/{group}/{action}`
-   * (e.g., `broker/session/list`).
+   * MCP tool name. Convention: `signet/{group}/{action}`
+   * (e.g., `signet/session/list`).
    */
   readonly toolName: string;
 

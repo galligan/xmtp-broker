@@ -34,13 +34,11 @@ describe("CliConfigSchema", () => {
     expect(result.data.signet.identityMode).toBe("per-group");
   });
 
-  test("accepts legacy broker section as an alias", () => {
+  test("rejects broker section", () => {
     const result = CliConfigSchema.safeParse({
       broker: { env: "production" },
     });
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-    expect(result.data.signet.env).toBe("production");
+    expect(result.success).toBe(false);
   });
 
   test("accepts valid signet env values", () => {

@@ -11,9 +11,9 @@ export type CoreState =
   | "stopped"
   | "error";
 
-/** Context object passed to handlers during broker operations. */
+/** Context object passed to handlers during signet operations. */
 export interface CoreContext {
-  readonly brokerId: string;
+  readonly signetId: string;
   readonly signerProvider: SignerProvider;
 }
 

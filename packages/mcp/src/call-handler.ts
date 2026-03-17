@@ -20,7 +20,7 @@ import { createHandlerContext } from "./context-factory.js";
  * Parameters for call-handler context construction.
  */
 export interface CallHandlerContext {
-  readonly brokerId: string;
+  readonly signetId: string;
   readonly signerProvider: SignerProvider;
   readonly sessionRecord: SessionRecord;
   readonly requestTimeoutMs: number;
@@ -60,7 +60,7 @@ export async function handleCallTool(
 
   // Build handler context
   const handlerCtx = createHandlerContext({
-    brokerId: ctx.brokerId,
+    signetId: ctx.signetId,
     signerProvider: ctx.signerProvider,
     sessionId: ctx.sessionRecord.sessionId,
     requestTimeoutMs: ctx.requestTimeoutMs,

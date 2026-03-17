@@ -20,7 +20,7 @@ import { createAuditLog, type AuditLog } from "./audit/log.js";
 import type { DaemonState } from "./daemon/lifecycle.js";
 import { createAdminDispatcher } from "./admin/dispatcher.js";
 import type { DaemonStatus } from "./daemon/status.js";
-import { createBrokerActions } from "./actions/broker-actions.js";
+import { createSignetActions } from "./actions/signet-actions.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -187,7 +187,7 @@ export async function createSignetRuntime(
     registry.register(spec);
   }
 
-  for (const spec of createBrokerActions({
+  for (const spec of createSignetActions({
     status: async () => {
       if (runtimeRef === undefined) {
         throw new Error("Runtime not ready");
@@ -218,7 +218,7 @@ export async function createSignetRuntime(
     {
       keyManager,
       dispatcher: createAdminDispatcher(registry),
-      brokerId: "signet",
+      signetId: "signet",
       signerProvider: adminSignerStub,
     },
   );

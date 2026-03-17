@@ -5,7 +5,7 @@ import type { Seal, TrustTier as TrustTierType } from "@xmtp/signet-schemas";
 export type VerificationRequest = {
   requestId: string;
   agentInboxId: string;
-  brokerInboxId: string;
+  signetInboxId: string;
   groupId: string | null;
   seal: Seal | null;
   artifactDigest: string;
@@ -22,19 +22,19 @@ export const VerificationRequestSchema: z.ZodType<VerificationRequest> = z
     agentInboxId: z
       .string()
       .describe("XMTP inbox ID of the agent being verified"),
-    brokerInboxId: z
+    signetInboxId: z
       .string()
-      .describe("XMTP inbox ID of the broker operating the agent"),
+      .describe("XMTP inbox ID of the signet operating the agent"),
     groupId: z
       .string()
       .nullable()
-      .describe("Group context for verification, null for broker-wide"),
+      .describe("Group context for verification, null for signet-wide"),
     seal: SealSchema.nullable().describe(
       "Seal to verify, null if only checking provenance",
     ),
     artifactDigest: z
       .string()
-      .describe("SHA-256 digest of the broker artifact (hex-encoded)"),
+      .describe("SHA-256 digest of the signet artifact (hex-encoded)"),
     buildProvenanceBundle: z
       .string()
       .nullable()
@@ -42,7 +42,7 @@ export const VerificationRequestSchema: z.ZodType<VerificationRequest> = z
     sourceRepoUrl: z
       .string()
       .url()
-      .describe("URL of the broker source repository"),
+      .describe("URL of the signet source repository"),
     releaseTag: z
       .string()
       .nullable()

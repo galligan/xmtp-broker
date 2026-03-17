@@ -73,7 +73,6 @@ export type CliConfig = {
 
 type CliConfigInput = {
   signet?: SignetConfigInput;
-  broker?: SignetConfigInput;
   keys?:
     | {
         rootKeyPolicy?: "biometric" | "passcode" | "open" | undefined;
@@ -120,83 +119,72 @@ const SignetConfigSchema: z.ZodType<
   })
   .default({});
 
-function normalizeLegacyCliConfig(input: unknown): unknown {
-  if (typeof input !== "object" || input === null) {
-    return input;
-  }
-
-  const data = { ...(input as Record<string, unknown>) };
-  if (data["signet"] === undefined && data["broker"] !== undefined) {
-    data["signet"] = data["broker"];
-  }
-
-  return data;
-}
-
-const CliConfigBaseSchema = z.object({
-  signet: SignetConfigSchema,
-  keys: z
-    .object({
-      rootKeyPolicy: z
-        .enum(["biometric", "passcode", "open"])
-        .default("biometric")
-        .describe("Protection level for the root key"),
-      operationalKeyPolicy: z
-        .enum(["biometric", "passcode", "open"])
-        .default("open")
-        .describe("Protection level for operational keys"),
-    })
-    .default({}),
-  ws: z
-    .object({
-      port: z
-        .number()
-        .int()
-        .nonnegative()
-        .default(8393)
-        .describe("WebSocket server port (0 for dynamic allocation)"),
-      host: z
-        .string()
-        .default("127.0.0.1")
-        .describe("WebSocket server bind address"),
-    })
-    .default({}),
-  admin: AdminServerConfigSchema,
-  sessions: z
-    .object({
-      defaultTtlSeconds: z
-        .number()
-        .int()
-        .positive()
-        .default(3600)
-        .describe("Default session TTL in seconds"),
-      maxConcurrentPerAgent: z
-        .number()
-        .int()
-        .positive()
-        .default(3)
-        .describe("Maximum concurrent sessions per agent"),
-      heartbeatIntervalSeconds: z
-        .number()
-        .int()
-        .positive()
-        .default(30)
-        .describe("Heartbeat interval in seconds"),
-    })
-    .default({}),
-  logging: z
-    .object({
-      level: z
-        .enum(["debug", "info", "warn", "error"])
-        .default("info")
-        .describe("Log level"),
-      auditLogPath: z
-        .string()
-        .optional()
-        .describe("Audit log file path override"),
-    })
-    .default({}),
-});
+const CliConfigBaseSchema = z
+  .object({
+    signet: SignetConfigSchema,
+    keys: z
+      .object({
+        rootKeyPolicy: z
+          .enum(["biometric", "passcode", "open"])
+          .default("biometric")
+          .describe("Protection level for the root key"),
+        operationalKeyPolicy: z
+          .enum(["biometric", "passcode", "open"])
+          .default("open")
+          .describe("Protection level for operational keys"),
+      })
+      .default({}),
+    ws: z
+      .object({
+        port: z
+          .number()
+          .int()
+          .nonnegative()
+          .default(8393)
+          .describe("WebSocket server port (0 for dynamic allocation)"),
+        host: z
+          .string()
+          .default("127.0.0.1")
+          .describe("WebSocket server bind address"),
+      })
+      .default({}),
+    admin: AdminServerConfigSchema,
+    sessions: z
+      .object({
+        defaultTtlSeconds: z
+          .number()
+          .int()
+          .positive()
+          .default(3600)
+          .describe("Default session TTL in seconds"),
+        maxConcurrentPerAgent: z
+          .number()
+          .int()
+          .positive()
+          .default(3)
+          .describe("Maximum concurrent sessions per agent"),
+        heartbeatIntervalSeconds: z
+          .number()
+          .int()
+          .positive()
+          .default(30)
+          .describe("Heartbeat interval in seconds"),
+      })
+      .default({}),
+    logging: z
+      .object({
+        level: z
+          .enum(["debug", "info", "warn", "error"])
+          .default("info")
+          .describe("Log level"),
+        auditLogPath: z
+          .string()
+          .optional()
+          .describe("Audit log file path override"),
+      })
+      .default({}),
+  })
+  .strict();
 
 /**
  * Top-level CLI configuration schema.
@@ -206,7 +194,4 @@ export const CliConfigSchema: z.ZodType<
   CliConfig,
   z.ZodTypeDef,
   CliConfigInput
-> = z.preprocess(
-  normalizeLegacyCliConfig,
-  CliConfigBaseSchema,
-) as unknown as z.ZodType<CliConfig, z.ZodTypeDef, CliConfigInput>;
+> = CliConfigBaseSchema;
