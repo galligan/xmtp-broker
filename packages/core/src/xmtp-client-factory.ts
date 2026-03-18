@@ -16,6 +16,7 @@ export interface XmtpClient {
   sendMessage(
     groupId: string,
     content: unknown,
+    contentType?: string,
   ): Promise<Result<string, SignetError>>;
 
   /** Sync all conversations. */
