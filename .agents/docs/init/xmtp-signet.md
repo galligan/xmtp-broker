@@ -1,4 +1,4 @@
-# XMTP Agent Broker PRD
+# XMTP Agent Signet PRD
 
 **Version:** 0.2.1
 **Status:** Draft
@@ -6,15 +6,15 @@
 
 ## Summary
 
-This document proposes an **agent broker** architecture for XMTP-based applications and agents.
+This document proposes an **agent signet** architecture for XMTP-based applications and agents.
 
 The core idea is simple:
 
-- A **broker** is the real XMTP client.
-- The broker owns the raw XMTP signer, installation continuity, local encrypted database, and message sync.
+- A **signet** is the real XMTP client.
+- The signet owns the raw XMTP signer, installation continuity, local encrypted database, and message sync.
 - An **agent harness** never touches the raw XMTP client directly.
 - Instead, the harness connects to the broker over a controlled interface and receives a filtered **view** of one or more conversations and a scoped **grant** of allowed actions.
-- The permissions and scope of the view and grant are represented by group-visible **attestations**.
+- The permissions and scope of the view and grant are represented by group-visible **seals**.
 
 This model is designed to support agents in XMTP and Convos without pretending that a standard group member can somehow be cryptographically blind to ordinary group messages. It creates a practical, harness-agnostic security boundary that works with local brokers, self-hosted brokers, and managed broker deployments.
 
@@ -63,7 +63,7 @@ The current state:
 
 This proposal does not solve trust by decree. It moves us from **opaque trust** to **inspectable trust**.
 
-Concretely, that means a brokered agent can publish signed, group-visible attestations describing its current permissions, hosting mode, and scope, and agent-authored messages can reference the attestation they were produced under.
+Concretely, that means a brokered agent can publish signed, group-visible seals describing its current permissions, hosting mode, and scope, and agent-authored messages can reference the seal they were produced under.
 
 That still does not prove the operator is honest. But it gives the group something cryptographic and inspectable to verify, which is strictly better than the current state where agents can make claims and nobody can tell what is actually behind them.
 
@@ -80,7 +80,7 @@ In this model:
 - The broker is the real XMTP participant runtime.
 - The agent consumes a derived and policy-filtered interface.
 - Permissions are enforced at the broker boundary.
-- Group-visible attestation messages communicate the current capability state of an agent.
+- Group-visible seal messages communicate the current capability state of an agent.
 - The same conceptual model works across local, self-hosted, and managed deployments.
 
 ### What we are not proposing
@@ -149,7 +149,7 @@ Responsibilities:
 - Sync, receive, and store the real conversation state.
 - Enforce policy for views, grants, and message projection.
 - Issue sessions to agent harnesses.
-- Publish group-visible capability attestations.
+- Publish group-visible capability seals.
 - Manage per-agent isolation when serving multiple agents.
 
 The term “broker” is preferred over “gateway” to avoid confusion with XMTP Gateway Service and other gateway terminology in the ecosystem.
@@ -161,12 +161,12 @@ Each agent has its own XMTP inbox. The broker holds the signer for that inbox an
 This means:
 
 - The group sees each agent as a distinct participant with its own inbox identity.
-- Attestations are about a specific agent, not about the broker as a whole.
+- Seals are about a specific agent, not about the broker as a whole.
 - One broker can manage multiple agent inboxes, each joining different groups independently.
 - There is no “ventriloquist” problem where one broker identity speaks as multiple agents.
 - The broker is infrastructure, not a participant. It does not appear in group membership.
 
-When a single broker serves multiple agents in the same group, each agent has its own inbox, its own attestation, its own view, and its own grant. The broker maintains strict isolation between agents internally — Agent A’s view must not leak into Agent B’s derived state.
+When a single broker serves multiple agents in the same group, each agent has its own inbox, its own seal, its own view, and its own grant. The broker maintains strict isolation between agents internally — Agent A’s view must not leak into Agent B’s derived state.
 
 ### View
 
@@ -246,13 +246,13 @@ Suggested initial view modes as convenience labels:
 
 A view mode is only a convenience label. The underlying view object (including the content type allowlist) and grant object should remain explicit and authoritative.
 
-### Attestation
+### Seal
 
-An **attestation** is a signed assertion about an agent’s current permissions, scope, and operating posture.
+A **seal** is a signed assertion about an agent’s current permissions, scope, and operating posture.
 
-Attestations are meant to be visible to the group and updated whenever permissions change materially.
+Seals are meant to be visible to the group and updated whenever permissions change materially.
 
-Attestations establish shared understanding of:
+Seals establish shared understanding of:
 
 - Who owns the agent.
 - Which inbox the agent uses.
@@ -263,11 +263,11 @@ Attestations establish shared understanding of:
 - The hosting mode and trust posture.
 - What changed since the previous state.
 
-#### Attestation noise and materiality
+#### Seal noise and materiality
 
-Not every internal state change should produce a group-visible attestation. The system should distinguish **material changes** from **routine operations**.
+Not every internal state change should produce a group-visible seal. The system should distinguish **material changes** from **routine operations**.
 
-Material changes that produce group-visible attestations:
+Material changes that produce group-visible seals:
 
 - View mode or scope changes.
 - Grant additions or removals.
@@ -370,7 +370,7 @@ It includes:
 - Grant definitions (action permissions).
 - Reveal state.
 - Group policy state.
-- Attestations.
+- Seals.
 - Revocations.
 
 #### Derived plane
@@ -410,7 +410,7 @@ The system should define one capability model and multiple connection adapters, 
 
 When an agent sends conversation content to an external LLM provider, the privacy story changes fundamentally. This is arguably the single most consequential thing a group member would want to know about an agent.
 
-Egress and inference posture must be declared as structured, first-class fields in the attestation — not buried in a generic policy blob.
+Egress and inference posture must be declared as structured, first-class fields in the seal — not buried in a generic policy blob.
 
 ### Required egress fields
 
@@ -419,11 +419,11 @@ Egress and inference posture must be declared as structured, first-class fields 
 - `contentEgressScope` — What content leaves the broker boundary: `full-messages` | `summaries-only` | `tool-calls-only` | `none`
 - `retentionAtProvider` — `none` | `session` | `persistent` | `unknown`
 
-These fields are **required** in every attestation. If the value cannot be determined, the field must be set to `unknown` rather than omitted. Silent omission is not allowed. Every attestation takes an explicit position, even if that position is “I don’t know.”
+These fields are **required** in every seal. If the value cannot be determined, the field must be set to `unknown` rather than omitted. Silent omission is not allowed. Every seal takes an explicit position, even if that position is “I don’t know.”
 
 ### Envelope declaration
 
-For agent frameworks that dynamically switch inference providers (such as OpenClaw), the attestation should declare the **envelope** of possible providers, not the instantaneous state. If the agent may route to Anthropic, OpenAI, or a local model depending on the query, the attestation declares all three and sets `inferenceMode` to `hybrid`.
+For agent frameworks that dynamically switch inference providers (such as OpenClaw), the seal should declare the **envelope** of possible providers, not the instantaneous state. If the agent may route to Anthropic, OpenAI, or a local model depending on the query, the seal declares all three and sets `inferenceMode` to `hybrid`.
 
 Overstating the envelope is acceptable. Understating it is not.
 
@@ -431,25 +431,25 @@ Overstating the envelope is acceptable. Understating it is not.
 
 In v1, these fields are self-reported by the broker. An unverified broker claiming `inferenceMode: local` gets treated with the same skepticism as any other unverified claim. A source-verified or runtime-attested broker making that claim is more credible. The schema does not solve trust — it gives trust something structured to attach to.
 
-## Attestation Model
+## Seal Model
 
-### Why attestations matter
+### Why seals matter
 
-Attestations make agent posture legible to the conversation itself.
+Seals make agent posture legible to the conversation itself.
 
-Without attestations, permissions live only in the owner’s client or broker config. That is not enough for a multi-party environment.
+Without seals, permissions live only in the owner’s client or broker config. That is not enough for a multi-party environment.
 
-### Attestation signing in v1
+### Seal signing in v1
 
-In v1, the broker signs attestations using the agent’s inbox key (which the broker holds). The attestation includes the `ownerInboxId` field, which creates a social accountability link — the group can see who is responsible for the agent — even though the owner is not cryptographically co-signing every update.
+In v1, the broker signs seals using the agent’s inbox key (which the broker holds). The seal includes the `ownerInboxId` field, which creates a social accountability link — the group can see who is responsible for the agent — even though the owner is not cryptographically co-signing every update.
 
-Clients verify the signature against the agent’s inbox, confirming the attestation came from the entity that controls that agent.
+Clients verify the signature against the agent’s inbox, confirming the seal came from the entity that controls that agent.
 
-In future versions, optional owner co-signing could be added for high-stakes permission changes (such as upgrading from `reveal-only` to `full` visibility), while keeping routine attestations broker-signed only.
+In future versions, optional owner co-signing could be added for high-stakes permission changes (such as upgrading from `reveal-only` to `full` visibility), while keeping routine seals broker-signed only.
 
-### Attestation lifecycle
+### Seal lifecycle
 
-An attestation should be published when a material change occurs:
+A seal should be published when a material change occurs:
 
 - An agent is added.
 - Permissions are first granted.
@@ -459,10 +459,10 @@ An attestation should be published when a material change occurs:
 - The ownership or hosting mode changes.
 - A verifier statement is updated.
 
-### Suggested attestation fields
+### Suggested seal fields
 
-- `attestationId`
-- `previousAttestationId`
+- `sealId`
+- `previousSealId`
 - `agentInboxId`
 - `ownerInboxId`
 - `groupId`
@@ -489,7 +489,7 @@ An attestation should be published when a material change occurs:
 
 ### Message provenance
 
-Agent-authored messages should reference the attestation under which they were produced.
+Agent-authored messages should reference the seal under which they were produced.
 
 This gives clients the ability to render:
 
@@ -497,15 +497,15 @@ This gives clients the ability to render:
 - Whether a message was generated under different permissions than the current state.
 - Whether permissions changed mid-conversation.
 
-### Trust model for attestations
+### Trust model for seals
 
-The system should not rely on self-attestation from the agent alone.
+The system should not rely on self-sealing from the agent alone.
 
 The more trustworthy path is:
 
-- The broker signs the attestation with the agent’s inbox key.
-- The attestation is posted into the group.
-- Agent messages reference the current attestation.
+- The broker signs the seal with the agent’s inbox key.
+- The seal is posted into the group.
+- Agent messages reference the current seal.
 - Clients compare references over time.
 - Verifier statements (when available) add external validation.
 
@@ -533,7 +533,7 @@ Runtime attestation gets you to: “this live hosted broker is likely running th
 
 The design should be **TEE-agnostic and verifier-agnostic** — AWS Nitro today, other attested runtimes tomorrow, or purely source/build-verified self-hosting for users who do not want enclave dependencies.
 
-### Layer 4: Capability Attestation
+### Layer 4: Capability Seal
 
 What gets posted into the group. Describes what this broker claims the agent can do right now. This is the app/XIP layer — the view, the grant, the hosting mode, the egress posture.
 
@@ -560,7 +560,7 @@ The trust chain maps to three practical tiers that clients can render:
 - Hosted runtime proves measurement via remote attestation.
 - Secrets are released only to approved measurements.
 
-The group-visible attestation includes a `trustTier` field reflecting the highest tier the broker can currently demonstrate.
+The group-visible seal includes a `trustTier` field reflecting the highest tier the broker can currently demonstrate.
 
 ## Broker Verification
 
@@ -582,7 +582,7 @@ The verifier identity is just an XMTP inbox. The verification statement is a sig
 1. Broker sends a verification request containing: broker inbox identity, challenge nonce, artifact digest, build provenance bundle, optional runtime attestation evidence, requested verification class.
 1. Verifier checks policy and evidence.
 1. Verifier replies over XMTP with a signed verification statement.
-1. Broker references that statement in its group-visible capability attestation via the `verifierStatementRef` field.
+1. Broker references that statement in its group-visible capability seal via the `verifierStatementRef` field.
 1. Clients validate: the verifier issuer, the signature, expiry, evidence class, and whether subsequent agent messages still point to a current statement.
 
 ### Multiple issuers
@@ -650,7 +650,7 @@ The broker-mediated model adds a mandatory dependency: if the broker goes down, 
 
 ### Heartbeat and staleness
 
-The attestation includes a `heartbeatInterval` field indicating the expected liveness cadence. Clients should render an “agent unreachable” or “last active N minutes ago” indicator when the interval is exceeded. This does not require noisy group-visible messages — it can be inferred from session keepalives or lightweight structured signals.
+The seal includes a `heartbeatInterval` field indicating the expected liveness cadence. Clients should render an “agent unreachable” or “last active N minutes ago” indicator when the interval is exceeded. This does not require noisy group-visible messages — it can be inferred from session keepalives or lightweight structured signals.
 
 ### Broker recovery: inbound messages
 
@@ -670,22 +670,22 @@ Revocation should be **immediate, visible, and fail-closed**. If there is any am
 
 ### Normal revocation
 
-The owner instructs the broker to revoke the agent. The broker immediately terminates the agent’s session, posts a revocation attestation to the group, and stops projecting any view to that agent.
+The owner instructs the broker to revoke the agent. The broker immediately terminates the agent’s session, posts a revocation seal to the group, and stops projecting any view to that agent.
 
 ### Owner loses access
 
 If the owner’s device is lost or the owner leaves the group, two safety valves apply:
 
-- **Mandatory expiration:** Attestations must have an `expiresAt` field. A broker with no owner contact eventually stops being authorized.
+- **Mandatory expiration:** Seals must have an `expiresAt` field. A broker with no owner contact eventually stops being authorized.
 - **Group admin override:** Group admins can remove the agent’s inbox from the group at the XMTP group permissions level, which effectively kills access regardless of what the broker thinks.
 
 ### Session expiry without rotation
 
-If a session expires and the harness does not re-authenticate, the broker automatically stops projecting the view. No silent continuation on stale credentials. The broker posts a session-expired attestation so the group knows the agent is no longer active under valid authorization.
+If a session expires and the harness does not re-authenticate, the broker automatically stops projecting the view. No silent continuation on stale credentials. The broker posts a session-expired seal so the group knows the agent is no longer active under valid authorization.
 
 ### In-flight messages during revocation
 
-If the agent has a message in transit when revocation hits, the broker drops it. A message that arrives at the broker after the revocation attestation was posted should never reach the group. Better to lose a message than to have an agent act after its permissions were pulled.
+If the agent has a message in transit when revocation hits, the broker drops it. A message that arrives at the broker after the revocation seal was posted should never reach the group. Better to lose a message than to have an agent act after its permissions were pulled.
 
 ## Threat Model
 
@@ -707,15 +707,15 @@ Mitigation includes hardware-backed key storage (Secure Enclave, TPM), standard 
 
 ### Compromised broker host (self-hosted / managed)
 
-What they gain: full raw message access for all agents the broker manages, all signer material, and the ability to forge attestations. The hosted environment is the real client boundary, and compromise of it is equivalent to owning every agent on that broker.
+What they gain: full raw message access for all agents the broker manages, all signer material, and the ability to forge seals. The hosted environment is the real client boundary, and compromise of it is equivalent to owning every agent on that broker.
 
-Mitigations: short-lived sessions limit exposure window, mandatory attestation expiry forces periodic renewal, runtime attestation (Tier 3) can detect environment tampering, and the broker’s attestation history creates a forensic trail.
+Mitigations: short-lived sessions limit exposure window, mandatory seal expiry forces periodic renewal, runtime attestation (Tier 3) can detect environment tampering, and the broker’s seal history creates a forensic trail.
 
 ### Malicious operator (managed deployment)
 
-What they gain: the same access as a compromised host, but with the added ability to operate covertly over time. A malicious managed broker operator can silently exfiltrate messages, forge attestations, and impersonate agents.
+What they gain: the same access as a compromised host, but with the added ability to operate covertly over time. A malicious managed broker operator can silently exfiltrate messages, forge seals, and impersonate agents.
 
-Mitigations: the `hostingMode` field in attestations discloses managed deployment, allowing clients to render appropriate trust indicators. Runtime attestation (Tier 3) with TEE-backed key release is the strongest counter. Verifier statements from independent issuers provide a cross-check. But fundamentally, a managed broker requires trust in the operator — the system should be honest about that.
+Mitigations: the `hostingMode` field in seals discloses managed deployment, allowing clients to render appropriate trust indicators. Runtime attestation (Tier 3) with TEE-backed key release is the strongest counter. Verifier statements from independent issuers provide a cross-check. But fundamentally, a managed broker requires trust in the operator — the system should be honest about that.
 
 ### Network adversary
 
@@ -736,13 +736,13 @@ That owner can:
 
 ### Group visibility
 
-Even in the owner-driven model, the resulting permissions are visible to the group via attestations. Group members can inspect what an agent can see and do at any time.
+Even in the owner-driven model, the resulting permissions are visible to the group via seals. Group members can inspect what an agent can see and do at any time.
 
 ### Power asymmetry in v1
 
-The v1 model creates a known power asymmetry. If Alice adds an agent with `full` visibility, Bob can see that via the attestation, but he has no direct mechanism to override or restrict the agent’s permissions — his recourse is limited to leaving the group or asking Alice to change the configuration.
+The v1 model creates a known power asymmetry. If Alice adds an agent with `full` visibility, Bob can see that via the seal, but he has no direct mechanism to override or restrict the agent’s permissions — his recourse is limited to leaving the group or asking Alice to change the configuration.
 
-This is an accepted limitation of v1. The attestation model makes the situation transparent, which is a meaningful improvement over the current state where Bob has no visibility at all.
+This is an accepted limitation of v1. The seal model makes the situation transparent, which is a meaningful improvement over the current state where Bob has no visibility at all.
 
 ### Future group governance
 
@@ -767,7 +767,7 @@ Possible Convos additions:
 - Trust tier indicators.
 - Permission editing UI.
 - Reveal toggles on messages and threads.
-- Timeline cards for attestation changes (material changes only).
+- Timeline cards for seal changes (material changes only).
 - Agent ownership labeling.
 - Hosting mode labeling.
 - Inference and egress disclosure (e.g. “processes locally” or “sends to Anthropic, session only”).
@@ -868,7 +868,7 @@ All deployment modes share:
 
 - The same broker protocol.
 - The same view and grant model.
-- The same attestation model.
+- The same seal model.
 - The same client UX semantics.
 
 They do not share the same trust boundary.
@@ -887,7 +887,7 @@ Recommended outputs:
 
 - Broker protocol spec.
 - View, grant, and session spec.
-- Attestation schema.
+- Seal schema.
 - Reference verifier implementation (deployable to Cloudflare Workers or Railway).
 - Broker reference implementations.
 - One-click deployment templates.
@@ -910,7 +910,7 @@ Recommended outputs:
 
 - Cloudflare handles control-plane tasks.
 - A stateful raw broker runs elsewhere.
-- Good fit for global session management, fanout, and attestation coordination.
+- Good fit for global session management, fanout, and seal coordination.
 
 ### Platform considerations
 
@@ -933,7 +933,7 @@ A one-click deployment experience should:
 - Generate broker secrets inside the target environment.
 - Avoid showing long-lived secrets back to the user in plaintext when possible.
 - Support user-controlled recovery and rotation.
-- Publish broker identity and attestation fingerprints.
+- Publish broker identity and seal fingerprints.
 - Make the hosting mode visible to the client.
 
 ### Honest security posture for hosted deployment
@@ -972,7 +972,7 @@ Suggested event types:
 - `session.started`
 - `session.expired`
 - `session.reauthorization_required`
-- `attestation.updated`
+- `seal.updated`
 - `view.updated`
 - `grant.updated`
 - `message.visible`
@@ -1008,7 +1008,7 @@ That is true whether the broker is local or hosted.
 - A malicious host or operator may still exfiltrate data in hosted environments.
 - An agent can still remember or infer content it has already seen.
 - Egress to an LLM provider weakens privacy relative to pure client-to-client messaging.
-- Attestation fields beyond the trust chain are self-reported in v1.
+- Seal fields beyond the trust chain are self-reported in v1.
 
 ### Hard requirements
 
@@ -1019,7 +1019,7 @@ That is true whether the broker is local or hosted.
 - Privilege escalation requires root key authorization (biometric or equivalent).
 - Clear session expiration and rotation.
 - Clear revocation flow with fail-closed behavior.
-- Mandatory `expiresAt` on all attestations.
+- Mandatory `expiresAt` on all seals.
 
 ## Key Management and Hardware Binding
 
@@ -1051,7 +1051,7 @@ The broker should maintain a three-tier derived key hierarchy:
 
 - Derived from the root key.
 - Protected by `passcode` or `open` policy depending on deployment mode.
-- Used for: routine message signing, attestation publishing, session issuance, and day-to-day broker operations.
+- Used for: routine message signing, seal publishing, session issuance, and day-to-day broker operations.
 - Does not require biometric authentication per operation, allowing the broker to function autonomously for routine tasks.
 
 #### Session keys
@@ -1064,7 +1064,7 @@ The broker should maintain a three-tier derived key hierarchy:
 
 ### Privilege escalation and biometric gating
 
-Routine broker operations — sending messages, publishing routine attestations, managing sessions — should flow through the operational key without requiring per-operation authentication. This allows agents to function autonomously within their granted permissions.
+Routine broker operations — sending messages, publishing routine seals, managing sessions — should flow through the operational key without requiring per-operation authentication. This allows agents to function autonomously within their granted permissions.
 
 Operations that cross a privilege threshold should require root key authorization, which means biometric (or equivalent) authentication:
 
@@ -1114,7 +1114,7 @@ For hosted brokers, the Secure Enclave is not available. The equivalent pattern 
 - Key release conditioned on runtime attestation measurements.
 - The architectural boundary is the same — the broker can use the key but never see it — just implemented with different hardware.
 
-The attestation’s `trustTier` and `hostingMode` fields should reflect whether hardware-backed key storage is in use.
+The seal’s `trustTier` and `hostingMode` fields should reflect whether hardware-backed key storage is in use.
 
 ## Key Rotation
 
@@ -1127,35 +1127,35 @@ Secure Enclave keys are non-exportable and device-bound by hardware design. Movi
 1. Authenticate on the new machine (biometric enrollment).
 1. The broker creates new enclave-backed keys on the new hardware.
 1. The broker performs an XMTP installation rotation — the agent’s inbox identity persists, but the signing key material rotates.
-1. The broker publishes an updated attestation reflecting the new key material and any updated verifier statements.
+1. The broker publishes an updated seal reflecting the new key material and any updated verifier statements.
 1. The old machine’s keys are revoked.
 
 This is cleaner than a “recovery key” approach because it avoids ever having exportable root material. There are no seed phrases or recovery keys to secure, leak, or lose. The agent’s identity continuity is maintained through XMTP’s installation management, not through key portability.
 
 ### Periodic rotation
 
-Even without a machine change, operational keys should support periodic rotation as a security hygiene measure. The broker should be able to rotate operational keys without disrupting active sessions — new sessions use the new key, existing sessions continue until their natural expiry, and the attestation is updated to reflect the rotation.
+Even without a machine change, operational keys should support periodic rotation as a security hygiene measure. The broker should be able to rotate operational keys without disrupting active sessions — new sessions use the new key, existing sessions continue until their natural expiry, and the seal is updated to reflect the rotation.
 
-### Rotation attestation
+### Rotation seal
 
-Any key rotation event is a material change and should produce a group-visible attestation update. The group should be able to see that key material changed, when it changed, and that the new material chains back to a valid root.
+Any key rotation event is a material change and should produce a group-visible seal update. The group should be able to see that key material changed, when it changed, and that the new material chains back to a valid root.
 
 ## Candidate XIP Directions
 
 This proposal is intentionally app-layer first, but several pieces are candidates for future XIPs.
 
-### Capability Attestation XIP (recommended first)
+### Capability Seal XIP (recommended first)
 
-Standardize a portable, signed attestation format for agent capabilities.
+Standardize a portable, signed seal format for agent capabilities.
 
 Potential scope:
 
-- Required attestation fields (including structured egress/inference fields).
+- Required seal fields (including structured egress/inference fields).
 - View and grant semantics.
 - Update semantics and materiality thresholds.
 - Revocation semantics.
 - Ownership and issuer model.
-- Attestation references in agent-authored messages.
+- Seal references in agent-authored messages.
 
 This is recommended as the first XIP because it is the foundation everything else references.
 
@@ -1169,13 +1169,13 @@ Potential scope:
 - Verification statement format.
 - Issuer / expiry / revocation semantics.
 - Standard verification classes (self-asserted, source-verified, build-provenance-verified, runtime-attested).
-- Standard way for attestations to reference verifier statements.
+- Standard way for seals to reference verifier statements.
 
 ### Agent Message Provenance XIP
 
 Standardize how agent-authored messages indicate:
 
-- Which attestation they were produced under.
+- Which seal they were produced under.
 - Whether the agent was acting with full, reveal-only, or other view modes.
 - Whether tool use or external actions were involved.
 
@@ -1255,14 +1255,14 @@ Convos can add flavor to this model without waiting for protocol-level changes.
 - Attach to local broker.
 - Attach to self-hosted broker.
 - Inspect active session details.
-- Inspect attestation history.
+- Inspect seal history.
 - Export broker fingerprints and configuration.
 
 ## Rollout Strategy
 
 ### Phase 1
 
-- Define broker, view, grant, attestation, and session concepts.
+- Define broker, view, grant, seal, and session concepts.
 - Ship local broker reference implementation with Secure Enclave-backed key management.
 - Implement derived key hierarchy (root → operational → session).
 - Ship open source reference verifier (Cloudflare Workers / Railway).
@@ -1276,10 +1276,10 @@ Convos can add flavor to this model without waiting for protocol-level changes.
 - Add self-hosted deployment templates.
 - Add MCP and SDK adapters.
 - Add permission editing UX.
-- Add attestation timeline UX (material changes only).
+- Add seal timeline UX (material changes only).
 - Add action confirmations and richer tool scopes.
 - Verifier-over-XMTP flow operational.
-- Draft Capability Attestation XIP based on implementation learnings.
+- Draft Capability Seal XIP based on implementation learnings.
 
 ### Phase 3
 
@@ -1293,8 +1293,8 @@ Convos can add flavor to this model without waiting for protocol-level changes.
 
 ## Open Questions
 
-- What is the exact minimum viable attestation schema?
-- How should clients render stale or expired attestations?
+- What is the exact minimum viable seal schema?
+- How should clients render stale or expired seals?
 - How should reveal history be represented in UX?
 - Should session issuance be tied to explicit per-thread scopes by default?
 - How much policy should be in-group versus off-chain broker config?
@@ -1331,7 +1331,7 @@ The proposal is successful if it achieves the following:
 - Users misunderstand the difference between local and hosted modes.
 - The view and grant model feels too complex.
 - Too much UX ceremony discourages agent usage.
-- Attestations become noisy despite the materiality threshold.
+- Seals become noisy despite the materiality threshold.
 - Group members feel powerless under the v1 owner-only governance model.
 
 ### Mitigations
@@ -1355,13 +1355,13 @@ Start with:
 - Derived key hierarchy with biometric-gated privilege escalation.
 - WebSocket as the primary live interface.
 - Structured view and grant model.
-- Group-visible capability attestations with structured egress disclosure.
+- Group-visible capability seals with structured egress disclosure.
 - An open source reference verifier deployable to Cloudflare Workers or Railway.
 - Convos as a rich UX proving ground.
 - Self-hosted templates for Fly and Railway.
 - A Cloudflare-friendly hybrid control-plane design.
 
-Use implementation learnings to identify which parts should become formal XIPs, starting with Capability Attestation.
+Use implementation learnings to identify which parts should become formal XIPs, starting with Capability Seal.
 
 ## Appendix: Crisp Framing
 
@@ -1370,10 +1370,10 @@ The simplest way to explain the proposal is:
 - The **broker** is the real XMTP client.
 - The **view** is what the agent is allowed to see.
 - The **grant** is what the agent is allowed to do.
-- The **attestation** is what the group is told about that view and grant.
+- The **seal** is what the group is told about that view and grant.
 - The **session** is how the harness connects to it.
 - The **verifier** is how the group can check whether the broker is what it claims.
 
 Or more simply:
 
-**The group trusts the attestation. The broker enforces the view and grant. The agent never touches the raw client. The verifier keeps the broker honest.**
+**The group trusts the seal. The broker enforces the view and grant. The agent never touches the raw client. The verifier keeps the broker honest.**

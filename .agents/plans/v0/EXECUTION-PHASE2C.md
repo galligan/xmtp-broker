@@ -213,7 +213,7 @@ reviewer.
 
 `identity init` creates vault keys (root, operational, admin) but never
 registers with the XMTP network. The `IdentityStore` has records with
-`inboxId: null`. `BrokerCoreImpl.start()` iterates these identities and
+`inboxId: null`. `SignetCoreImpl.start()` iterates these identities and
 calls `SdkClientFactory.create()`, but that call needs a signer derived from
 the identity's key material — and that derivation path isn't wired from the
 CLI.
@@ -254,14 +254,14 @@ CLI.
 
 ```typescript
 import { Result } from "better-result";
-import type { BrokerError } from "@xmtp-broker/schemas";
-import { InternalError } from "@xmtp-broker/schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
+import { InternalError } from "@xmtp/signet-schemas";
 import type { SqliteIdentityStore } from "./identity-store.js";
 import type {
   XmtpClientFactory,
   SignerProviderLike,
 } from "./xmtp-client-factory.js";
-import type { BrokerCoreConfig, XmtpEnv } from "./config.js";
+import type { SignetCoreConfig, XmtpEnv } from "./config.js";
 
 export type SignerProviderFactory = (identityId: string) => SignerProviderLike;
 
@@ -269,7 +269,7 @@ export interface IdentityRegistrationDeps {
   readonly identityStore: SqliteIdentityStore;
   readonly clientFactory: XmtpClientFactory;
   readonly signerProviderFactory: SignerProviderFactory;
-  readonly config: Pick<BrokerCoreConfig, "dataDir" | "env" | "appVersion">;
+  readonly config: Pick<SignetCoreConfig, "dataDir" | "env" | "appVersion">;
 }
 
 export interface RegisterIdentityInput {
@@ -298,7 +298,7 @@ export interface RegisteredIdentity {
 export async function registerIdentity(
   deps: IdentityRegistrationDeps,
   input: RegisterIdentityInput,
-): Promise<Result<RegisteredIdentity, BrokerError>> {
+): Promise<Result<RegisteredIdentity, SignetError>> {
   // 1. Create identity record (inboxId starts null)
   const createResult = await deps.identityStore.create(
     input.groupId ?? null,
@@ -418,10 +418,10 @@ how `start.ts` constructs deps for the daemon:
 // 7. Register XMTP identity (skip for --env local)
 const env = options.env ?? config.broker?.env ?? "dev";
 if (env !== "local") {
-  const { createSdkClientFactory } = await import("@xmtp-broker/core");
-  const { createSignerProvider } = await import("@xmtp-broker/keys");
+  const { createSdkClientFactory } = await import("@xmtp/signet-core");
+  const { createSignerProvider } = await import("@xmtp/signet-keys");
   const { registerIdentity, SqliteIdentityStore } = await import(
-    "@xmtp-broker/core"
+    "@xmtp/signet-core"
   );
 
   const identityStore = new SqliteIdentityStore(
@@ -508,7 +508,7 @@ cmd
     }
 
     const paths = resolvePaths(configResult.value);
-    const { SqliteIdentityStore } = await import("@xmtp-broker/core");
+    const { SqliteIdentityStore } = await import("@xmtp/signet-core");
     const store = new SqliteIdentityStore(
       `${paths.dataDir}/identities.db`,
     );
@@ -575,7 +575,7 @@ deps that `start.ts` would use in the daemon:
 | `KeyManager` | `createKeyManager(config)` | Already created at step 3 |
 | `SignerProviderFactory` | `createSignerProvider(keyManagerRef, id)` | `createSignerProvider(km, id)` |
 | `XmtpClientFactory` | `createSdkClientFactory()` | `createSdkClientFactory()` |
-| `SqliteIdentityStore` | Owned by `BrokerCoreImpl` | Created directly with `identities.db` path |
+| `SqliteIdentityStore` | Owned by `SignetCoreImpl` | Created directly with `identities.db` path |
 
 The key manager (`km`) is already alive at the point where registration
 happens, so the signer provider factory can be constructed inline.
@@ -596,8 +596,8 @@ a different inbox ID. `identity list` shows both.
 
 **Implementer prompt context:**
 - Read `packages/cli/src/runtime.ts` lines 250-323 for `BrokerRuntime.start()`
-- Read `packages/cli/src/start.ts` lines 130-163 for the `BrokerCore` adapter
-- Read `packages/core/src/broker-core.ts` lines 105-238 for `BrokerCoreImpl.start()`
+- Read `packages/cli/src/start.ts` lines 130-163 for the `SignetCore` adapter
+- Read `packages/core/src/broker-core.ts` lines 105-238 for `SignetCoreImpl.start()`
 - Read `packages/cli/src/daemon/status.ts` for `DaemonStatus` schema
 - The key change is adding `core.initialize()` call after `core.initializeLocal()` in `runtime.ts`
 - Graceful degradation: network failure logs a warning, daemon continues in local mode
@@ -605,7 +605,7 @@ a different inbox ID. `identity list` shows both.
 ### Problem
 
 `broker start` calls `core.initializeLocal()` and stops there. The
-`core.initialize()` method (which maps to `BrokerCoreImpl.start()`) that
+`core.initialize()` method (which maps to `SignetCoreImpl.start()`) that
 hydrates real XMTP clients is never called. This was correct for Phase 2B
 (local mode only), but now that identities are registered, the daemon needs
 to connect to the network.
@@ -623,19 +623,19 @@ to connect to the network.
 // 6. Log startup event
 ```
 
-The `BrokerCore` contract (from `@xmtp-broker/contracts`) has both
+The `SignetCore` contract (from `@xmtp/signet-contracts`) has both
 `initializeLocal()` and `initialize()`. The adapter in `start.ts` maps
-these to `BrokerCoreImpl.startLocal()` and `BrokerCoreImpl.start()`.
+these to `SignetCoreImpl.startLocal()` and `SignetCoreImpl.start()`.
 
 **`packages/cli/src/start.ts`** — The adapter (lines 130-163):
 
 ```typescript
-// BrokerCore adapter wrapping BrokerCoreImpl:
+// SignetCore adapter wrapping SignetCoreImpl:
 async initializeLocal() { return impl.startLocal(); },
 async initialize() { return impl.start(); },
 ```
 
-`BrokerCoreImpl.start()` (lines 105-238 in `broker-core.ts`) already does
+`SignetCoreImpl.start()` (lines 105-238 in `broker-core.ts`) already does
 everything needed: iterates stored identities, creates SDK clients, syncs,
 starts streams, transitions to `"running"`.
 
@@ -673,7 +673,7 @@ if (config.broker.env !== "local") {
 // 3. Start WebSocket server (proceeds regardless of core state)
 ```
 
-The `BrokerCoreImpl.start()` method already handles the "no identities"
+The `SignetCoreImpl.start()` method already handles the "no identities"
 case gracefully — it loops over `identityStore.list()` and if the list is
 empty, it starts the heartbeat and transitions to `"running"` with zero
 clients. This is fine; the daemon is ready to accept identities later.
@@ -701,9 +701,9 @@ async status(): Promise<DaemonStatus> {
 }
 ```
 
-> **Implementation note:** The `BrokerCore` contract doesn't expose identity
+> **Implementation note:** The `SignetCore` contract doesn't expose identity
 > count or inbox IDs yet. Either add `listIdentities()` to the contract, or
-> expose it through the `BrokerCoreImpl` adapter in `start.ts`. The adapter
+> expose it through the `SignetCoreImpl` adapter in `start.ts`. The adapter
 > pattern from `start.ts` (lines 130-163) is the right place to add this.
 
 **`packages/cli/src/__tests__/network-startup.test.ts`** — Tests:
@@ -735,7 +735,7 @@ inbox IDs. Without identities, daemon stays in local mode.
 - Read `packages/core/src/sdk/sdk-client.ts` for how to implement `createGroup` with `wrapSdkCall`
 - Read `packages/cli/src/runtime.ts` for where to register new ActionSpecs
 - Node.js SDK uses `client.conversations.createGroup(inboxIds: string[], opts?)` — plain strings, NOT typed identifiers
-- `BrokerCoreImpl.#registry` is private — add a public accessor or `getManagedClient(id)` method
+- `SignetCoreImpl.#registry` is private — add a public accessor or `getManagedClient(id)` method
 
 ### Problem
 
@@ -759,8 +759,8 @@ wrapping the SDK. All methods use the `wrapSdkCall()` helper.
 ```typescript
 export function createSessionActions(
   deps: SessionActionDeps,
-): ActionSpec<unknown, unknown, BrokerError>[] {
-  const issue: ActionSpec<SessionConfigType, unknown, BrokerError> = {
+): ActionSpec<unknown, unknown, SignetError>[] {
+  const issue: ActionSpec<SessionConfigType, unknown, SignetError> = {
     id: "session.issue",
     input: SessionConfig,          // Zod schema
     handler: async (input) => deps.sessionManager.issue(input),
@@ -801,7 +801,7 @@ const result = await resolvedDeps.withDaemonClient(
 createGroup(
   memberInboxIds: readonly string[],
   options?: { name?: string },
-): Promise<Result<XmtpGroupInfo, BrokerError>>;
+): Promise<Result<XmtpGroupInfo, SignetError>>;
 ```
 
 **`packages/core/src/sdk/sdk-client.ts`** — Implement `createGroup`:
@@ -810,7 +810,7 @@ createGroup(
 async createGroup(
   memberInboxIds: readonly string[],
   options?: { name?: string },
-): Promise<Result<XmtpGroupInfo, BrokerError>> {
+): Promise<Result<XmtpGroupInfo, SignetError>> {
   return wrapSdkCall(async () => {
     // Node.js SDK uses plain inbox ID strings, NOT typed identifier objects.
     // createGroupWithIdentifiers() does NOT exist in the Node SDK —
@@ -844,13 +844,13 @@ conversation operations:
 ```typescript
 import { z } from "zod";
 import { Result } from "better-result";
-import type { ActionSpec } from "@xmtp-broker/contracts";
-import type { BrokerError } from "@xmtp-broker/schemas";
-import { NotFoundError } from "@xmtp-broker/schemas";
-import type { BrokerCoreImpl } from "./broker-core.js";
+import type { ActionSpec } from "@xmtp/signet-contracts";
+import type { SignetError } from "@xmtp/signet-schemas";
+import { NotFoundError } from "@xmtp/signet-schemas";
+import type { SignetCoreImpl } from "./broker-core.js";
 
 export interface ConversationActionDeps {
-  readonly core: BrokerCoreImpl;
+  readonly core: SignetCoreImpl;
 }
 
 const CreateGroupInput = z.object({
@@ -868,16 +868,16 @@ const GroupInfoInput = z.object({
 });
 
 function widenActionSpec<TInput, TOutput>(
-  spec: ActionSpec<TInput, TOutput, BrokerError>,
-): ActionSpec<unknown, unknown, BrokerError> {
-  return spec as ActionSpec<unknown, unknown, BrokerError>;
+  spec: ActionSpec<TInput, TOutput, SignetError>,
+): ActionSpec<unknown, unknown, SignetError> {
+  return spec as ActionSpec<unknown, unknown, SignetError>;
 }
 
 export function createConversationActions(
   deps: ConversationActionDeps,
-): ActionSpec<unknown, unknown, BrokerError>[] {
+): ActionSpec<unknown, unknown, SignetError>[] {
 
-  const create: ActionSpec<z.infer<typeof CreateGroupInput>, unknown, BrokerError> = {
+  const create: ActionSpec<z.infer<typeof CreateGroupInput>, unknown, SignetError> = {
     id: "conversation.create",
     input: CreateGroupInput,
     handler: async (input) => {
@@ -917,7 +917,7 @@ export function createConversationActions(
     mcp: { toolName: "broker/conversation/create", description: "Create a group conversation", readOnly: false },
   };
 
-  const list: ActionSpec<z.infer<typeof ListGroupsInput>, unknown, BrokerError> = {
+  const list: ActionSpec<z.infer<typeof ListGroupsInput>, unknown, SignetError> = {
     id: "conversation.list",
     input: ListGroupsInput,
     handler: async (input) => {
@@ -936,7 +936,7 @@ export function createConversationActions(
     mcp: { toolName: "broker/conversation/list", description: "List group conversations", readOnly: true },
   };
 
-  const info: ActionSpec<z.infer<typeof GroupInfoInput>, unknown, BrokerError> = {
+  const info: ActionSpec<z.infer<typeof GroupInfoInput>, unknown, SignetError> = {
     id: "conversation.info",
     input: GroupInfoInput,
     handler: async (input) => {
@@ -952,7 +952,7 @@ export function createConversationActions(
 
 > **Implementation note:** `deps.core.registry` is currently private
 > (`#registry`). Either add a public accessor or expose a
-> `getManagedClient(identityId)` method on `BrokerCoreImpl`. The `context`
+> `getManagedClient(identityId)` method on `SignetCoreImpl`. The `context`
 > property is already public and may be sufficient for some operations.
 
 **`packages/cli/src/commands/conversation.ts`** — Wire CLI commands following
@@ -961,7 +961,7 @@ the session command pattern:
 ```typescript
 import { Command } from "commander";
 import { Result } from "better-result";
-import type { BrokerError } from "@xmtp-broker/schemas";
+import type { SignetError } from "@xmtp/signet-schemas";
 import { exitCodeFromCategory } from "../output/exit-codes.js";
 import { formatOutput } from "../output/formatter.js";
 import {
@@ -1031,20 +1031,20 @@ export function createConversationCommands(
 
 ```typescript
 // After session actions registration:
-import { createConversationActions } from "@xmtp-broker/core";
+import { createConversationActions } from "@xmtp/signet-core";
 
 for (const spec of createConversationActions({ core: coreImpl })) {
   registry.register(spec);
 }
 ```
 
-> **Note:** This requires `coreImpl` (the `BrokerCoreImpl` instance) rather
-> than the `BrokerCore` contract adapter. The adapter in `start.ts` creates
-> `BrokerCoreImpl` internally (line 124). Either expose it, or pass the impl
+> **Note:** This requires `coreImpl` (the `SignetCoreImpl` instance) rather
+> than the `SignetCore` contract adapter. The adapter in `start.ts` creates
+> `SignetCoreImpl` internally (line 124). Either expose it, or pass the impl
 > into the runtime as a separate dependency.
 
 **`packages/core/src/__tests__/conversation-actions.test.ts`** — Tests using
-mocked `BrokerCoreImpl` with mock `XmtpClient`:
+mocked `SignetCoreImpl` with mock `XmtpClient`:
 
 - Create group with members → returns groupId and member count
 - Create group with empty members → succeeds (creator-only group)
@@ -1129,7 +1129,7 @@ export interface ConvosInvite {
 
 export function parseConvosInviteUrl(
   url: string,
-): Result<ConvosInvite, BrokerError>
+): Result<ConvosInvite, SignetError>
 ```
 
 **`packages/core/src/convos/join.ts`** — New file. Join protocol:
@@ -1139,7 +1139,7 @@ export interface JoinConversationDeps {
   readonly identityStore: SqliteIdentityStore;
   readonly clientFactory: XmtpClientFactory;
   readonly signerProviderFactory: SignerProviderFactory;
-  readonly config: Pick<BrokerCoreConfig, "dataDir" | "env" | "appVersion">;
+  readonly config: Pick<SignetCoreConfig, "dataDir" | "env" | "appVersion">;
 }
 
 export interface JoinResult {
@@ -1163,7 +1163,7 @@ export async function joinConversation(
   deps: JoinConversationDeps,
   inviteUrl: string,
   options?: { label?: string; timeoutMs?: number },
-): Promise<Result<JoinResult, BrokerError>>
+): Promise<Result<JoinResult, SignetError>>
 ```
 
 **`packages/cli/src/commands/conversation.ts`** — Add `conversation join`:
@@ -1238,7 +1238,7 @@ export interface GenerateInviteInput {
 
 export function generateConvosInviteUrl(
   input: GenerateInviteInput,
-): Result<string, BrokerError>
+): Result<string, SignetError>
 ```
 
 **`packages/cli/src/invite/qr.ts`** — Terminal QR renderer (already planned):
@@ -1848,10 +1848,10 @@ gt submit --stack --no-interactive
   `SqliteIdentityStore`, `SdkClientFactory`, and `SignerProviderFactory`
   directly (same pattern as `start.ts` but without the daemon lifecycle).
   The key manager is already alive at that point.
-- **`BrokerCoreImpl` private fields.** The conversation actions need access to
+- **`SignetCoreImpl` private fields.** The conversation actions need access to
   `#registry` and `identityStore`. The `identityStore` is already public
   (line 80). The registry needs a public accessor or a
-  `getManagedClient(identityId)` method added to `BrokerCoreImpl`.
+  `getManagedClient(identityId)` method added to `SignetCoreImpl`.
 - **Empty group creation.** We use the XMTP-JS pattern of adding members at
   creation time (simpler). The Convos pattern of empty genesis + invite flow
   is more complex and deferred.

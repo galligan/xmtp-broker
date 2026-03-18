@@ -1,37 +1,37 @@
 # 13-daemon-cli
 
-**Package:** `@xmtp-broker/cli`
+**Package:** `@xmtp/signet-cli`
 **Spec version:** 0.1.0
 
 ## Overview
 
-The CLI package is the composition root and primary human interface for the xmtp-broker. It wires all runtime packages into a running daemon process and exposes 8 command groups for operating, administering, and debugging the broker. The CLI is a thin transport adapter over the same handler contract used by WebSocket -- every command maps to a handler that receives typed input and returns `Result<T, E>`.
+The CLI package is the composition root and primary human interface for the xmtp-signet. It wires all runtime packages into a running daemon process and exposes 8 command groups for operating, administering, and debugging the broker. The CLI is a thin transport adapter over the same handler contract used by WebSocket -- every command maps to a handler that receives typed input and returns `Result<T, E>`.
 
 The package serves three distinct roles:
 
 1. **Daemon lifecycle** -- Start, stop, and monitor the broker process. The daemon owns the XMTP client, key hierarchy, session store, policy engine, WebSocket server, and admin socket.
 2. **Admin transport** -- CLI commands connect to the daemon's Unix domain socket, send JSON-RPC 2.0 requests, and display results. This is the admin-facing counterpart to the WebSocket's harness-facing interface.
-3. **Direct mode fallback** -- When no daemon is running, qualifying commands spin up a one-shot XMTP client for development and scripting, bypassing the session/grant/attestation system entirely.
+3. **Direct mode fallback** -- When no daemon is running, qualifying commands spin up a one-shot XMTP client for development and scripting, bypassing the session/grant/seal system entirely.
 
 The binary name is `xmtp-broker`. Built with Commander.js on Bun, it composes cleanly with the broker's Zod schemas for argument validation and the existing error taxonomy for exit code mapping.
 
 ## Dependencies
 
 **Imports:**
-- `@xmtp-broker/contracts` -- `BrokerCore`, `SessionManager`, `AttestationManager`, `CoreContext`, `HandlerContext`, `Handler`, `SignerProvider`, `CoreState`, `GroupInfo`, `SessionRecord`, `RawEvent` (canonical interface definitions)
-- `@xmtp-broker/schemas` -- `SessionConfig`, `SessionToken`, `ViewConfig`, `GrantConfig`, `BrokerEvent`, error classes (`ValidationError`, `AuthError`, `InternalError`, `NotFoundError`, `PermissionError`, `TimeoutError`, `CancelledError`), `ErrorCategory`, `ERROR_CATEGORY_META`
-- `@xmtp-broker/core` -- `BrokerCore` implementation, `BrokerCoreConfig`
-- `@xmtp-broker/policy` -- `PolicyEngine`, view filtering, grant enforcement
-- `@xmtp-broker/sessions` -- `SessionManager` implementation
-- `@xmtp-broker/attestations` -- `AttestationManager` implementation
-- `@xmtp-broker/keys` -- `KeyManager`, `SignerProvider` implementation
-- `@xmtp-broker/ws` -- `WsServer`, `WsServerConfig`
+- `@xmtp/signet-contracts` -- `SignetCore`, `SessionManager`, `SealManager`, `CoreContext`, `HandlerContext`, `Handler`, `SignerProvider`, `CoreState`, `GroupInfo`, `SessionRecord`, `RawEvent` (canonical interface definitions)
+- `@xmtp/signet-schemas` -- `SessionConfig`, `SessionToken`, `ViewConfig`, `GrantConfig`, `BrokerEvent`, error classes (`ValidationError`, `AuthError`, `InternalError`, `NotFoundError`, `PermissionError`, `TimeoutError`, `CancelledError`), `ErrorCategory`, `ERROR_CATEGORY_META`
+- `@xmtp/signet-core` -- `SignetCore` implementation, `SignetCoreConfig`
+- `@xmtp/signet-policy` -- `PolicyEngine`, view filtering, grant enforcement
+- `@xmtp/signet-sessions` -- `SessionManager` implementation
+- `@xmtp/signet-seals` -- `SealManager` implementation
+- `@xmtp/signet-keys` -- `KeyManager`, `SignerProvider` implementation
+- `@xmtp/signet-ws` -- `WsServer`, `WsServerConfig`
 - `commander` -- CLI framework
 - `smol-toml` -- TOML config parsing
 - `better-result` -- `Result`, `ok`, `err`
 - `zod` -- config and argument validation
 
-**Imported by:** Nothing -- this is the top of the dependency graph, alongside `@xmtp-broker/ws`.
+**Imported by:** Nothing -- this is the top of the dependency graph, alongside `@xmtp/signet-ws`.
 
 ## Public Interfaces
 
@@ -130,9 +130,9 @@ On macOS, `$XDG_RUNTIME_DIR` defaults to `$TMPDIR` if unset.
 ```typescript
 /** The fully wired broker runtime returned by the composition root. */
 interface BrokerRuntime {
-  readonly core: BrokerCore;
+  readonly core: SignetCore;
   readonly sessionManager: SessionManager;
-  readonly attestationManager: AttestationManager;
+  readonly attestationManager: SealManager;
   readonly keyManager: KeyManager;
   readonly policyEngine: PolicyEngine;
   readonly wsServer: WsServer;
@@ -141,10 +141,10 @@ interface BrokerRuntime {
   readonly paths: ResolvedPaths;
 
   /** Start all services in dependency order. */
-  start(): Promise<Result<void, BrokerError>>;
+  start(): Promise<Result<void, SignetError>>;
 
   /** Graceful shutdown in reverse dependency order. */
-  shutdown(): Promise<Result<void, BrokerError>>;
+  shutdown(): Promise<Result<void, SignetError>>;
 
   /** Current lifecycle state. */
   readonly state: DaemonState;
@@ -204,10 +204,10 @@ interface AdminClient {
   request<T>(
     method: string,
     params?: Record<string, unknown>,
-  ): Promise<Result<T, BrokerError>>;
+  ): Promise<Result<T, SignetError>>;
 
   /** Check if the daemon is reachable. */
-  ping(): Promise<Result<DaemonStatus, BrokerError>>;
+  ping(): Promise<Result<DaemonStatus, SignetError>>;
 
   /** Close the connection. */
   close(): void;
@@ -326,7 +326,7 @@ interface AdminDispatcher {
     method: string,
     params: Record<string, unknown>,
     ctx: HandlerContext,
-  ): Promise<Result<unknown, BrokerError>>;
+  ): Promise<Result<unknown, SignetError>>;
 }
 ```
 
@@ -351,10 +351,10 @@ JSON-RPC methods use dot-delimited names matching the CLI command structure:
 | `grant list` | `grant.list` |
 | `grant inspect <id>` | `grant.inspect` |
 | `grant revoke <id>` | `grant.revoke` |
-| `attestation list` | `attestation.list` |
-| `attestation inspect <id>` | `attestation.inspect` |
-| `attestation verify <id>` | `attestation.verify` |
-| `attestation revoke <id>` | `attestation.revoke` |
+| `seal list` | `seal.list` |
+| `seal inspect <id>` | `seal.inspect` |
+| `seal verify <id>` | `seal.verify` |
+| `seal revoke <id>` | `seal.revoke` |
 | `message send <group> <text>` | `message.send` |
 | `message list <group>` | `message.list` |
 | `message stream <group>` | `message.stream` |
@@ -379,14 +379,14 @@ interface OutputOptions {
 
 /** Format a Result for CLI output. */
 function formatResult<T>(
-  result: Result<T, BrokerError>,
+  result: Result<T, SignetError>,
   options: OutputOptions,
   formatter: (value: T) => string,
 ): string;
 
-/** Format a BrokerError for CLI output. */
+/** Format a SignetError for CLI output. */
 function formatError(
-  error: BrokerError,
+  error: SignetError,
   options: OutputOptions,
 ): string;
 
@@ -394,7 +394,7 @@ function formatError(
 function exitCodeFromCategory(category: ErrorCategory): number;
 ```
 
-The `exitCodeFromCategory` function reads from `ERROR_CATEGORY_META` in `@xmtp-broker/schemas`, which maps categories to exit codes. This is the single source of truth -- the CLI does not maintain its own exit code table.
+The `exitCodeFromCategory` function reads from `ERROR_CATEGORY_META` in `@xmtp/signet-schemas`, which maps categories to exit codes. This is the single source of truth -- the CLI does not maintain its own exit code table.
 
 ### Direct Mode Client
 
@@ -411,7 +411,7 @@ type DirectModeConfig = z.infer<typeof DirectModeConfigSchema>;
 /** Create a one-shot XMTP client for direct mode. */
 function createDirectClient(
   config: DirectModeConfig,
-): Promise<Result<DirectClient, BrokerError>>;
+): Promise<Result<DirectClient, SignetError>>;
 
 interface DirectClient {
   /** The underlying XMTP client (raw access, no policy). */
@@ -428,7 +428,7 @@ This means Secure Enclave integration (spec 07) is a hard dependency for the CLI
 
 ## Zod Schemas
 
-All new schemas are defined above. This package imports existing schemas from `@xmtp-broker/schemas` (error taxonomy, session types, view/grant configs) and `@xmtp-broker/contracts` (service interfaces).
+All new schemas are defined above. This package imports existing schemas from `@xmtp/signet-schemas` (error taxonomy, session types, view/grant configs) and `@xmtp/signet-contracts` (service interfaces).
 
 Schemas defined in this package:
 
@@ -474,8 +474,8 @@ Schemas defined in this package:
 1. Key manager -- detect platform, load or create root key
 2. Broker core -- create XMTP client(s), sync groups
 3. Session manager -- initialize session store
-4. Attestation manager -- bind to key manager and core
-5. Policy engine -- wire to session and attestation managers
+4. Seal manager -- bind to key manager and core
+5. Policy engine -- wire to session and seal managers
 6. WebSocket server -- begin accepting harness connections
 7. Admin server -- open Unix domain socket
 8. Write PID file
@@ -723,7 +723,7 @@ xmtp-broker identity export-public
 
 **`info`**: Daemon mode. Displays inbox ID, installation ID, identity mode, key fingerprints, platform capability, and trust tier.
 
-**`rotate-keys`**: Daemon mode, admin auth required. Triggers operational key rotation through the key manager. May prompt for biometric. Publishes updated attestations.
+**`rotate-keys`**: Daemon mode, admin auth required. Triggers operational key rotation through the key manager. May prompt for biometric. Publishes updated seals.
 
 **`export-public`**: Daemon mode. Exports public key material (operational key public key, root key public key, fingerprints) in a format suitable for verification.
 
@@ -776,7 +776,7 @@ All grant commands require the daemon and admin auth.
 
 **`revoke <id>`**: Revokes a specific grant, which triggers session reauthorization (material change).
 
-#### `attestation` -- Attestation Lifecycle
+#### `seal` -- Seal Lifecycle
 
 ```
 xmtp-broker attestation list [--group <groupId>] [--agent <inboxId>]
@@ -785,15 +785,15 @@ xmtp-broker attestation verify <id>
 xmtp-broker attestation revoke <id>
 ```
 
-All attestation commands require the daemon. `verify` and `inspect` have limited direct mode support if given raw attestation data via stdin.
+All seal commands require the daemon. `verify` and `inspect` have limited direct mode support if given raw seal data via stdin.
 
-**`list`**: Lists attestations filtered by group or agent. Displays: attestation ID, group, agent, trust tier, issued, expires.
+**`list`**: Lists seals filtered by group or agent. Displays: seal ID, group, agent, trust tier, issued, expires.
 
-**`inspect <id>`**: Shows full attestation content including the signed envelope, verification chain, view/grant summary, and provenance metadata.
+**`inspect <id>`**: Shows full seal content including the signed envelope, verification chain, view/grant summary, and provenance metadata.
 
-**`verify <id>`**: Runs the 6-check verification pipeline from spec 09 against a specific attestation. Displays pass/fail for each check and an overall result.
+**`verify <id>`**: Runs the 6-check verification pipeline from spec 09 against a specific seal. Displays pass/fail for each check and an overall result.
 
-**`revoke <id>`**: Revokes an attestation and publishes a revocation message to the group.
+**`revoke <id>`**: Revokes a seal and publishes a revocation message to the group.
 
 #### `message` -- Message Operations
 
@@ -902,7 +902,7 @@ Commands that require the daemon:
 | `identity info/rotate-keys/export-public` | Requires key manager |
 | `session *` | Sessions are a daemon concept |
 | `grant *` | Grants are a daemon concept |
-| `attestation *` | Attestation manager is daemon-internal |
+| `seal *` | Seal manager is daemon-internal |
 | `admin *` | Admin operations by definition |
 
 ### Composition Root
@@ -912,7 +912,7 @@ The `createBrokerRuntime` function is the application's composition root. It wir
 ```typescript
 async function createBrokerRuntime(
   config: CliConfig,
-): Promise<Result<BrokerRuntime, BrokerError>> {
+): Promise<Result<BrokerRuntime, SignetError>> {
   // 1. Resolve paths
   const paths = resolvePaths(config);
 
@@ -935,7 +935,7 @@ async function createBrokerRuntime(
   };
 
   // 5. Create broker core
-  const core = createBrokerCore({
+  const core = createSignetCore({
     dataDir: paths.dataDir,
     env: config.broker.env,
     identityMode: config.broker.identityMode,
@@ -948,9 +948,9 @@ async function createBrokerRuntime(
     maxConcurrentPerAgent: config.sessions.maxConcurrentPerAgent,
   });
 
-  // 7. Create attestation signer and manager
+  // 7. Create seal signer and manager
   const attestationSigner = createAttestationSigner(keyManager, coreContext.brokerId);
-  const attestationManager = createAttestationManager({
+  const attestationManager = createSealManager({
     signer: attestationSigner,
     publisher: core.toAttestationPublisher(),
   });
@@ -1030,7 +1030,7 @@ A second SIGINT/SIGTERM forces immediate exit (matching Unix conventions). The f
 ```typescript
 interface PidFile {
   /** Write PID file. Returns error if a live process holds it. */
-  acquire(pidPath: string): Result<void, BrokerError>;
+  acquire(pidPath: string): Result<void, SignetError>;
 
   /** Remove PID file. */
   release(pidPath: string): void;
@@ -1158,7 +1158,7 @@ function resolveOutputOptions(cmd: Command): OutputOptions;
 
 /** Handle a Result: format and print on success, print error and exit on failure. */
 function handleResult<T>(
-  result: Result<T, BrokerError>,
+  result: Result<T, SignetError>,
   options: OutputOptions,
   formatter: (value: T) => string,
 ): void;
@@ -1215,7 +1215,7 @@ Operations that trigger audit entries:
 | `session.issue` | Yes |
 | `session.revoke` | Yes |
 | `grant.revoke` | Yes |
-| `attestation.revoke` | Yes |
+| `seal.revoke` | Yes |
 | `identity.rotateKeys` | Yes |
 | `broker.start` | Yes |
 | `broker.stop` | Yes |
@@ -1233,7 +1233,7 @@ Operations that trigger audit entries:
 | Admin socket connection refused | `InternalError` | 8 | internal |
 | Admin auth failed (bad admin key) | `AuthError` | 9 | auth |
 | Session not found | `NotFoundError` | 2 | not_found |
-| Attestation not found | `NotFoundError` | 2 | not_found |
+| Seal not found | `NotFoundError` | 2 | not_found |
 | Group not found | `NotFoundError` | 2 | not_found |
 | Operation requires daemon (direct mode unsupported) | `ValidationError` | 1 | validation |
 | Direct mode vault not found or inaccessible | `AuthError` | 9 | auth |
@@ -1244,7 +1244,7 @@ Operations that trigger audit entries:
 | PID file locked by live process | `ValidationError` | 1 | validation |
 | Permission denied on socket/PID file | `PermissionError` | 4 | permission |
 
-Exit codes are derived from `ERROR_CATEGORY_META` in `@xmtp-broker/schemas/errors/category.ts`. The CLI calls `exitCodeFromCategory(error.category)` -- no separate exit code table.
+Exit codes are derived from `ERROR_CATEGORY_META` in `@xmtp/signet-schemas/errors/category.ts`. The CLI calls `exitCodeFromCategory(error.category)` -- no separate exit code table.
 
 ## Open Questions Resolved
 
@@ -1310,7 +1310,7 @@ Exit codes are derived from `ERROR_CATEGORY_META` in `@xmtp-broker/schemas/error
 
 **Unit tests**: Test config loading, path resolution, output formatting, PID file management, JSON-RPC framing, audit log, and action registry in isolation. Mock the file system and admin socket where needed.
 
-**Integration tests**: Start a real admin server on a temporary Unix socket, connect with the admin client, and exercise the full request/response flow. Use mock runtime deps (mock `BrokerCore`, `SessionManager`, etc.) to focus on the transport layer.
+**Integration tests**: Start a real admin server on a temporary Unix socket, connect with the admin client, and exercise the full request/response flow. Use mock runtime deps (mock `SignetCore`, `SessionManager`, etc.) to focus on the transport layer.
 
 **CLI integration tests**: Invoke the `xmtp-broker` binary as a subprocess, feed it arguments, and assert on stdout, stderr, and exit codes. These tests exercise the full Commander pipeline and output formatting.
 
@@ -1437,9 +1437,9 @@ function createTestCliConfig(
 function createMockRuntime(): {
   runtime: BrokerRuntime;
   mocks: {
-    core: BrokerCore;
+    core: SignetCore;
     sessionManager: SessionManager;
-    attestationManager: AttestationManager;
+    attestationManager: SealManager;
     keyManager: KeyManager;
   };
 };
@@ -1547,7 +1547,7 @@ Each source file targets under 200 LOC. The largest files will be the command mo
 
 ```jsonc
 {
-  "name": "@xmtp-broker/cli",
+  "name": "@xmtp/signet-cli",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -1568,14 +1568,14 @@ Each source file targets under 200 LOC. The largest files will be the command mo
     "start": "bun run bin/xmtp-broker.ts"
   },
   "dependencies": {
-    "@xmtp-broker/contracts": "workspace:*",
-    "@xmtp-broker/schemas": "workspace:*",
-    "@xmtp-broker/core": "workspace:*",
-    "@xmtp-broker/policy": "workspace:*",
-    "@xmtp-broker/sessions": "workspace:*",
-    "@xmtp-broker/attestations": "workspace:*",
-    "@xmtp-broker/keys": "workspace:*",
-    "@xmtp-broker/ws": "workspace:*",
+    "@xmtp/signet-contracts": "workspace:*",
+    "@xmtp/signet-schemas": "workspace:*",
+    "@xmtp/signet-core": "workspace:*",
+    "@xmtp/signet-policy": "workspace:*",
+    "@xmtp/signet-sessions": "workspace:*",
+    "@xmtp/signet-seals": "workspace:*",
+    "@xmtp/signet-keys": "workspace:*",
+    "@xmtp/signet-ws": "workspace:*",
     "better-result": "catalog:",
     "commander": "14.0.3",
     "smol-toml": "1.6.0",

@@ -1,6 +1,6 @@
 # Workspace and Tooling Patterns
 
-Extracted from `outfitter/stack` as reference for xmtp-broker scaffolding.
+Extracted from `outfitter/stack` as reference for xmtp-signet scaffolding.
 
 ## Bun Workspace
 
@@ -90,7 +90,7 @@ Build tool: **bunup** (Bun's native bundler) with a lock script to serialize bui
 - Entry points: `./dist/index.js` with types at `./dist/index.d.ts`
 - Three-tier hierarchy: Foundation (contracts, types) -> Runtime (cli, mcp, config, logging) -> Tooling (outfitter CLI, presets, docs)
 
-## Adaptation Notes for xmtp-broker
+## Adaptation Notes for xmtp-signet
 
 **Adopt directly:**
 - Bun workspace with `.bun-version` pin

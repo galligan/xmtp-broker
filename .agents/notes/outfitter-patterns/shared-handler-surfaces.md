@@ -1,6 +1,6 @@
 # Shared Handler Surfaces: Define Once, Expose Everywhere
 
-Extracted from `outfitter/stack` and adapted for xmtp-broker's multi-transport architecture.
+Extracted from `outfitter/stack` and adapted for xmtp-signet's multi-transport architecture.
 
 ## Core Pattern
 
@@ -30,7 +30,7 @@ A single `ActionSpec` object bundles everything needed to expose a domain handle
 ## ActionSpec Shape
 
 ```typescript
-interface ActionSpec<TInput, TOutput, TError extends BrokerError> {
+interface ActionSpec<TInput, TOutput, TError extends SignetError> {
   readonly id: string;
   readonly handler: Handler<TInput, TOutput, TError>;
   readonly input: z.ZodType<TInput>;
@@ -135,7 +135,7 @@ Each transport reads the ActionResult envelope and translates it:
 | Error detail | stderr + exit code | error content block | `error` field in response |
 | Pagination | `--cursor` flag, footer hint | in text content | in response frame |
 
-## Adaptation Notes for xmtp-broker
+## Adaptation Notes for xmtp-signet
 
 **What to adopt directly:**
 - ActionSpec bundling handler + schema + surface metadata

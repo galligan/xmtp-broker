@@ -1,6 +1,6 @@
 # 04-policy-engine
 
-**Package:** `@xmtp-broker/policy`
+**Package:** `@xmtp/signet-policy`
 **Spec version:** 0.1.0
 
 ## Overview
@@ -14,17 +14,17 @@ The policy engine does not know about WebSocket, MCP, or any transport. It does 
 ## Dependencies
 
 **Imports:**
-- `@xmtp-broker/contracts` -- `PolicyDelta`, `RawMessage`, `RevealStateStore`, `GrantError` (canonical interface definitions)
-- `@xmtp-broker/schemas` -- `ViewConfig`, `ViewMode`, `GrantConfig`, `ContentTypeId`, `BASELINE_CONTENT_TYPES`, `RevealRequest`, `RevealGrant`, `RevealState`, `MessageEvent`, `MessageVisibility`, `BrokerError`, `GrantDeniedError`, `ValidationError`, `PermissionError`
+- `@xmtp/signet-contracts` -- `PolicyDelta`, `RawMessage`, `RevealStateStore`, `GrantError` (canonical interface definitions)
+- `@xmtp/signet-schemas` -- `ViewConfig`, `ViewMode`, `GrantConfig`, `ContentTypeId`, `BASELINE_CONTENT_TYPES`, `RevealRequest`, `RevealGrant`, `RevealState`, `MessageEvent`, `MessageVisibility`, `SignetError`, `GrantDeniedError`, `ValidationError`, `PermissionError`
 - `better-result` -- `Result`, `ok`, `err`
 
 **Imported by:**
-- `@xmtp-broker/ws` (transport adapter calls pipeline functions, orchestration)
-- `@xmtp-broker/attestations` (imports `isMaterialChange` -- this package is the canonical owner of materiality logic)
+- `@xmtp/signet-ws` (transport adapter calls pipeline functions, orchestration)
+- `@xmtp/signet-seals` (imports `isMaterialChange` -- this package is the canonical owner of materiality logic)
 
 ## Public Interfaces
 
-> **Note:** The following interfaces are canonically defined in `@xmtp-broker/contracts`: `PolicyDelta`, `RawMessage`, `RevealStateStore`, `GrantError`. This package implements them. This package is also the **canonical owner** of the `isMaterialChange` logic -- `@xmtp-broker/attestations` imports materiality from here rather than defining its own.
+> **Note:** The following interfaces are canonically defined in `@xmtp/signet-contracts`: `PolicyDelta`, `RawMessage`, `RevealStateStore`, `GrantError`. This package implements them. This package is also the **canonical owner** of the `isMaterialChange` logic -- `@xmtp/signet-seals` imports materiality from here rather than defining its own.
 
 ### View Projection Pipeline
 
@@ -237,7 +237,7 @@ interface PolicyDelta {
 
 /**
  * Classifies whether a set of policy changes is material
- * (triggers attestation) or routine (silent).
+ * (triggers seal) or routine (silent).
  */
 function isMaterialChange(deltas: readonly PolicyDelta[]): boolean;
 
@@ -250,7 +250,7 @@ function requiresReauthorization(deltas: readonly PolicyDelta[]): boolean;
 
 ## Zod Schemas
 
-This package defines no new Zod schemas. All schemas are imported from `@xmtp-broker/schemas` (see [02-schemas.md](02-schemas.md)). The `RawMessage` and `PolicyDelta` interfaces are internal TypeScript types, not schema-validated boundaries -- they flow between trusted internal components.
+This package defines no new Zod schemas. All schemas are imported from `@xmtp/signet-schemas` (see [02-schemas.md](02-schemas.md)). The `RawMessage` and `PolicyDelta` interfaces are internal TypeScript types, not schema-validated boundaries -- they flow between trusted internal components.
 
 ## Behaviors
 
@@ -439,7 +439,7 @@ Group member ──reveal_content request──▶ Broker
 
 #### Who Can Reveal
 
-In v0, only the agent's owner (the member identified by `ownerInboxId` in the attestation) can grant reveals. This matches the single-owner governance model.
+In v0, only the agent's owner (the member identified by `ownerInboxId` in the seal) can grant reveals. This matches the single-owner governance model.
 
 #### Reveal Scope Resolution
 
@@ -461,7 +461,7 @@ The reveal state store is in-memory during a session. On session creation, the s
 
 The classifier examines each `PolicyDelta` and returns `true` if any delta is material.
 
-**Material fields** (trigger attestation):
+**Material fields** (trigger seal):
 - `view.mode`
 - `view.threadScopes` (adding or removing scopes)
 - `view.contentTypes` (adding types -- removing is also material since it changes what the agent sees)
@@ -480,7 +480,7 @@ The classifier examines each `PolicyDelta` and returns `true` if any delta is ma
 - `grant.egress.*` changing from `false` to `true`
 - `grant.groupManagement.*` changing from `false` to `true`
 
-The `requiresReauthorization` function checks a stricter subset: only privilege escalations (expanding from `false` to `true` or from a narrower to a broader mode). Privilege reductions are material (new attestation) but do not require reauthorization.
+The `requiresReauthorization` function checks a stricter subset: only privilege escalations (expanding from `false` to `true` or from a narrower to a broader mode). Privilege reductions are material (new seal) but do not require reauthorization.
 
 #### View Mode Ordering (narrow to broad)
 
@@ -512,7 +512,7 @@ All functions return `Result<T, E>`. No exceptions are thrown.
 ## Open Questions Resolved
 
 **Q: How should content type allowlist updates be surfaced?** (PRD Open Questions)
-**A:** Adding or removing content types from the effective allowlist is a material change that triggers a new attestation. The `resolveEffectiveAllowlist` function recomputes the intersection on every view update. If the result differs from the previous effective list, `isMaterialChange` returns `true`. The attestation's `contentTypes` field reflects the new effective list.
+**A:** Adding or removing content types from the effective allowlist is a material change that triggers a new seal. The `resolveEffectiveAllowlist` function recomputes the intersection on every view update. If the result differs from the previous effective list, `isMaterialChange` returns `true`. The seal's `contentTypes` field reflects the new effective list.
 
 **Q: Should non-material view/grant changes be applied within an existing session?** (PRD Session section)
 **A:** Yes. Non-material changes (e.g., adjusting a thread scope within the same groups, or minor grant tweaks that don't escalate privileges) are applied in-place and emit a `view.updated` or `grant.updated` event. Only escalations require session reauthorization. This is enforced by `requiresReauthorization` returning `false` for non-escalation changes.

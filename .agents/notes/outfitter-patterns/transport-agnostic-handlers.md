@@ -1,6 +1,6 @@
 # Transport-Agnostic Handler Patterns
 
-Extracted from `outfitter/stack` as reference for xmtp-broker's broker interface design.
+Extracted from `outfitter/stack` as reference for xmtp-signet's broker interface design.
 
 ## Core Idea
 
@@ -124,11 +124,11 @@ All responses follow a consistent envelope:
 }
 ```
 
-## Adaptation Notes for xmtp-broker
+## Adaptation Notes for xmtp-signet
 
 **Key insight**: The broker's "derived plane" interface is essentially another transport surface. The same pattern applies:
 
-- **Broker core handlers** contain the domain logic (view filtering, grant enforcement, attestation management)
+- **Broker core handlers** contain the domain logic (view filtering, grant enforcement, seal management)
 - **WebSocket transport** adapts handlers for the primary live interface
 - **MCP transport** can expose the same handlers as MCP tools (later)
 - **CLI transport** can expose them as commands (later)

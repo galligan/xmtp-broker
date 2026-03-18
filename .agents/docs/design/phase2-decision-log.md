@@ -32,7 +32,7 @@
 
 **Context:** PRD calls for SDK adapters. We have broker-side transports (WebSocket, MCP) but no package for harness developers to connect their agents.
 
-**Decision:** Add **Spec 15: Handler SDK** (`@xmtp-broker/handler`).
+**Decision:** Add **Spec 15: Handler SDK** (`@xmtp/signet-handler`).
 
 - Thin TypeScript client that connects to the broker WebSocket
 - Handles auth handshake, reconnection, sequence replay
@@ -51,7 +51,7 @@
 
 - Messaging and group management grants: enforced at the broker boundary (already spec'd)
 - Content type allowlists: enforced by the policy engine (already spec'd)
-- Tool and egress posture: declared in the attestation (honesty-based, per PRD)
+- Tool and egress posture: declared in the seal (honesty-based, per PRD)
 - **Future idea:** Tool grant registry where broker gates `tool_call` requests that flow through it. Only useful once tool calls are a first-class XMTP concept.
 
 ---
@@ -77,10 +77,10 @@
 
 Test scenarios to cover:
 1. **Full happy path**: Harness connects via WebSocket → authenticates with session token → receives filtered message stream → sends a message through a grant → sees the response
-2. **Attestation lifecycle**: Issue attestation → publish to group → refresh → verify chain → revoke
+2. **Seal lifecycle**: Issue seal → publish to group → refresh → verify chain → revoke
 3. **Policy enforcement**: View filters messages correctly across all 5 view modes. Grant denies unauthorized actions. Content type allowlist blocks unlisted types.
 4. **Session lifecycle**: Issue → heartbeat → expire → reconnect with replay → revoke mid-session
-5. **Key hierarchy**: Root key → derive operational → derive session → sign attestation → verify signature chain
+5. **Key hierarchy**: Root key → derive operational → derive session → sign seal → verify signature chain
 6. **WebSocket edge cases**: Auth timeout, backpressure, reconnection replay, graceful shutdown drain
 7. **Cross-package wiring**: Verify that contracts interfaces actually match their implementations (no signature drift between spec and code)
 
@@ -95,9 +95,9 @@ This becomes the regression suite that protects Phase 2 from breaking Phase 1.
 **Decision:** Clarify in spec 11 (not a new spec). The flow is:
 
 - When per-group identity is on, creating or joining a group means a new identity is created for that group. It's one atomic operation — not "add broker identity first, then create another."
-- `BrokerCore` calls `ClientRegistry` which calls `SdkClientFactory.create()` with a fresh identity
+- `SignetCore` calls `ClientRegistry` which calls `SdkClientFactory.create()` with a fresh identity
 - The new identity is the one that joins/creates the group
-- Add a paragraph to spec 11 clarifying this delegation from BrokerCore → ClientRegistry → SdkClientFactory
+- Add a paragraph to spec 11 clarifying this delegation from SignetCore → ClientRegistry → SdkClientFactory
 
 ---
 
@@ -144,9 +144,9 @@ v0/docs (current top)
 
 ### Q10: Summary-only view mode
 
-**Context:** Schema field exists in attestations. PLAN.md said "implementation deferred to Phase 2." We're now in Phase 2.
+**Context:** Schema field exists in seals. PLAN.md said "implementation deferred to Phase 2." We're now in Phase 2.
 
-**Decision:** Keep deferred. No current use case driving it. Summary-only requires the broker to generate content (LLM integration), which is a fundamentally different architectural concern. The schema field stays so attestations can declare it if needed later. Don't implement until there's a real use case.
+**Decision:** Keep deferred. No current use case driving it. Summary-only requires the broker to generate content (LLM integration), which is a fundamentally different architectural concern. The schema field stays so seals can declare it if needed later. Don't implement until there's a real use case.
 
 ---
 

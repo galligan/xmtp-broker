@@ -1,23 +1,23 @@
 # 09-verifier
 
-**Package:** `@xmtp-broker/verifier`
+**Package:** `@xmtp/signet-verifier`
 **Spec version:** 0.1.0
 
 ## Overview
 
-The verifier is a standalone service that checks broker claims and issues signed verification statements. It exists to answer a single question: "Is this broker what it claims to be?" The answer takes the form of a cryptographically signed statement that brokers can reference in their group-visible attestations via the `verifierStatementRef` field.
+The verifier is a standalone service that checks broker claims and issues signed verification statements. It exists to answer a single question: "Is this broker what it claims to be?" The answer takes the form of a cryptographically signed statement that brokers can reference in their group-visible seals via the `verifierStatementRef` field.
 
 The verifier is itself an XMTP inbox. All verification happens over XMTP DMs -- there is no HTTP API, no privileged endpoint, no central authority. A broker (or any group member) opens a DM with the verifier, sends a verification request, and receives a signed verification statement in response. This design means the protocol surface is identical whether the verifier is the reference deployment, a community-run instance, or a self-hosted container. The decentralization path is baked in from day one.
 
-At v0 launch, the verifier supports only the **source-verified** trust tier: checking source code availability, build provenance (SLSA/Sigstore), release signing, and attestation chain validity. Runtime attestation (TEE) verification is deferred to Phase 2.
+At v0 launch, the verifier supports only the **source-verified** trust tier: checking source code availability, build provenance (SLSA/Sigstore), release signing, and seal chain validity. Runtime attestation (TEE) verification is deferred to Phase 2.
 
-The verifier publishes its own attestation about its identity and capabilities so that clients can decide which verifier issuers they trust. Multiple independent verifiers can coexist -- no single verifier has authority over the ecosystem.
+The verifier publishes its own seal about its identity and capabilities so that clients can decide which verifier issuers they trust. Multiple independent verifiers can coexist -- no single verifier has authority over the ecosystem.
 
 ## Dependencies
 
 **Imports:**
-- `@xmtp-broker/contracts` -- `SignedAttestationEnvelope`, `SignedRevocationEnvelope` (consumed for parsing attestations during verification)
-- `@xmtp-broker/schemas` -- `AttestationSchema`, `TrustTier`, `ValidationError`, `InternalError`, `TimeoutError`
+- `@xmtp/signet-contracts` -- `SignedAttestationEnvelope`, `SignedRevocationEnvelope` (consumed for parsing attestations during verification)
+- `@xmtp/signet-schemas` -- `SealSchema`, `TrustTier`, `ValidationError`, `InternalError`, `TimeoutError`
 - `@xmtp/node-sdk` -- XMTP client for DM-based communication
 - `better-result` -- `Result` type
 - `zod` -- runtime validation
@@ -53,7 +53,7 @@ const VerificationRequestSchema = z.object({
   groupId: z.string().nullable()
     .describe("Group context for verification, null for broker-wide"),
   attestation: AttestationSchema.nullable()
-    .describe("Attestation to verify, null if only checking provenance"),
+    .describe("Seal to verify, null if only checking provenance"),
   artifactDigest: z.string()
     .describe("SHA-256 digest of the broker artifact (hex-encoded)"),
   buildProvenanceBundle: z.string().nullable()
@@ -161,7 +161,7 @@ const VerifierSelfAttestation = z.object({
   sourceRepoUrl: z.string().url()
     .describe("URL of the verifier's source code"),
   issuedAt: z.string().datetime()
-    .describe("When this self-attestation was created"),
+    .describe("When this self-sealing was created"),
   signature: z.string()
     .describe("Base64-encoded self-signature"),
 }).describe("Self-attestation published by the verifier");
@@ -192,7 +192,7 @@ interface VerifierService {
     senderInboxId: string,
   ): Promise<Result<VerificationStatement, ValidationError | InternalError | TimeoutError>>;
 
-  /** Get the verifier's self-attestation. */
+  /** Get the verifier's self-sealing. */
   selfAttestation(): VerifierSelfAttestation;
 }
 
@@ -218,7 +218,7 @@ interface CheckHandler {
 
 ## Zod Schemas
 
-All schemas are defined inline above. The verifier package owns these schemas directly rather than placing them in `@xmtp-broker/schemas`, because the verifier is a standalone service that other broker packages do not import. The content type IDs (`verificationRequest:1.0`, `verificationStatement:1.0`) follow the same `xmtp.org/type:version` convention used by attestations.
+All schemas are defined inline above. The verifier package owns these schemas directly rather than placing them in `@xmtp/signet-schemas`, because the verifier is a standalone service that other broker packages do not import. The content type IDs (`verificationRequest:1.0`, `verificationStatement:1.0`) follow the same `xmtp.org/type:version` convention used by attestations.
 
 ## Behaviors
 
@@ -258,9 +258,9 @@ Requester                    Verifier
    - `source_available` -- HTTP HEAD/GET against `sourceRepoUrl`, expect 200
    - `build_provenance` -- If `buildProvenanceBundle` is non-null, parse and verify SLSA provenance or Sigstore bundle
    - `release_signing` -- If `releaseTag` is non-null, check GitHub release for signing signatures
-   - `attestation_signature` -- If `attestation` is non-null, verify the Ed25519 signature against the agent's inbox key
-   - `attestation_chain` -- If `attestation` is non-null, verify `previousAttestationId` chain has no gaps
-   - `schema_compliance` -- If `attestation` is non-null, validate against `AttestationSchema`
+   - `attestation_signature` -- If `seal` is non-null, verify the Ed25519 signature against the agent's inbox key
+   - `attestation_chain` -- If `seal` is non-null, verify `previousSealId` chain has no gaps
+   - `schema_compliance` -- If `seal` is non-null, validate against `SealSchema`
 5. Determine overall verdict:
    - `verified` -- all applicable checks pass
    - `partial` -- some checks pass, some skip, none fail
@@ -328,20 +328,20 @@ Skip: request.attestation is null
 Evidence: { signerKeyRef, signatureValid }
 ```
 
-Canonicalizes the attestation payload using deterministic JSON (same algorithm as `@xmtp-broker/attestations`), then verifies the Ed25519 signature. The agent's public key is resolved via XMTP identity lookup using the `agentInboxId`.
+Canonicalizes the seal payload using deterministic JSON (same algorithm as `@xmtp/signet-seals`), then verifies the Ed25519 signature. The agent's public key is resolved via XMTP identity lookup using the `agentInboxId`.
 
 ### Check: attestation_chain
 
 ```
 Check ID: "attestation_chain"
 Input: request.attestation, request.groupId
-Pass: previousAttestationId is null (initial) or references a known prior attestation
-Fail: Chain has gaps or references unknown attestation IDs
+Pass: previousAttestationId is null (initial) or references a known prior seal
+Fail: Chain has gaps or references unknown seal IDs
 Skip: request.attestation is null
 Evidence: { chainLength, previousId, chainValid }
 ```
 
-v0 performs a structural check only: verifies that `previousAttestationId` is either null (for the first attestation) or a well-formed attestation ID. Full chain walk (fetching prior attestations from group history) is deferred -- the verifier cannot access group message history in v0 since it may not be a group member.
+v0 performs a structural check only: verifies that `previousSealId` is either null (for the first seal) or a well-formed seal ID. Full chain walk (fetching prior seals from group history) is deferred -- the verifier cannot access group message history in v0 since it may not be a group member.
 
 ### Check: schema_compliance
 
@@ -356,7 +356,7 @@ Evidence: { errors (if any) }
 
 ### Canonical Statement Serialization
 
-The verification statement is signed over its canonical representation. The serialization algorithm is identical to the one used for attestations:
+The verification statement is signed over its canonical representation. The serialization algorithm is identical to the one used for seals:
 
 1. Remove the `signature` and `signatureAlgorithm` fields from the statement.
 2. Serialize remaining fields as deterministic JSON (sorted keys, no whitespace).
@@ -393,7 +393,7 @@ Rate limit violations are not errors in the handler sense -- they produce a `rej
 ## Open Questions Resolved
 
 **Q: Which verification classes should the reference verifier support at launch?** (PRD Open Questions)
-**A:** Source-verified only. The verifier checks: source availability, build provenance (SLSA/Sigstore bundle structure and signatures), release signing (GitHub attestations), attestation signature validity, attestation chain structure, and schema compliance. Runtime attestation (TEE) is deferred to Phase 2. Rationale: source-verified provides meaningful trust signals without requiring TEE infrastructure. It ships something useful fast and establishes the verifier-over-XMTP protocol pattern that runtime attestation will later extend.
+**A:** Source-verified only. The verifier checks: source availability, build provenance (SLSA/Sigstore bundle structure and signatures), release signing (GitHub attestations), attestation signature validity, seal chain structure, and schema compliance. Runtime attestation (TEE) is deferred to Phase 2. Rationale: source-verified provides meaningful trust signals without requiring TEE infrastructure. It ships something useful fast and establishes the verifier-over-XMTP protocol pattern that runtime attestation will later extend.
 
 **Q: Should the verifier use HTTP or XMTP for communication?** (Implicit from PRD)
 **A:** XMTP DMs only. No HTTP API. The verifier is an XMTP inbox that processes DMs. This ensures: (1) the protocol surface is uniform regardless of who runs the verifier, (2) the decentralization path requires no infrastructure changes, (3) any XMTP participant can interact with any verifier using the same tools they use for messaging. The tradeoff is that the verifier requires a persistent XMTP client connection, which rules out purely stateless deployments (like bare Cloudflare Workers).
@@ -403,7 +403,7 @@ Rate limit violations are not errors in the handler sense -- they produce a `rej
 - **Runtime attestation (TEE) verification.** Phase 2. Requires defining TEE-agnostic attestation evidence formats and integrating with platform-specific verification APIs (AWS Nitro, etc.).
 - **Reproducible build verification.** Checking that an artifact reproduces bit-for-bit from source requires running builds, which is out of scope for a lightweight verifier. Deferred until the broker project has reproducible build infrastructure.
 - **Rekor transparency log queries.** v0 verifies Sigstore bundle structure and signatures offline. Querying the Rekor transparency log for inclusion proofs adds network dependency and complexity. Stretch goal for v0, required for v1.
-- **Full attestation chain walk.** The verifier cannot access group message history to walk the full attestation chain. v0 checks structural validity only. A future version may accept the chain as input or join the group temporarily.
+- **Full seal chain walk.** The verifier cannot access group message history to walk the full seal chain. v0 checks structural validity only. A future version may accept the chain as input or join the group temporarily.
 - **Multi-statement aggregation.** v0 supports one verifier statement per attestation (`verifierStatementRef` is a single string). Supporting references to multiple independent verifier statements is deferred.
 - **Verifier discovery protocol.** How brokers find verifiers. v0 assumes the verifier inbox ID is configured manually. A discovery mechanism (e.g., well-known XMTP group, ENS records) is future work.
 - **Statement revocation.** Verifier statements expire but cannot be actively revoked in v0. If a verifier discovers a previously-verified broker is compromised, it can only refuse new verifications. Active revocation broadcast is deferred.
@@ -511,7 +511,7 @@ packages/verifier/
       request.ts                # VerificationRequestSchema
       statement.ts              # VerificationStatementSchema, VerificationVerdict
       check.ts                  # VerificationCheck, CheckVerdict
-      self-attestation.ts       # VerifierSelfAttestation, VerifierCapabilities
+      self-sealing.ts       # VerifierSelfAttestation, VerifierCapabilities
     checks/
       handler.ts                # CheckHandler interface
       source-available.ts       # source_available check
@@ -540,4 +540,4 @@ packages/verifier/
       fixtures.ts               # Test utilities
 ```
 
-Each source file targets under 150 LOC. The `checks/` directory isolates each verification check for independent testing and future extensibility. The `schemas/` directory keeps verifier-specific schemas separate from the shared `@xmtp-broker/schemas` package.
+Each source file targets under 150 LOC. The `checks/` directory isolates each verification check for independent testing and future extensibility. The `schemas/` directory keeps verifier-specific schemas separate from the shared `@xmtp/signet-schemas` package.
