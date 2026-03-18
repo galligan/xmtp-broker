@@ -1,4 +1,4 @@
-# xmtp-broker v0 Architecture Plan
+# xmtp-signet v0 Architecture Plan
 
 **Version:** 0.2.0
 **Status:** Draft
@@ -7,7 +7,7 @@
 
 ## One-Line Summary
 
-A brokered agent architecture where the broker is the real XMTP client, agents consume filtered views through scoped grants, and group-visible attestations make permissions inspectable.
+A brokered agent architecture where the broker is the real XMTP client, agents consume filtered views through scoped grants, and group-visible seals make permissions inspectable.
 
 ## Architecture Overview
 
@@ -62,15 +62,15 @@ These decisions resolve PRD open questions and establish constraints for all spe
 
 | Decision | Resolution | Rationale |
 |----------|-----------|-----------|
-| Min attestation schema | Full schema from PRD day one; optional fields use `null` not omission | Prevents schema drift; clients always know the shape |
-| Stale attestation rendering | Clients show staleness badge after `expiresAt`; messages still render with "produced under expired attestation" note | Don't hide history, but flag currency |
+| Min seal schema | Full schema from PRD day one; optional fields use `null` not omission | Prevents schema drift; clients always know the shape |
+| Stale seal rendering | Clients show staleness badge after `expiresAt`; messages still render with "produced under expired seal" note | Don't hide history, but flag currency |
 | Reveal history UX | Out of scope for v0 specs (client concern) | Broker provides the data; UX is per-client |
 | Per-thread session scoping | Sessions scope to agent+groups, not individual threads; thread filtering is a view concern | Simpler session model; threads are view config |
-| In-group vs off-chain policy | Attestations in-group; full policy config off-chain in broker | Keeps groups clean; attestation is the public summary |
+| In-group vs off-chain policy | Seals in-group; full policy config off-chain in broker | Keeps groups clean; seal is the public summary |
 | Recovery for hosted deployments | Deferred to post-v0; v0 focuses on local broker | Hosted adds TEE complexity; local Secure Enclave is Phase 1 |
 | Verification classes at launch | Source-verified only; runtime-attested is Phase 2 | Ship something useful fast |
 | Default heartbeat interval | 30 seconds; configurable per-agent | Balances liveness visibility with noise |
-| Content type allowlist updates | Material change → new attestation; broker logs the delta | Consistent with materiality rules |
+| Content type allowlist updates | Material change → new seal; broker logs the delta | Consistent with materiality rules |
 | Per-group identity | Default-on, configurable; each group gets a unique identity key | Strongest isolation; matches convos-node-sdk pattern |
 | Mono-package vs monorepo | Monorepo with Bun workspaces from day one | Clean dependency boundaries between tiers |
 | Foundation tier split | `schemas` = data shapes (Zod schemas, enums, error taxonomy); `contracts` = cross-package interfaces (service/provider contracts, event types). `contracts` imports from `schemas` only. | 22 interfaces defined in runtime specs belong in Foundation. Separating shapes from contracts keeps `schemas` zero-dep beyond Zod and gives runtime packages a stable interface layer. |
@@ -94,41 +94,41 @@ These decisions resolve PRD open questions and establish constraints for all spe
 | Spec | Package | Purpose |
 |------|---------|---------|
 | [01-repo-scaffolding](01-repo-scaffolding.md) | (workspace root) | Build tooling, config, conventions |
-| [02-schemas](02-schemas.md) | `@xmtp-broker/schemas` | Zod schemas, inferred types, error taxonomy, enums |
-| [02b-contracts](02b-contracts.md) | `@xmtp-broker/contracts` | Cross-package interfaces, provider contracts, event types |
-| [10-action-registry](10-action-registry.md) | `@xmtp-broker/contracts` + `@xmtp-broker/schemas` | ActionSpec, ActionResult envelope, extended HandlerContext |
+| [02-schemas](02-schemas.md) | `@xmtp/signet-schemas` | Zod schemas, inferred types, error taxonomy, enums |
+| [02b-contracts](02b-contracts.md) | `@xmtp/signet-contracts` | Cross-package interfaces, provider contracts, event types |
+| [10-action-registry](10-action-registry.md) | `@xmtp/signet-contracts` + `@xmtp/signet-schemas` | ActionSpec, ActionResult envelope, extended HandlerContext |
 
 ### Runtime Tier (depends on Foundation)
 
 | Spec | Package | Purpose |
 |------|---------|---------|
-| [03-broker-core](03-broker-core.md) | `@xmtp-broker/core` | XMTP client lifecycle, raw plane, per-group identity |
-| [04-policy-engine](04-policy-engine.md) | `@xmtp-broker/policy` | View filtering, grant enforcement, reveal state |
-| [05-sessions](05-sessions.md) | `@xmtp-broker/sessions` | Session issuance, binding, lifecycle |
-| [06-attestations](06-attestations.md) | `@xmtp-broker/attestations` | Attestation lifecycle, signing, publishing |
-| [07-key-management](07-key-management.md) | `@xmtp-broker/keys` | Secure Enclave, derived key hierarchy |
-| [11-sdk-integration](11-sdk-integration.md) | `@xmtp-broker/core` | Wire `@xmtp/node-sdk` into production client factory |
-| [12-admin-keys](12-admin-keys.md) | `@xmtp-broker/keys` | Admin key pair, JWT auth |
+| [03-broker-core](03-broker-core.md) | `@xmtp/signet-core` | XMTP client lifecycle, raw plane, per-group identity |
+| [04-policy-engine](04-policy-engine.md) | `@xmtp/signet-policy` | View filtering, grant enforcement, reveal state |
+| [05-sessions](05-sessions.md) | `@xmtp/signet-sessions` | Session issuance, binding, lifecycle |
+| [06-seals](06-attestations.md) | `@xmtp/signet-seals` | Seal lifecycle, signing, publishing |
+| [07-key-management](07-key-management.md) | `@xmtp/signet-keys` | Secure Enclave, derived key hierarchy |
+| [11-sdk-integration](11-sdk-integration.md) | `@xmtp/signet-core` | Wire `@xmtp/node-sdk` into production client factory |
+| [12-admin-keys](12-admin-keys.md) | `@xmtp/signet-keys` | Admin key pair, JWT auth |
 
 ### Transport Tier (depends on Runtime)
 
 | Spec | Package | Purpose |
 |------|---------|---------|
-| [08-websocket-transport](08-websocket-transport.md) | `@xmtp-broker/ws` | Phase 1 harness-facing interface |
-| [13-daemon-cli](13-daemon-cli.md) | `@xmtp-broker/cli` | Daemon lifecycle, CLI commands, admin socket, direct mode |
-| [14-mcp-transport](14-mcp-transport.md) | `@xmtp-broker/mcp` | MCP tools via `@modelcontextprotocol/sdk` |
+| [08-websocket-transport](08-websocket-transport.md) | `@xmtp/signet-ws` | Phase 1 harness-facing interface |
+| [13-daemon-cli](13-daemon-cli.md) | `@xmtp/signet-cli` | Daemon lifecycle, CLI commands, admin socket, direct mode |
+| [14-mcp-transport](14-mcp-transport.md) | `@xmtp/signet-mcp` | MCP tools via `@modelcontextprotocol/sdk` |
 
 ### Client Tier (depends on Transport)
 
 | Spec | Package | Purpose |
 |------|---------|---------|
-| [15-handler-sdk](15-handler-sdk.md) | `@xmtp-broker/handler` | TypeScript client for harness developers to connect agents to broker |
+| [15-handler-sdk](15-handler-sdk.md) | `@xmtp/signet-handler` | TypeScript client for harness developers to connect agents to broker |
 
 ### External Services
 
 | Spec | Package | Purpose |
 |------|---------|---------|
-| [09-verifier](09-verifier.md) | `@xmtp-broker/verifier` | Reference verification service |
+| [09-verifier](09-verifier.md) | `@xmtp/signet-verifier` | Reference verification service |
 
 ## Dependency Graph
 
@@ -165,19 +165,19 @@ These decisions resolve PRD open questions and establish constraints for all spe
 Notes:
 - `02b-contracts` imports from `02-schemas` only; defines cross-package interfaces
 - `10-action-registry` extends both `contracts` (ActionSpec type) and `schemas` (ActionResult envelope)
-- `07-key-mgmt` is Runtime tier (used by core, sessions, attestations for signing)
-- `08-ws-transport` is the orchestrator connecting core, policy, sessions, and attestations
+- `07-key-mgmt` is Runtime tier (used by core, sessions, seals for signing)
+- `08-ws-transport` is the orchestrator connecting core, policy, sessions, and seals
 - `09-verifier` depends only on schemas (standalone service)
 - `11-sdk-integration` extends `core` with production `@xmtp/node-sdk` wiring
 - `12-admin-keys` extends `keys` with admin key pair and JWT auth
 - `13-daemon-cli` is the composition root wiring all packages into a running process
 - `14-mcp-transport` exposes ActionSpecs as MCP tools
-- `04-policy` owns the canonical materiality logic; `06-attestations` imports from it
+- `04-policy` owns the canonical materiality logic; `06-seals` imports from it
 - Dependencies flow downward only within tiers
 
 ## Package Scope Convention
 
-All internal packages use the `@xmtp-broker/` scope. This is a workspace-internal scope, not published to npm. It provides clean import paths and prevents accidental external dependency.
+All internal packages use the `@xmtp/signet-` scope. This is a workspace-internal scope, not published to npm. It provides clean import paths and prevents accidental external dependency.
 
 ## Spec Template
 
@@ -199,7 +199,7 @@ Every spec doc follows this structure:
 **Phase 1 (specs 01-09):**
 - Local broker on macOS with Secure Enclave
 - WebSocket transport
-- Core view/grant/attestation model
+- Core view/grant/seal model
 - Per-group identity (default-on)
 - Reference verifier (source-verified tier)
 - Single-owner governance
@@ -211,7 +211,7 @@ Every spec doc follows this structure:
 - Admin key system (separate from inbox keys, JWT auth)
 - Daemon lifecycle, CLI with 8 command groups, Unix socket admin
 - MCP transport (harness-facing, session-scoped) for Claude Code / LLM tool integration
-- Handler SDK (`@xmtp-broker/handler`) — TypeScript client for harness developers
+- Handler SDK (`@xmtp/signet-handler`) — TypeScript client for harness developers
 
 **Deferred (not in v0 specs):**
 - Hosted/managed broker deployment

@@ -1,13 +1,13 @@
 # 14-mcp-transport
 
-**Package:** `@xmtp-broker/mcp`
+**Package:** `@xmtp/signet-mcp`
 **Spec version:** 0.1.0
 
 ## Overview
 
 The MCP transport exposes broker ActionSpecs as MCP tools, enabling AI agents (Claude Code, Cursor, etc.) to interact with the broker through the Model Context Protocol. It is the second transport surface after WebSocket, and -- like WebSocket -- it is **harness-facing**. MCP callers operate as agent sessions with scoped views and grants, not as broker administrators.
 
-An AI agent using MCP tools is acting as a participant in XMTP conversations: sending messages, listing conversations, creating groups, managing its identity. It is NOT acting as the broker administrator. Admin operations (daemon lifecycle, session/grant management, key rotation, attestation management, audit) remain locked down in the CLI with admin key JWT auth.
+An AI agent using MCP tools is acting as a participant in XMTP conversations: sending messages, listing conversations, creating groups, managing its identity. It is NOT acting as the broker administrator. Admin operations (daemon lifecycle, session/grant management, key rotation, seal management, audit) remain locked down in the CLI with admin key JWT auth.
 
 The transport is a thin adapter. It reads ActionSpecs from the registry, converts Zod input schemas to JSON Schema via `zodToJsonSchema()`, registers them as MCP tools, and translates handler Results into MCP content blocks. All domain logic remains in the handlers. The MCP package contains no business logic.
 
@@ -21,10 +21,10 @@ Built on `@modelcontextprotocol/sdk`, the official MCP SDK. The SDK handles prot
 ## Dependencies
 
 **Imports:**
-- `@xmtp-broker/contracts` -- `ActionSpec`, `ActionRegistry`, `HandlerContext`, `Handler`
-- `@xmtp-broker/schemas` -- `ActionResultMetaSchema`, `ActionErrorSchema`, `BrokerError`, `ValidationError`, `SessionToken`, `ViewConfig`, `GrantConfig`, error category metadata
-- `@xmtp-broker/sessions` -- `SessionManager` (token validation, session lookup)
-- `@xmtp-broker/policy` -- `projectMessage`, grant validation functions
+- `@xmtp/signet-contracts` -- `ActionSpec`, `ActionRegistry`, `HandlerContext`, `Handler`
+- `@xmtp/signet-schemas` -- `ActionResultMetaSchema`, `ActionErrorSchema`, `SignetError`, `ValidationError`, `SessionToken`, `ViewConfig`, `GrantConfig`, error category metadata
+- `@xmtp/signet-sessions` -- `SessionManager` (token validation, session lookup)
+- `@xmtp/signet-policy` -- `projectMessage`, grant validation functions
 - `@modelcontextprotocol/sdk` -- `Server`, `StdioServerTransport`, `CallToolRequestSchema`, `ListToolsRequestSchema`
 - `better-result` -- `Result`, `ok`, `err`
 - `zod` -- runtime validation
@@ -119,7 +119,7 @@ interface McpToolRegistration {
 }
 
 function actionSpecToMcpTool(
-  spec: ActionSpec<unknown, unknown, BrokerError>,
+  spec: ActionSpec<unknown, unknown, SignetError>,
 ): McpToolRegistration;
 ```
 
@@ -136,7 +136,7 @@ function actionSpecToMcpTool(
 
 ## Zod Schemas
 
-This package adds only `McpServerConfigSchema` (defined above). All other schemas are imported from `@xmtp-broker/schemas` (ActionResult envelope) and `@xmtp-broker/contracts` (ActionSpec types).
+This package adds only `McpServerConfigSchema` (defined above). All other schemas are imported from `@xmtp/signet-schemas` (ActionResult envelope) and `@xmtp/signet-contracts` (ActionSpec types).
 
 ## Behaviors
 
@@ -248,9 +248,9 @@ Only harness-facing actions are exposed through MCP. The curating mechanism is t
 | `key.rotate` | Key management -- admin only |
 | `key.import` | Key management -- admin only |
 | `key.export` | Key management -- admin only |
-| `attestation.current` | Attestation management -- admin only |
-| `attestation.refresh` | Attestation management -- admin only |
-| `attestation.revoke` | Attestation management -- admin only |
+| `seal.current` | Seal management -- admin only |
+| `seal.refresh` | Seal management -- admin only |
+| `seal.revoke` | Seal management -- admin only |
 | `identity.delete` | Destructive identity operation -- admin only |
 | `identity.export` | Key material exposure -- admin only |
 
@@ -282,7 +282,7 @@ MCP Client                    MCP Server                  ActionSpec Handler
     │                              │                              │
     │                              │  handler(parsedInput, ctx)   │
     │                              │─────────────────────────────►│
-    │                              │  Result<T, BrokerError>      │
+    │                              │  Result<T, SignetError>      │
     │                              │◄─────────────────────────────│
     │                              │                              │
     │                              │  toActionResult(result, meta)│
@@ -474,7 +474,7 @@ These hints help MCP clients make UI decisions (e.g., requiring confirmation for
 ## Open Questions Resolved
 
 **Q: Should MCP callers authenticate as admin or as a session?**
-**A:** As a session. MCP callers are agent participants in conversations, not broker administrators. The session token provides the same scoped access as WebSocket -- view-filtered reads, grant-checked writes. Admin operations (daemon lifecycle, session management, key rotation, attestation management) stay in the CLI with admin key JWT auth. This is consistent with the Convos approach where agents interact with the messaging layer, not the infrastructure layer.
+**A:** As a session. MCP callers are agent participants in conversations, not broker administrators. The session token provides the same scoped access as WebSocket -- view-filtered reads, grant-checked writes. Admin operations (daemon lifecycle, session management, key rotation, seal management) stay in the CLI with admin key JWT auth. This is consistent with the Convos approach where agents interact with the messaging layer, not the infrastructure layer.
 
 **Q: Where does the session token come from?**
 **A:** From the MCP server configuration, provided by the MCP client at process launch. In stdio mode, the MCP client (Claude Code, Cursor) passes the token via its config block, typically as an environment variable (`XMTP_BROKER_SESSION_TOKEN`). The token is validated at startup and the session record is cached. Each tool call performs a lightweight liveness check (expiry + revocation via `sessionManager.isActive()`). The admin obtains the session token via the CLI (`broker session:issue`) and configures the MCP client with it.
@@ -697,7 +697,7 @@ Each source file targets under 150 LOC. The `server.ts` orchestrates but delegat
 
 ```jsonc
 {
-  "name": "@xmtp-broker/mcp",
+  "name": "@xmtp/signet-mcp",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -717,10 +717,10 @@ Each source file targets under 150 LOC. The `server.ts` orchestrates but delegat
     "test": "bun test"
   },
   "dependencies": {
-    "@xmtp-broker/contracts": "workspace:*",
-    "@xmtp-broker/schemas": "workspace:*",
-    "@xmtp-broker/sessions": "workspace:*",
-    "@xmtp-broker/policy": "workspace:*",
+    "@xmtp/signet-contracts": "workspace:*",
+    "@xmtp/signet-schemas": "workspace:*",
+    "@xmtp/signet-sessions": "workspace:*",
+    "@xmtp/signet-policy": "workspace:*",
     "@modelcontextprotocol/sdk": "1.27.1",
     "better-result": "catalog:",
     "zod": "catalog:",

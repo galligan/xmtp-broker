@@ -2,7 +2,7 @@
 
 ## Overview
 
-This spec defines the workspace structure, build tooling, and developer conventions for xmtp-broker. It is the foundation every other spec depends on — nothing compiles, tests, or lints until this is in place.
+This spec defines the workspace structure, build tooling, and developer conventions for xmtp-signet. It is the foundation every other spec depends on — nothing compiles, tests, or lints until this is in place.
 
 The broker is a Bun-first TypeScript monorepo using workspaces from day one. The monorepo structure enforces the three-tier architecture (Foundation, Runtime, Transport) through package boundaries rather than convention alone. Each tier maps to a set of packages with explicit dependency rules: dependencies flow downward only.
 
@@ -45,15 +45,15 @@ xmtp-broker/
 ├── .reference/                 # Read-only reference codebases (gitignored)
 ├── apps/                          # Runnable entrypoints (empty for now)
 ├── packages/
-│   ├── schemas/                # @xmtp-broker/schemas
-│   ├── contracts/              # @xmtp-broker/contracts
-│   ├── core/                   # @xmtp-broker/core
-│   ├── policy/                 # @xmtp-broker/policy
-│   ├── sessions/               # @xmtp-broker/sessions
-│   ├── attestations/           # @xmtp-broker/attestations
-│   ├── keys/                   # @xmtp-broker/keys
-│   ├── ws/                     # @xmtp-broker/ws
-│   └── verifier/               # @xmtp-broker/verifier
+│   ├── schemas/                # @xmtp/signet-schemas
+│   ├── contracts/              # @xmtp/signet-contracts
+│   ├── core/                   # @xmtp/signet-core
+│   ├── policy/                 # @xmtp/signet-policy
+│   ├── sessions/               # @xmtp/signet-sessions
+│   ├── seals/                  # @xmtp/signet-seals
+│   ├── keys/                   # @xmtp/signet-keys
+│   ├── ws/                     # @xmtp/signet-ws
+│   └── verifier/               # @xmtp/signet-verifier
 ├── package.json                # Workspace root
 ├── tsconfig.base.json          # Shared TypeScript config
 ├── turbo.json                  # Build orchestration
@@ -130,7 +130,7 @@ Pin the Bun version. CI reads this file. Developers use `bun upgrade` to match.
 
 ```jsonc
 {
-  "name": "@xmtp-broker/<name>",
+  "name": "@xmtp/signet-<name>",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -158,14 +158,14 @@ Pin the Bun version. CI reads this file. Developers use `bun upgrade` to match.
 | Package | Runtime deps | Workspace deps |
 |---------|-------------|----------------|
 | `schemas` | `zod`, `better-result` | — |
-| `contracts` | `better-result` | `@xmtp-broker/schemas` |
-| `core` | `@xmtp/node-sdk`, `better-result` | `@xmtp-broker/schemas`, `@xmtp-broker/contracts` |
-| `policy` | `better-result` | `@xmtp-broker/schemas`, `@xmtp-broker/contracts` |
-| `sessions` | `better-result` | `@xmtp-broker/schemas`, `@xmtp-broker/contracts` |
-| `attestations` | `better-result` | `@xmtp-broker/schemas`, `@xmtp-broker/contracts` |
-| `keys` | `better-result` | `@xmtp-broker/schemas`, `@xmtp-broker/contracts` |
-| `ws` | `better-result` | `@xmtp-broker/schemas`, `@xmtp-broker/contracts`, `@xmtp-broker/core`, `@xmtp-broker/policy`, `@xmtp-broker/sessions` |
-| `verifier` | `better-result`, `zod` | `@xmtp-broker/schemas` |
+| `contracts` | `better-result` | `@xmtp/signet-schemas` |
+| `core` | `@xmtp/node-sdk`, `better-result` | `@xmtp/signet-schemas`, `@xmtp/signet-contracts` |
+| `policy` | `better-result` | `@xmtp/signet-schemas`, `@xmtp/signet-contracts` |
+| `sessions` | `better-result` | `@xmtp/signet-schemas`, `@xmtp/signet-contracts` |
+| `attestations` | `better-result` | `@xmtp/signet-schemas`, `@xmtp/signet-contracts` |
+| `keys` | `better-result` | `@xmtp/signet-schemas`, `@xmtp/signet-contracts` |
+| `ws` | `better-result` | `@xmtp/signet-schemas`, `@xmtp/signet-contracts`, `@xmtp/signet-core`, `@xmtp/signet-policy`, `@xmtp/signet-sessions` |
+| `verifier` | `better-result`, `zod` | `@xmtp/signet-schemas` |
 
 Workspace deps use `"workspace:*"` in the `dependencies` field.
 
@@ -470,40 +470,40 @@ package.json                                    # Workspace root
 tsconfig.base.json                              # Shared TS config
 turbo.json                                      # Build orchestration
 
-packages/schemas/package.json                   # @xmtp-broker/schemas
+packages/schemas/package.json                   # @xmtp/signet-schemas
 packages/schemas/tsconfig.json                  # Extends base
 packages/schemas/src/index.ts                   # Export stub
 packages/schemas/src/__tests__/smoke.test.ts    # Smoke test
 
-packages/contracts/package.json                 # @xmtp-broker/contracts
+packages/contracts/package.json                 # @xmtp/signet-contracts
 packages/contracts/tsconfig.json
 packages/contracts/src/index.ts
 
-packages/core/package.json                      # @xmtp-broker/core
+packages/core/package.json                      # @xmtp/signet-core
 packages/core/tsconfig.json
 packages/core/src/index.ts
 
-packages/policy/package.json                    # @xmtp-broker/policy
+packages/policy/package.json                    # @xmtp/signet-policy
 packages/policy/tsconfig.json
 packages/policy/src/index.ts
 
-packages/sessions/package.json                  # @xmtp-broker/sessions
+packages/sessions/package.json                  # @xmtp/signet-sessions
 packages/sessions/tsconfig.json
 packages/sessions/src/index.ts
 
-packages/attestations/package.json              # @xmtp-broker/attestations
-packages/attestations/tsconfig.json
-packages/attestations/src/index.ts
+packages/seals/package.json                     # @xmtp/signet-seals
+packages/seals/tsconfig.json
+packages/seals/src/index.ts
 
-packages/keys/package.json                      # @xmtp-broker/keys
+packages/keys/package.json                      # @xmtp/signet-keys
 packages/keys/tsconfig.json
 packages/keys/src/index.ts
 
-packages/ws/package.json                        # @xmtp-broker/ws
+packages/ws/package.json                        # @xmtp/signet-ws
 packages/ws/tsconfig.json
 packages/ws/src/index.ts
 
-packages/verifier/package.json                  # @xmtp-broker/verifier
+packages/verifier/package.json                  # @xmtp/signet-verifier
 packages/verifier/tsconfig.json
 packages/verifier/src/index.ts
 ```

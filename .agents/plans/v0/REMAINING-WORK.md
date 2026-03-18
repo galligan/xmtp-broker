@@ -4,7 +4,7 @@
 **Updated:** 2026-03-17
 **Context:** Phase 2C (Convos interop, conversation management, devnet connectivity) is complete across 38 stacked PRs. This document tracks what remains before the signet is feature-complete for Phase 1 (PRD) and ready for Phase 2 delivery to external developers.
 
-**Note:** The XMTP Signet rename is now complete in the live code and public runtime surface. This document reflects the current `signet` naming. Historical planning notes may still use `broker` or `attestation` terminology where they describe earlier design phases.
+**Note:** The XMTP Signet rename is now complete in the live code and public runtime surface. This document reflects the current `signet` naming. Historical planning notes may still use `broker` or `seal` terminology where they describe earlier design phases.
 
 ## Current State
 
@@ -94,7 +94,7 @@ Items the PRD scopes to Phase 1 that are not yet complete.
 
 ### P2-7: Historical Docs Terminology Cleanup
 
-**What:** Update historical plans, skills, and notes that still say `broker` / `attestation` where they now refer to `signet` / `seal`.
+**What:** Update historical plans, skills, and notes that still say `broker` / `seal` where they now refer to `signet` / `seal`.
 
 **Why:** The live code and public runtime surface are renamed, but hidden docs under `.agents/`, `.claude/`, and `.trail/` still contain older terminology. This is not a runtime blocker, but it does create friction for future agent and contributor onboarding.
 

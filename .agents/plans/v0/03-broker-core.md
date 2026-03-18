@@ -1,6 +1,6 @@
 # 03-broker-core
 
-**Package:** `@xmtp-broker/core`
+**Package:** `@xmtp/signet-core`
 **Spec version:** 0.1.0
 
 ## Overview
@@ -11,26 +11,26 @@ The core's primary job is lifecycle management. It starts XMTP clients (one per 
 
 Per-group identity is default-on. Following the convos-node-sdk pattern (ADR 002), each group conversation gets its own wallet key, database encryption key, and XMTP client instance. This provides maximum isolation: compromising one identity reveals nothing about others, and group membership lists never cross-contaminate. The feature is configurable -- simpler deployments can disable it and use a single identity across groups.
 
-The core exposes a `BrokerCore` service with a start/stop lifecycle, an `EventEmitter`-style interface for raw events, and a context object that downstream consumers use to send messages or query state through the core's sealed boundary.
+The core exposes a `SignetCore` service with a start/stop lifecycle, an `EventEmitter`-style interface for raw events, and a context object that downstream consumers use to send messages or query state through the core's sealed boundary.
 
 ## Dependencies
 
 **Imports:**
 - `@xmtp/node-sdk` -- XMTP Client, Conversations, Group, Signer types
-- `@xmtp-broker/contracts` -- `SignerProvider`, `RawEvent`, `CoreContext`, `BrokerCore`, `CoreState`, `GroupInfo` (canonical interface definitions)
-- `@xmtp-broker/schemas` -- event schemas, error types, content type definitions
+- `@xmtp/signet-contracts` -- `SignerProvider`, `RawEvent`, `CoreContext`, `SignetCore`, `CoreState`, `GroupInfo` (canonical interface definitions)
+- `@xmtp/signet-schemas` -- event schemas, error types, content type definitions
 - `better-result` -- Result type for fallible operations
 - `zod` -- runtime validation at the XMTP boundary
 
 **Imported by:**
-- `@xmtp-broker/policy` -- subscribes to raw events, uses core context for actions
-- `@xmtp-broker/sessions` -- queries core for agent identity info
-- `@xmtp-broker/attestations` -- uses core context to publish attestation messages
-- `@xmtp-broker/ws` -- indirectly, through the policy/session layer
+- `@xmtp/signet-policy` -- subscribes to raw events, uses core context for actions
+- `@xmtp/signet-sessions` -- queries core for agent identity info
+- `@xmtp/signet-seals` -- uses core context to publish seal messages
+- `@xmtp/signet-ws` -- indirectly, through the policy/session layer
 
 ## Public Interfaces
 
-> **Note:** The following interfaces are canonically defined in `@xmtp-broker/contracts`: `SignerProvider`, `RawEvent` (union), `CoreContext`, `GroupInfo`, `BrokerCore`, `CoreState`. This package implements them. The descriptions below document behavior and usage; the contracts package is the source of truth for the type signatures.
+> **Note:** The following interfaces are canonically defined in `@xmtp/signet-contracts`: `SignerProvider`, `RawEvent` (union), `CoreContext`, `GroupInfo`, `SignetCore`, `CoreState`. This package implements them. The descriptions below document behavior and usage; the contracts package is the source of truth for the type signatures.
 
 ### Configuration
 
@@ -48,7 +48,7 @@ const IdentityModeSchema = z.enum([
   "shared",
 ]).describe("Whether each group gets a unique identity or shares one");
 
-const BrokerCoreConfigSchema = z.object({
+const SignetCoreConfigSchema = z.object({
   dataDir: z.string().describe("Base directory for all broker data"),
   env: XmtpEnvSchema.default("dev")
     .describe("XMTP network environment"),
@@ -62,7 +62,7 @@ const BrokerCoreConfigSchema = z.object({
     .describe("App version string sent to XMTP network"),
 }).describe("Broker core configuration");
 
-type BrokerCoreConfig = z.infer<typeof BrokerCoreConfigSchema>;
+type SignetCoreConfig = z.infer<typeof SignetCoreConfigSchema>;
 ```
 
 ### Identity Store
@@ -107,7 +107,7 @@ interface IdentityStore {
 
 ### Signer Adapter
 
-The core does not manage raw key bytes directly. It delegates signing to a `SignerProvider` injected at construction. This allows the key management package (`@xmtp-broker/keys`) to provide hardware-backed signers while the core remains key-agnostic.
+The core does not manage raw key bytes directly. It delegates signing to a `SignerProvider` injected at construction. This allows the key management package (`@xmtp/signet-keys`) to provide hardware-backed signers while the core remains key-agnostic.
 
 ```typescript
 import type { Signer } from "@xmtp/node-sdk";
@@ -192,7 +192,7 @@ interface CoreContext {
     groupId: string,
     contentType: string,
     content: unknown,
-  ): Promise<Result<{ messageId: string }, BrokerError>>;
+  ): Promise<Result<{ messageId: string }, SignetError>>;
 
   /** Get group metadata. */
   getGroupInfo(
@@ -206,19 +206,19 @@ interface CoreContext {
   addMembers(
     groupId: string,
     inboxIds: readonly string[],
-  ): Promise<Result<void, BrokerError>>;
+  ): Promise<Result<void, SignetError>>;
 
   /** Remove members from a group. */
   removeMembers(
     groupId: string,
     inboxIds: readonly string[],
-  ): Promise<Result<void, BrokerError>>;
+  ): Promise<Result<void, SignetError>>;
 
   /** Get the inbox ID for a given group's identity. */
   getInboxId(groupId: string): Promise<Result<string, NotFoundError>>;
 
   /** Force a sync for a specific group. */
-  syncGroup(groupId: string): Promise<Result<void, BrokerError>>;
+  syncGroup(groupId: string): Promise<Result<void, SignetError>>;
 }
 
 interface GroupInfo {
@@ -230,18 +230,18 @@ interface GroupInfo {
 }
 ```
 
-### BrokerCore Service
+### SignetCore Service
 
 ```typescript
 type RawEventHandler = (event: RawEvent) => void;
 
 /** The core service managing the raw XMTP plane. */
-interface BrokerCore {
+interface SignetCore {
   /** Start the core: initialize clients, begin streaming. */
-  start(): Promise<Result<void, BrokerError>>;
+  start(): Promise<Result<void, SignetError>>;
 
   /** Stop the core: close streams, disconnect clients. */
-  stop(): Promise<Result<void, BrokerError>>;
+  stop(): Promise<Result<void, SignetError>>;
 
   /** Subscribe to raw events. Returns an unsubscribe function. */
   on(handler: RawEventHandler): () => void;
@@ -258,7 +258,7 @@ type CoreState = "idle" | "starting" | "running" | "stopping" | "stopped" | "err
 
 ## Zod Schemas
 
-Core-specific schemas are defined above (`BrokerCoreConfigSchema`, `XmtpEnvSchema`, `IdentityModeSchema`). All other schemas (events, errors, content types) are imported from `@xmtp-broker/schemas` as defined in `02-schemas.md`.
+Core-specific schemas are defined above (`SignetCoreConfigSchema`, `XmtpEnvSchema`, `IdentityModeSchema`). All other schemas (events, errors, content types) are imported from `@xmtp/signet-schemas` as defined in `02-schemas.md`.
 
 Raw event types are plain TypeScript interfaces, not Zod schemas, because they are internal to the runtime tier and never cross a serialization boundary.
 
@@ -287,7 +287,7 @@ State transitions are synchronous and guarded: `start()` only works from `idle`,
 
 ### Startup Sequence
 
-1. Validate `BrokerCoreConfig` with Zod.
+1. Validate `SignetCoreConfig` with Zod.
 2. Initialize `IdentityStore` from `dataDir`.
 3. Load all existing identities.
 4. For each identity, obtain a `Signer` and `dbEncryptionKey` from the `SignerProvider`.
@@ -492,10 +492,10 @@ function createMockXmtpClient(options?: {
   messages?: RawMessageEvent[];
 }): Client;
 
-/** Create a BrokerCore with all dependencies mocked. */
-function createTestBrokerCore(
-  overrides?: Partial<BrokerCoreConfig>,
-): { core: BrokerCore; mocks: TestMocks };
+/** Create a SignetCore with all dependencies mocked. */
+function createTestSignetCore(
+  overrides?: Partial<SignetCoreConfig>,
+): { core: SignetCore; mocks: TestMocks };
 
 interface TestMocks {
   signerProvider: SignerProvider;
@@ -513,8 +513,8 @@ packages/core/
   tsconfig.json
   src/
     index.ts                    # Re-exports public API
-    config.ts                   # BrokerCoreConfigSchema, XmtpEnvSchema, IdentityModeSchema
-    broker-core.ts              # BrokerCore implementation (start/stop lifecycle)
+    config.ts                   # SignetCoreConfigSchema, XmtpEnvSchema, IdentityModeSchema
+    broker-core.ts              # SignetCore implementation (start/stop lifecycle)
     core-context.ts             # CoreContext implementation (sealed action interface)
     identity-store.ts           # IdentityStore implementation (file-based, under dataDir)
     client-registry.ts          # ManagedClient map, stream management

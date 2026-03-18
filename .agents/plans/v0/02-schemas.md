@@ -1,25 +1,25 @@
 # 02-schemas
 
-**Package:** `@xmtp-broker/schemas`
+**Package:** `@xmtp/signet-schemas`
 **Spec version:** 0.1.0
 
 ## Overview
 
 The schemas package is the foundation of the entire broker system. It defines every Zod schema, inferred TypeScript type, and error class used across all other packages. No runtime logic lives here -- only shapes, validation, and error taxonomy.
 
-Cross-package interfaces (service contracts, provider interfaces, event types) live in `@xmtp-broker/contracts`, not here. The split principle: **schemas** = "what shape is the data?" while **contracts** = "what can components do to each other?" See [02b-contracts](02b-contracts.md) for the contracts package spec.
+Cross-package interfaces (service contracts, provider interfaces, event types) live in `@xmtp/signet-contracts`, not here. The split principle: **schemas** = "what shape is the data?" while **contracts** = "what can components do to each other?" See [02b-contracts](02b-contracts.md) for the contracts package spec.
 
-Every other package in the broker monorepo imports from `@xmtp-broker/schemas`. Nothing imports into it except `@xmtp-broker/contracts`. This zero-dependency position means changes here cascade everywhere, so the schemas must be stable, well-described, and complete from day one.
+Every other package in the broker monorepo imports from `@xmtp/signet-schemas`. Nothing imports into it except `@xmtp/signet-contracts`. This zero-dependency position means changes here cascade everywhere, so the schemas must be stable, well-described, and complete from day one.
 
 All schemas carry `.describe()` annotations so they can be converted to JSON Schema for MCP tool definitions, documentation generation, and cross-language harness consumption. All TypeScript types are derived via `z.infer<>` -- no manual interfaces, no type duplication.
 
-Fields that are conceptually optional use `.nullable()` with an explicit `null` value, never `.optional()`. This ensures every attestation, event, and request has a predictable shape regardless of which fields are populated.
+Fields that are conceptually optional use `.nullable()` with an explicit `null` value, never `.optional()`. This ensures every seal, event, and request has a predictable shape regardless of which fields are populated.
 
 ## Dependencies
 
 **Imports:** `zod` (sole runtime dependency)
 
-**Imported by:** `@xmtp-broker/contracts` (directly), and transitively by every other `@xmtp-broker/*` package
+**Imported by:** `@xmtp/signet-contracts` (directly), and transitively by every other `@xmtp/signet-*` package
 
 ## Public Interfaces
 
@@ -198,9 +198,9 @@ const GrantConfig = z.object({
 type GrantConfig = z.infer<typeof GrantConfig>;
 ```
 
-### Attestation Schema
+### Seal Schema
 
-The full attestation schema. All fields are present; optional fields use `null`. This is the shape posted to the group as a structured content type.
+The full seal schema. All fields are present; optional fields use `null`. This is the shape posted to the group as a structured content type.
 
 ```typescript
 const InferenceMode = z.enum([
@@ -250,7 +250,7 @@ type TrustTier = z.infer<typeof TrustTier>;
 
 const RevocationRules = z.object({
   maxTtlSeconds: z.number().int().positive()
-    .describe("Maximum attestation lifetime in seconds"),
+    .describe("Maximum seal lifetime in seconds"),
   requireHeartbeat: z.boolean()
     .describe("Whether missed heartbeats trigger auto-revocation"),
   ownerCanRevoke: z.boolean()
@@ -264,7 +264,7 @@ type RevocationRules = z.infer<typeof RevocationRules>;
 const AttestationSchema = z.object({
   attestationId: z.string().describe("Unique identifier for this attestation"),
   previousAttestationId: z.string().nullable()
-    .describe("ID of the attestation this supersedes, null for initial"),
+    .describe("ID of the seal this supersedes, null for initial"),
   agentInboxId: z.string().describe("XMTP inbox ID of the agent"),
   ownerInboxId: z.string().describe("XMTP inbox ID of the agent's owner"),
   groupId: z.string().describe("Group this attestation applies to"),
@@ -298,14 +298,14 @@ const AttestationSchema = z.object({
   heartbeatInterval: z.number().int().positive().default(30)
     .describe("Expected heartbeat cadence in seconds"),
   issuedAt: z.string().datetime()
-    .describe("ISO 8601 timestamp when this attestation was issued"),
+    .describe("ISO 8601 timestamp when this seal was issued"),
   expiresAt: z.string().datetime()
-    .describe("ISO 8601 timestamp when this attestation expires"),
+    .describe("ISO 8601 timestamp when this seal expires"),
   revocationRules: RevocationRules
     .describe("Rules governing revocation of this attestation"),
   issuer: z.string()
-    .describe("Identity of the attestation issuer (broker's signing identity)"),
-}).describe("Group-visible capability attestation for an agent");
+    .describe("Identity of the seal issuer (broker's signing identity)"),
+}).describe("Group-visible capability seal for an agent");
 
 type Attestation = z.infer<typeof AttestationSchema>;
 ```
@@ -413,15 +413,15 @@ const SessionRevocationReason = z.enum([
 type SessionRevocationReason = z.infer<typeof SessionRevocationReason>;
 
 const RevocationAttestation = z.object({
-  attestationId: z.string().describe("ID of this revocation attestation"),
+  attestationId: z.string().describe("ID of this revocation seal"),
   previousAttestationId: z.string()
-    .describe("ID of the attestation being revoked"),
+    .describe("ID of the seal being revoked"),
   agentInboxId: z.string().describe("Agent being revoked"),
   groupId: z.string().describe("Group the revocation applies to"),
   reason: AgentRevocationReason.describe("Why the agent was revoked"),
   revokedAt: z.string().datetime().describe("When the revocation took effect"),
   issuer: z.string().describe("Identity of the revocation issuer"),
-}).describe("Group-visible revocation of an agent's attestation");
+}).describe("Group-visible revocation of an agent's seal");
 
 type RevocationAttestation = z.infer<typeof RevocationAttestation>;
 ```
@@ -451,13 +451,13 @@ const MessageEvent = z.object({
   visibility: MessageVisibility.describe("How this message is projected"),
   sentAt: z.string().datetime().describe("When the message was sent"),
   attestationId: z.string().nullable()
-    .describe("Attestation ID if sent by a brokered agent, null otherwise"),
+    .describe("Seal ID if sent by a brokered agent, null otherwise"),
 }).describe("A message projected to the agent according to its view");
 
 const AttestationEvent = z.object({
   type: z.literal("attestation.updated").describe("Event type discriminator"),
-  attestation: AttestationSchema.describe("The updated attestation"),
-}).describe("Attestation was published or updated");
+  attestation: AttestationSchema.describe("The updated seal"),
+}).describe("Seal was published or updated");
 
 const SessionStartedEvent = z.object({
   type: z.literal("session.started").describe("Event type discriminator"),
@@ -701,7 +701,7 @@ function errorCategoryMeta(category: ErrorCategory): ErrorCategoryMeta {
  * Base interface for all broker errors. Discriminated by `_tag`.
  * Never constructed directly -- use the static factory on each subclass.
  */
-interface BrokerError extends Error {
+interface SignetError extends Error {
   readonly _tag: string;
   readonly code: number;
   readonly category: ErrorCategory;
@@ -716,7 +716,7 @@ Each class has a static `create()` factory, a numeric code, and maps to one cate
 ```typescript
 // -- validation (code range 1000-1099) --
 
-class ValidationError extends Error implements BrokerError {
+class ValidationError extends Error implements SignetError {
   readonly _tag = "ValidationError";
   readonly code = 1000;
   readonly category = "validation" as const;
@@ -735,7 +735,7 @@ class ValidationError extends Error implements BrokerError {
 
 // -- not_found (1100-1199) --
 
-class NotFoundError extends Error implements BrokerError {
+class NotFoundError extends Error implements SignetError {
   readonly _tag = "NotFoundError";
   readonly code = 1100;
   readonly category = "not_found" as const;
@@ -754,7 +754,7 @@ class NotFoundError extends Error implements BrokerError {
 
 // -- permission (1200-1299) --
 
-class PermissionError extends Error implements BrokerError {
+class PermissionError extends Error implements SignetError {
   readonly _tag = "PermissionError";
   readonly code = 1200;
   readonly category = "permission" as const;
@@ -768,7 +768,7 @@ class PermissionError extends Error implements BrokerError {
   }
 }
 
-class GrantDeniedError extends Error implements BrokerError {
+class GrantDeniedError extends Error implements SignetError {
   readonly _tag = "GrantDeniedError";
   readonly code = 1210;
   readonly category = "permission" as const;
@@ -787,7 +787,7 @@ class GrantDeniedError extends Error implements BrokerError {
 
 // -- auth (1300-1399) --
 
-class AuthError extends Error implements BrokerError {
+class AuthError extends Error implements SignetError {
   readonly _tag = "AuthError";
   readonly code = 1300;
   readonly category = "auth" as const;
@@ -801,7 +801,7 @@ class AuthError extends Error implements BrokerError {
   }
 }
 
-class SessionExpiredError extends Error implements BrokerError {
+class SessionExpiredError extends Error implements SignetError {
   readonly _tag = "SessionExpiredError";
   readonly code = 1310;
   readonly category = "auth" as const;
@@ -820,7 +820,7 @@ class SessionExpiredError extends Error implements BrokerError {
 
 // -- internal (1400-1499) --
 
-class InternalError extends Error implements BrokerError {
+class InternalError extends Error implements SignetError {
   readonly _tag = "InternalError";
   readonly code = 1400;
   readonly category = "internal" as const;
@@ -836,7 +836,7 @@ class InternalError extends Error implements BrokerError {
 
 // -- timeout (1500-1599) --
 
-class TimeoutError extends Error implements BrokerError {
+class TimeoutError extends Error implements SignetError {
   readonly _tag = "TimeoutError";
   readonly code = 1500;
   readonly category = "timeout" as const;
@@ -855,7 +855,7 @@ class TimeoutError extends Error implements BrokerError {
 
 // -- cancelled (1600-1699) --
 
-class CancelledError extends Error implements BrokerError {
+class CancelledError extends Error implements SignetError {
   readonly _tag = "CancelledError";
   readonly code = 1600;
   readonly category = "cancelled" as const;
@@ -871,7 +871,7 @@ class CancelledError extends Error implements BrokerError {
 
 // -- domain-specific --
 
-class AttestationError extends Error implements BrokerError {
+class AttestationError extends Error implements SignetError {
   readonly _tag = "AttestationError";
   readonly code = 1010;
   readonly category = "validation" as const;
@@ -892,7 +892,7 @@ class AttestationError extends Error implements BrokerError {
 ### Discriminated Error Matching
 
 ```typescript
-type AnyBrokerError =
+type AnySignetError =
   | ValidationError
   | NotFoundError
   | PermissionError
@@ -906,8 +906,8 @@ type AnyBrokerError =
 
 /** Type-safe error matching by _tag discriminant. */
 function matchError<T>(
-  error: AnyBrokerError,
-  handlers: { [K in AnyBrokerError["_tag"]]: (e: Extract<AnyBrokerError, { _tag: K }>) => T },
+  error: AnySignetError,
+  handlers: { [K in AnySignetError["_tag"]]: (e: Extract<AnySignetError, { _tag: K }>) => T },
 ): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (handlers as any)[error._tag](error);
@@ -922,7 +922,7 @@ This package has no runtime behavior beyond validation. All schemas are pure dec
 
 1. `ViewConfig` and `GrantConfig` are independently composable -- any view mode can pair with any grant configuration.
 2. The effective content type allowlist for an agent is `intersection(broker.allowlist, agent.view.contentTypes)`. The schemas define the agent's requested list; the policy engine computes the effective list at runtime.
-3. Attestation `grantedOps` is a string array derived from the `GrantConfig` at attestation time. The mapping from structured grants to string identifiers is defined in the attestation package, not here.
+3. Attestation `grantedOps` is a string array derived from the `GrantConfig` at seal time. The mapping from structured grants to string identifiers is defined in the seal package, not here.
 
 ### Nullable vs Optional Convention
 
@@ -942,24 +942,24 @@ This package defines errors but does not produce them at runtime. Error producti
 
 ## Open Questions Resolved
 
-**Q: What is the exact minimum viable attestation schema?** (PRD Open Questions)
-**A:** Full schema from day one with all 24 fields. Fields that may not be populated use `null`. Rationale: prevents schema drift, clients always know the shape, and the attestation format is a candidate XIP -- better to define it completely now than to add fields later and break consumers.
+**Q: What is the exact minimum viable seal schema?** (PRD Open Questions)
+**A:** Full schema from day one with all 24 fields. Fields that may not be populated use `null`. Rationale: prevents schema drift, clients always know the shape, and the seal format is a candidate XIP -- better to define it completely now than to add fields later and break consumers.
 
 **Q: Should session issuance be tied to explicit per-thread scopes by default?** (PRD Open Questions)
 **A:** No. Sessions scope to agent + groups via `ViewConfig.threadScopes`. Thread filtering is a view concern within a session, not a session-level binding. Rationale: simpler session model; thread scoping changes are non-material view updates that don't require session reauthorization.
 
 **Q: What is the appropriate default heartbeat interval?** (PRD Open Questions)
-**A:** 30 seconds, configurable per-agent via `SessionConfig.heartbeatInterval` and reflected in the attestation's `heartbeatInterval` field. Rationale: balances liveness visibility with noise; 30s is fast enough to detect outages within a minute, slow enough to avoid overhead.
+**A:** 30 seconds, configurable per-agent via `SessionConfig.heartbeatInterval` and reflected in the seal's `heartbeatInterval` field. Rationale: balances liveness visibility with noise; 30s is fast enough to detect outages within a minute, slow enough to avoid overhead.
 
 **Q: How should content type allowlist updates be surfaced?** (PRD Open Questions)
-**A:** Adding content types to the allowlist is a material change that produces a new attestation. The attestation's `contentTypes` array reflects the current effective list, and `previousAttestationId` creates a diff chain. The broker logs the delta internally. Rationale: consistent with the materiality rules -- any change to what an agent can see is material.
+**A:** Adding content types to the allowlist is a material change that produces a new seal. The seal's `contentTypes` array reflects the current effective list, and `previousSealId` creates a diff chain. The broker logs the delta internally. Rationale: consistent with the materiality rules -- any change to what an agent can see is material.
 
 ## Deferred
 
 - **Conflict and rate_limit error categories**: The v0 taxonomy covers 7 categories. `conflict` (AlreadyExistsError) and `rate_limit` (RateLimitError) will be added when transports mature and produce those conditions. Adding them now would create dead code.
 - **Network error category**: Deferred until the broker has external service dependencies that produce transient network failures distinct from timeouts.
 - **Custom content type registration API**: The `CONTENT_TYPE_SCHEMAS` record is extensible at the code level. A runtime registration API (e.g., `registerContentType(id, schema)`) is deferred to Phase 2 when plugin architecture is designed.
-- **Attestation signature schema**: The attestation schema defines the payload shape. The signed envelope schemas (`SignedAttestationEnvelope`, `SignedRevocationEnvelope`) live in `@xmtp-broker/contracts` as protocol wire formats.
+- **Attestation signature schema**: The seal schema defines the payload shape. The signed envelope schemas (`SignedAttestationEnvelope`, `SignedRevocationEnvelope`) live in `@xmtp/signet-contracts` as protocol wire formats.
 - **Zod-to-JSON-Schema utility**: The `zodToJsonSchema()` conversion for MCP is a transport concern. This package provides the Zod schemas; the MCP adapter converts them.
 
 ## Testing Strategy
@@ -1040,7 +1040,7 @@ packages/schemas/
     errors/
       index.ts                  # Re-exports all error types
       category.ts               # ErrorCategory, ErrorCategoryMeta, errorCategoryMeta()
-      base.ts                   # BrokerError interface, AnyBrokerError union, matchError()
+      base.ts                   # SignetError interface, AnySignetError union, matchError()
       validation.ts             # ValidationError, AttestationError
       not-found.ts              # NotFoundError
       permission.ts             # PermissionError, GrantDeniedError

@@ -1,6 +1,6 @@
 # 05-sessions
 
-**Package:** `@xmtp-broker/sessions`
+**Package:** `@xmtp/signet-sessions`
 **Spec version:** 0.1.0
 
 ## Overview
@@ -16,19 +16,19 @@ Sessions are scoped to agent + groups, not per-thread. Thread filtering is a vie
 ## Dependencies
 
 **Imports:**
-- `@xmtp-broker/contracts` — `SessionRecord`, `MaterialityCheck`, `SessionManager` (canonical interface definitions)
-- `@xmtp-broker/schemas` — `SessionConfig`, `SessionToken`, `SessionState`, `SessionRevocationReason`, `ViewConfig`, `GrantConfig`, error classes (`AuthError`, `SessionExpiredError`, `ValidationError`, `NotFoundError`, `InternalError`)
+- `@xmtp/signet-contracts` — `SessionRecord`, `MaterialityCheck`, `SessionManager` (canonical interface definitions)
+- `@xmtp/signet-schemas` — `SessionConfig`, `SessionToken`, `SessionState`, `SessionRevocationReason`, `ViewConfig`, `GrantConfig`, error classes (`AuthError`, `SessionExpiredError`, `ValidationError`, `NotFoundError`, `InternalError`)
 - `better-result` — `Result`, `Ok`, `Err`
 
 **Imported by:**
-- `@xmtp-broker/ws` — transport layer creates sessions on harness connect
-- `@xmtp-broker/policy` — policy engine checks session validity before enforcing grants
-- `@xmtp-broker/attestations` — attestation manager reads session key fingerprint
-- `@xmtp-broker/keys` — key manager issues session keys bound to sessions
+- `@xmtp/signet-ws` — transport layer creates sessions on harness connect
+- `@xmtp/signet-policy` — policy engine checks session validity before enforcing grants
+- `@xmtp/signet-seals` — seal manager reads session key fingerprint
+- `@xmtp/signet-keys` — key manager issues session keys bound to sessions
 
 ## Public Interfaces
 
-> **Note:** The following interfaces are canonically defined in `@xmtp-broker/contracts`: `SessionRecord`, `MaterialityCheck`, `SessionManager`. This package implements the `SessionManager` interface from contracts. The `SessionRevocationReason` enum has moved to `@xmtp-broker/schemas`.
+> **Note:** The following interfaces are canonically defined in `@xmtp/signet-contracts`: `SessionRecord`, `MaterialityCheck`, `SessionManager`. This package implements the `SessionManager` interface from contracts. The `SessionRevocationReason` enum has moved to `@xmtp/signet-schemas`.
 
 ### SessionRecord
 
@@ -164,7 +164,7 @@ function createSessionManager(
 
 ## Zod Schemas
 
-Session schemas are defined in `@xmtp-broker/schemas` (see 02-schemas.md):
+Session schemas are defined in `@xmtp/signet-schemas` (see 02-schemas.md):
 - `SessionConfig` — input for creating a session
 - `SessionToken` — the token shape returned to the harness
 - `SessionState` — `"active" | "expired" | "revoked" | "reauthorization-required"`
@@ -220,7 +220,7 @@ The transport layer converts the `SessionRecord` to a `SessionToken` (the harnes
 - Prefix: `ses_`
 - 16 random bytes, hex-encoded
 - Total length: 36 characters (`ses_` + 32 hex chars)
-- Used for internal references, logging, and attestation binding
+- Used for internal references, logging, and seal binding
 
 ### State Machine
 
@@ -298,7 +298,7 @@ renewSession(sessionId)
     +--> Return updated SessionRecord
 ```
 
-Renewal does not produce an attestation (non-material operation).
+Renewal does not produce a seal (non-material operation).
 
 ### Concurrent Sessions
 
@@ -327,9 +327,9 @@ The `sweepExpired()` method checks both TTL expiry and heartbeat timeout in a si
 
 ### Session Key Binding
 
-Each session is bound to exactly one session key, identified by `sessionKeyFingerprint`. The key is issued by `@xmtp-broker/keys` and passed to `createSession`. The fingerprint is:
+Each session is bound to exactly one session key, identified by `sessionKeyFingerprint`. The key is issued by `@xmtp/signet-keys` and passed to `createSession`. The fingerprint is:
 - Stored in the session record
-- Included in any attestation issued during the session
+- Included in any seal issued during the session
 - Used to verify that requests come from the session they claim
 
 Session keys are ephemeral. They cannot perform operational-key or root-key operations. When a session is revoked or expires, the corresponding key material should be zeroized by the key manager.
@@ -399,8 +399,8 @@ All errors are returned as `Result` values. No exceptions thrown.
 **Q: What triggers session reauthorization vs in-place update?** (PRD: Session and view/grant binding)
 **A:** The materiality rules table above defines the exact boundary. The principle: any change that expands what an agent can see (view escalation) or do (grant escalation) is material and requires a new session. Any change that narrows permissions or adjusts non-security-sensitive configuration is non-material and applies in-place. Reply and react grants are non-material because they operate within the existing view scope -- they don't expose new content or create new egress paths.
 
-**Q: Should session rotation produce attestations?** (PRD: Attestation noise and materiality)
-**A:** No. Routine session rotation (TTL renewal, reconnection with same policy) is a non-material operation. Only policy changes that cross a materiality boundary produce new attestations. The session manager signals materiality to the attestation manager, which decides whether to publish.
+**Q: Should session rotation produce seals?** (PRD: Seal noise and materiality)
+**A:** No. Routine session rotation (TTL renewal, reconnection with same policy) is a non-material operation. Only policy changes that cross a materiality boundary produce new seals. The session manager signals materiality to the seal manager, which decides whether to publish.
 
 ## Deferred
 

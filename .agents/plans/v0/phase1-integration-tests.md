@@ -10,7 +10,7 @@ These tests wire up real Phase 1 package implementations with **mocked XMTP** (n
 
 ```
 Real code:
-  schemas, contracts, policy, sessions, attestations, keys, ws
+  schemas, contracts, policy, sessions, seals, keys, ws
 
 Mocked:
   XmtpClient (no real XMTP network)
@@ -25,7 +25,7 @@ End-to-end flow with all packages wired together:
 
 1. Create a `KeyManager` (software-vault mode)
 2. Initialize identity (root key → operational key)
-3. Create a `BrokerCore` with mock `XmtpClientFactory`
+3. Create a `SignetCore` with mock `XmtpClientFactory`
 4. Initialize the broker (creates XMTP client)
 5. Create a `SessionManager`
 6. Issue a session with a view (full mode) and grant (send + react)
@@ -49,16 +49,16 @@ Verify view filtering and grant checking across packages:
 - **Grant enforcement:** Send allowed → succeeds. Send denied → `PermissionError`. React allowed → succeeds. Group management denied → `PermissionError`.
 - **Material change detection:** View mode change → triggers `session.reauthorization_required`. Grant expansion → triggers reauth. Session rotation within same scope → silent.
 
-### 3. Attestation Lifecycle (`attestation-lifecycle.test.ts`)
+### 3. Seal Lifecycle (`attestation-lifecycle.test.ts`)
 
-Full attestation flow through real packages:
+Full seal flow through real packages:
 
-- Issue attestation for agent in group → signed with operational key
-- Verify attestation signature with public key
-- Verify attestation chain: first attestation has `previousAttestationId: null`
-- Refresh attestation → new attestation chains to previous
-- Revoke attestation → signed revocation envelope
-- Query current attestation → returns latest
+- Issue seal for agent in group → signed with operational key
+- Verify seal signature with public key
+- Verify seal chain: first seal has `previousAttestationId: null`
+- Refresh seal → new seal chains to previous
+- Revoke seal → signed revocation envelope
+- Query current seal → returns latest
 - Query after revocation → returns null
 
 ### 4. Session Lifecycle (`session-lifecycle.test.ts`)
@@ -105,9 +105,9 @@ Transport-level behaviors with real WsServer:
 
 Verify that implementations match their contract interfaces:
 
-- `BrokerCore` implementation satisfies `BrokerCore` interface from contracts
+- `SignetCore` implementation satisfies `SignetCore` interface from contracts
 - `SessionManager` implementation satisfies `SessionManager` interface
-- `AttestationManager` implementation satisfies `AttestationManager` interface
+- `SealManager` implementation satisfies `SealManager` interface
 - `SignerProvider` implementation satisfies `SignerProvider` interface
 - `AttestationSigner` implementation satisfies `AttestationSigner` interface
 - All error types from schemas are constructable and have correct categories

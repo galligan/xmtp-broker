@@ -1,6 +1,6 @@
 # Error Handling and Result Pattern
 
-Extracted from `outfitter/stack` as reference for xmtp-broker error handling.
+Extracted from `outfitter/stack` as reference for xmtp-signet error handling.
 
 ## Core Principle: No Throw
 
@@ -83,7 +83,7 @@ Unified lookup: `errorCategoryMeta(category)` returns `{ exitCode, statusCode, j
 
 Only transient errors are retryable: `timeout`, `rate_limit`, `network`. Permanent errors (validation, not_found, permission, auth, internal) require human intervention.
 
-## Adaptation Notes for xmtp-broker
+## Adaptation Notes for xmtp-signet
 
 **Adopt:**
 - Result type for all handler returns (use `better-result` or similar)

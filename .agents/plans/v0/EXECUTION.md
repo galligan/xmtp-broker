@@ -157,7 +157,7 @@ The main conversation thread:
 - New directory: `packages/core/src/sdk/` with `factory.ts`, `client.ts`, `signer.ts`, `error-mapping.ts`, `type-mapping.ts`
 - Pin `@xmtp/node-sdk` to exactly `6.0.0`
 - The `createXmtpSigner` adapter wraps Result-returning methods into exception-throwing ones
-- Per-group identity orchestration: BrokerCore → ClientRegistry → SdkClientFactory (see spec 11 §Per-Group Identity Orchestration)
+- Per-group identity orchestration: SignetCore → ClientRegistry → SdkClientFactory (see spec 11 §Per-Group Identity Orchestration)
 
 **Commit convention:** `feat(core): wire @xmtp/node-sdk via SdkClientFactory and SdkClient`
 
@@ -208,7 +208,7 @@ The main conversation thread:
 **Implementer prompt context:**
 - Read spec 13 §Overview, §Dependencies, §Public Interfaces (config schemas only), §Zod Schemas, §File Layout
 - Read `cli-broker-interaction.md` design doc for background
-- Create `packages/cli/package.json` with `commander@14.0.3`, `smol-toml@1.6.0`, all `@xmtp-broker/*` workspace deps
+- Create `packages/cli/package.json` with `commander@14.0.3`, `smol-toml@1.6.0`, all `@xmtp/signet-*` workspace deps
 - Create `tsconfig.json`, `src/index.ts` (Commander program shell with no commands yet)
 - Create `src/config/schema.ts` — `CliConfigSchema`, `AdminServerConfigSchema`, `ResolvedPaths`
 - Create `src/config/loader.ts` — TOML loading, env var overrides, path resolution (XDG)
@@ -283,7 +283,7 @@ The main conversation thread:
 **Estimated size:** ~400 LOC
 
 **Implementer prompt context:**
-- Read spec 13 §Behaviors for each command group: broker, identity, session, grant, attestation, message, conversation, admin
+- Read spec 13 §Behaviors for each command group: broker, identity, session, grant, seal, message, conversation, admin
 - Create one file per group in `src/commands/`: `broker.ts`, `identity.ts`, `session.ts`, `grant.ts`, `attestation.ts`, `message.ts`, `conversation.ts`, `admin.ts`
 - Each command file: define Commander subcommand, parse args, validate with Zod, route through AdminClient (daemon mode)
 - Create `src/output/formatter.ts` — table/JSON/text output formatting, `--json` flag handling
@@ -334,7 +334,7 @@ The main conversation thread:
 
 **Implementer prompt context:**
 - Read spec 13 §Public Interfaces (BrokerRuntime), §Behaviors (Startup Sequence detail)
-- Create `src/runtime.ts` — `createBrokerRuntime(config)` that instantiates and wires: KeyManager, BrokerCore, SessionManager, PolicyEngine, AttestationManager, WsServer, AdminServer
+- Create `src/runtime.ts` — `createBrokerRuntime(config)` that instantiates and wires: KeyManager, SignetCore, SessionManager, PolicyEngine, SealManager, WsServer, AdminServer
 - Create `src/audit/log.ts` — `AuditLog`, append-only JSONL at `$XDG_STATE_HOME/xmtp-broker/audit.jsonl`
 - Wire runtime into `broker start` command (already defined in step 4d, now gets its implementation)
 - Tests: runtime creation with mocked deps, audit log append/read, startup sequence ordering
@@ -393,7 +393,7 @@ The main conversation thread:
 - Read spec 08 for the WebSocket protocol being wrapped
 - Read specs 02, 02b for event/request types
 - New package: `packages/handler/`
-- Dependencies: `@xmtp-broker/schemas`, `@xmtp-broker/contracts`, `better-result`, `zod`
+- Dependencies: `@xmtp/signet-schemas`, `@xmtp/signet-contracts`, `better-result`, `zod`
 - NO runtime broker packages (core, policy, sessions, keys)
 - `createBrokerHandler(config)` → `BrokerHandler`
 - Typed async iterable event stream

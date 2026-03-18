@@ -1,17 +1,17 @@
 # 10-action-registry
 
-**Package:** `@xmtp-broker/contracts` (ActionSpec, HandlerContext extensions), `@xmtp-broker/schemas` (ActionResult envelope)
+**Package:** `@xmtp/signet-contracts` (ActionSpec, HandlerContext extensions), `@xmtp/signet-schemas` (ActionResult envelope)
 **Spec version:** 0.1.0
 
 ## Overview
 
-The action registry introduces the "define once, expose everywhere" pattern to xmtp-broker. An `ActionSpec` bundles a handler function with its Zod input schema and per-surface metadata (CLI, MCP) into a single registration unit. Transport adapters consume ActionSpecs to mechanically wire domain logic into their protocol -- no per-transport handler code needed.
+The action registry introduces the "define once, expose everywhere" pattern to xmtp-signet. An `ActionSpec` bundles a handler function with its Zod input schema and per-surface metadata (CLI, MCP) into a single registration unit. Transport adapters consume ActionSpecs to mechanically wire domain logic into their protocol -- no per-transport handler code needed.
 
 This spec adds three things:
 
-1. **`ActionSpec<TInput, TOutput, TError>`** -- the bundling type that connects a handler to its schemas and surface metadata. Lives in `@xmtp-broker/contracts` alongside the existing `Handler` type it references.
+1. **`ActionSpec<TInput, TOutput, TError>`** -- the bundling type that connects a handler to its schemas and surface metadata. Lives in `@xmtp/signet-contracts` alongside the existing `Handler` type it references.
 
-2. **`ActionResult<T>`** -- the universal output envelope that all transports render from. Defined as a Zod schema in `@xmtp-broker/schemas` so it can be validated at boundaries and used for type inference.
+2. **`ActionResult<T>`** -- the universal output envelope that all transports render from. Defined as a Zod schema in `@xmtp/signet-schemas` so it can be validated at boundaries and used for type inference.
 
 3. **Extended `HandlerContext`** -- adds `requestId`, `signal`, and optional `adminAuth`/`sessionId` to the existing `CoreContext`-based `HandlerContext`. These fields are needed by all handlers regardless of transport.
 
@@ -22,11 +22,11 @@ The ActionSpec type is deliberately minimal. It does not prescribe how transport
 ## Dependencies
 
 **Imports:**
-- `@xmtp-broker/schemas` -- `BrokerError`, `ErrorCategory`, Zod (for ActionResult schema)
+- `@xmtp/signet-schemas` -- `SignetError`, `ErrorCategory`, Zod (for ActionResult schema)
 - `better-result` -- `Result` (in Handler signature)
 
 **Imported by:**
-- All runtime packages that define handlers (`core`, `sessions`, `policy`, `attestations`)
+- All runtime packages that define handlers (`core`, `sessions`, `policy`, `seals`)
 - All transport packages (`ws`, `mcp`, future CLI)
 
 ## Public Interfaces
@@ -42,7 +42,7 @@ The ActionSpec type is deliberately minimal. It does not prescribe how transport
 interface ActionSpec<
   TInput,
   TOutput,
-  TError extends BrokerError = BrokerError,
+  TError extends SignetError = SignetError,
 > {
   /** Unique action identifier. Convention: `{domain}.{verb}` (e.g., `session.list`). */
   readonly id: string;
@@ -272,19 +272,19 @@ interface ActionRegistry {
    * Register an ActionSpec. Throws if an action with the same id
    * is already registered (fail-fast for duplicate registrations).
    */
-  register(spec: ActionSpec<unknown, unknown, BrokerError>): void;
+  register(spec: ActionSpec<unknown, unknown, SignetError>): void;
 
   /** Look up an ActionSpec by id. Returns undefined if not found. */
-  lookup(id: string): ActionSpec<unknown, unknown, BrokerError> | undefined;
+  lookup(id: string): ActionSpec<unknown, unknown, SignetError> | undefined;
 
   /** List all registered ActionSpecs. */
-  list(): readonly ActionSpec<unknown, unknown, BrokerError>[];
+  list(): readonly ActionSpec<unknown, unknown, SignetError>[];
 
   /**
    * List ActionSpecs that have a specific surface.
    * Convenience for transport adapters.
    */
-  listForSurface(surface: "cli" | "mcp"): readonly ActionSpec<unknown, unknown, BrokerError>[];
+  listForSurface(surface: "cli" | "mcp"): readonly ActionSpec<unknown, unknown, SignetError>[];
 
   /** Number of registered actions. */
   readonly size: number;
@@ -305,13 +305,13 @@ function createActionRegistry(): ActionRegistry;
  * Called by transport adapters after handler execution.
  */
 function toActionResult<T>(
-  result: Result<T, BrokerError>,
+  result: Result<T, SignetError>,
   meta: ActionResultMeta,
   pagination?: Pagination,
 ): ActionResult<T>;
 ```
 
-This function is the bridge between the handler world (returns `Result<T, BrokerError>`) and the transport world (renders `ActionResult<T>`). It extracts `_tag`, `category`, `message`, and `context` from the error case and wraps the success case with `ok: true`.
+This function is the bridge between the handler world (returns `Result<T, SignetError>`) and the transport world (renders `ActionResult<T>`). It extracts `_tag`, `category`, `message`, and `context` from the error case and wraps the success case with `ok: true`.
 
 ## Zod Schemas
 
@@ -319,13 +319,13 @@ All Zod schemas are defined inline in the Public Interfaces section above. Summa
 
 | Schema | Package | File |
 |--------|---------|------|
-| `ActionResultMetaSchema` | `@xmtp-broker/schemas` | `src/result/action-result.ts` |
-| `ActionErrorSchema` | `@xmtp-broker/schemas` | `src/result/action-result.ts` |
-| `PaginationSchema` | `@xmtp-broker/schemas` | `src/result/action-result.ts` |
-| `ActionResultSchema` (factory) | `@xmtp-broker/schemas` | `src/result/action-result.ts` |
-| `ActionErrorResultSchema` | `@xmtp-broker/schemas` | `src/result/action-result.ts` |
+| `ActionResultMetaSchema` | `@xmtp/signet-schemas` | `src/result/action-result.ts` |
+| `ActionErrorSchema` | `@xmtp/signet-schemas` | `src/result/action-result.ts` |
+| `PaginationSchema` | `@xmtp/signet-schemas` | `src/result/action-result.ts` |
+| `ActionResultSchema` (factory) | `@xmtp/signet-schemas` | `src/result/action-result.ts` |
+| `ActionErrorResultSchema` | `@xmtp/signet-schemas` | `src/result/action-result.ts` |
 
-The `ActionSpec`, `CliSurface`, `McpSurface`, and registry types are plain TypeScript interfaces in `@xmtp-broker/contracts`. They are not Zod schemas because they are internal compile-time contracts, not wire formats validated at boundaries.
+The `ActionSpec`, `CliSurface`, `McpSurface`, and registry types are plain TypeScript interfaces in `@xmtp/signet-contracts`. They are not Zod schemas because they are internal compile-time contracts, not wire formats validated at boundaries.
 
 ## Behaviors
 
@@ -373,7 +373,7 @@ Transport adapter         Zod schema              Handler              toActionR
       │                       │                      │                       │
       │  handler(validatedInput, ctx)                │                       │
       │─────────────────────────────────────────────►│                       │
-      │  Result<T, BrokerError>                      │                       │
+      │  Result<T, SignetError>                      │                       │
       │◄─────────────────────────────────────────────│                       │
       │                                              │                       │
       │  toActionResult(result, meta, pagination?)                           │
@@ -398,7 +398,7 @@ Action IDs use `{domain}.{verb}` format:
 | `session` | `session.list`, `session.issue`, `session.revoke`, `session.inspect` |
 | `message` | `message.send`, `message.list` |
 | `group` | `group.list`, `group.info` |
-| `attestation` | `attestation.current`, `attestation.refresh`, `attestation.revoke` |
+| `seal` | `seal.current`, `seal.refresh`, `seal.revoke` |
 | `broker` | `broker.status`, `broker.start`, `broker.stop` |
 | `key` | `key.list`, `key.rotate` |
 
@@ -464,7 +464,7 @@ Calling `register()` with an action ID that already exists throws immediately. T
 
 | Scenario | Error | Category |
 |----------|-------|----------|
-| Duplicate action ID registration | Throws `Error` (programming bug, not `BrokerError`) | -- |
+| Duplicate action ID registration | Throws `Error` (programming bug, not `SignetError`) | -- |
 | Input fails Zod validation | `ValidationError` | validation |
 | Handler returns `err()` | Error propagated through `toActionResult` | varies |
 | Handler throws (bug) | Caught by transport, wrapped as `InternalError` | internal |
@@ -476,7 +476,7 @@ Note: the registry itself has no error cases beyond the duplicate check. All oth
 ## Open Questions Resolved
 
 **Q: Where does ActionSpec live -- contracts or a new package?**
-**A:** In `@xmtp-broker/contracts`. ActionSpec is a cross-package interface (runtime packages implement it, transport packages consume it). That is exactly what the contracts package is for. Adding a new package for a single type + a registry function is overengineering.
+**A:** In `@xmtp/signet-contracts`. ActionSpec is a cross-package interface (runtime packages implement it, transport packages consume it). That is exactly what the contracts package is for. Adding a new package for a single type + a registry function is overengineering.
 
 **Q: Should the registry be async?**
 **A:** No. The registry is an in-memory Map. Registration happens synchronously during broker initialization before any transport starts listening. There is no persistence, no I/O, no reason for async.
@@ -567,7 +567,7 @@ expect(parsed.success).toBe(true);
 function createTestActionSpec(
   id: string,
   surfaces?: { cli?: CliSurface; mcp?: McpSurface },
-): ActionSpec<unknown, unknown, BrokerError>;
+): ActionSpec<unknown, unknown, SignetError>;
 
 /** Create test HandlerContext with defaults. */
 function createTestHandlerContext(

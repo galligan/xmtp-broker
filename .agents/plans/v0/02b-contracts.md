@@ -1,11 +1,11 @@
 # 02b — Contracts
 
-**Package:** `@xmtp-broker/contracts`
+**Package:** `@xmtp/signet-contracts`
 **Spec version:** 0.1.0
 
 ## Overview
 
-The contracts package defines cross-package interfaces that runtime packages implement and consume. It sits between `@xmtp-broker/schemas` (data shapes) and the runtime tier, providing a stable interface layer that decouples packages from each other's implementations.
+The contracts package defines cross-package interfaces that runtime packages implement and consume. It sits between `@xmtp/signet-schemas` (data shapes) and the runtime tier, providing a stable interface layer that decouples packages from each other's implementations.
 
 **Split principle:** Schemas answer "what shape is the data?" while contracts answer "what can components do to each other?" This keeps `schemas` zero-dep beyond Zod, and gives runtime packages a single place to find the interfaces they implement or depend on.
 
@@ -13,7 +13,7 @@ This package contains no runtime logic -- only TypeScript interfaces, type alias
 
 ## Dependencies
 
-**Imports:** `@xmtp-broker/schemas` (sole workspace dependency), `better-result` (for `Result` type in interface signatures)
+**Imports:** `@xmtp/signet-schemas` (sole workspace dependency), `better-result` (for `Result` type in interface signatures)
 
 **Imported by:** All runtime packages (`core`, `policy`, `sessions`, `attestations`, `keys`), transport packages (`ws`)
 
@@ -25,31 +25,31 @@ Interfaces implemented by runtime packages to provide their core functionality. 
 
 | Interface | Source spec | Description |
 |-----------|-----------|-------------|
-| `BrokerCore` | 03 | Top-level broker lifecycle: initialize, shutdown, state transitions |
+| `SignetCore` | 03 | Top-level broker lifecycle: initialize, shutdown, state transitions |
 | `SessionManager` | 05 | Session issuance, lookup, revocation, heartbeat processing |
-| `AttestationManager` | 06 | Attestation lifecycle: issue, refresh, revoke, query |
+| `SealManager` | 06 | Seal lifecycle: issue, refresh, revoke, query |
 
 ```typescript
-interface BrokerCore {
+interface SignetCore {
   readonly state: CoreState;
-  initialize(): Promise<Result<void, BrokerError>>;
-  shutdown(): Promise<Result<void, BrokerError>>;
-  getGroupInfo(groupId: string): Promise<Result<GroupInfo, BrokerError>>;
+  initialize(): Promise<Result<void, SignetError>>;
+  shutdown(): Promise<Result<void, SignetError>>;
+  getGroupInfo(groupId: string): Promise<Result<GroupInfo, SignetError>>;
 }
 
 interface SessionManager {
-  issue(config: SessionConfig): Promise<Result<SessionToken, BrokerError>>;
-  lookup(sessionId: string): Promise<Result<SessionRecord, BrokerError>>;
-  revoke(sessionId: string, reason: SessionRevocationReason): Promise<Result<void, BrokerError>>;
-  heartbeat(sessionId: string): Promise<Result<void, BrokerError>>;
-  isActive(sessionId: string): Promise<Result<boolean, BrokerError>>;
+  issue(config: SessionConfig): Promise<Result<SessionToken, SignetError>>;
+  lookup(sessionId: string): Promise<Result<SessionRecord, SignetError>>;
+  revoke(sessionId: string, reason: SessionRevocationReason): Promise<Result<void, SignetError>>;
+  heartbeat(sessionId: string): Promise<Result<void, SignetError>>;
+  isActive(sessionId: string): Promise<Result<boolean, SignetError>>;
 }
 
-interface AttestationManager {
-  issue(sessionId: string, groupId: string): Promise<Result<SignedAttestation, BrokerError>>;
-  refresh(attestationId: string): Promise<Result<SignedAttestation, BrokerError>>;
-  revoke(attestationId: string, reason: AgentRevocationReason): Promise<Result<void, BrokerError>>;
-  current(agentInboxId: string, groupId: string): Promise<Result<SignedAttestation | null, BrokerError>>;
+interface SealManager {
+  issue(sessionId: string, groupId: string): Promise<Result<SignedAttestation, SignetError>>;
+  refresh(attestationId: string): Promise<Result<SignedAttestation, SignetError>>;
+  revoke(attestationId: string, reason: AgentRevocationReason): Promise<Result<void, SignetError>>;
+  current(agentInboxId: string, groupId: string): Promise<Result<SignedAttestation | null, SignetError>>;
 }
 ```
 
@@ -60,32 +60,32 @@ Interfaces that abstract external dependencies. Runtime packages depend on these
 | Interface | Source spec | Description |
 |-----------|-----------|-------------|
 | `SignerProvider` | 03/07 | Abstracts key material for signing operations |
-| `AttestationSigner` | 06 | Signs attestation payloads |
-| `AttestationPublisher` | 06 | Publishes signed attestations to groups |
+| `AttestationSigner` | 06 | Signs seal payloads |
+| `AttestationPublisher` | 06 | Publishes signed seals to groups |
 | `RevealStateStore` | 04 | Persists and queries reveal grant state |
 
 ```typescript
 interface SignerProvider {
-  sign(data: Uint8Array): Promise<Result<Uint8Array, BrokerError>>;
-  getPublicKey(): Promise<Result<Uint8Array, BrokerError>>;
-  getFingerprint(): Promise<Result<string, BrokerError>>;
+  sign(data: Uint8Array): Promise<Result<Uint8Array, SignetError>>;
+  getPublicKey(): Promise<Result<Uint8Array, SignetError>>;
+  getFingerprint(): Promise<Result<string, SignetError>>;
 }
 
 interface AttestationSigner {
-  sign(payload: Attestation): Promise<Result<SignedAttestation, BrokerError>>;
-  signRevocation(payload: RevocationAttestation): Promise<Result<SignedRevocationEnvelope, BrokerError>>;
+  sign(payload: Attestation): Promise<Result<SignedAttestation, SignetError>>;
+  signRevocation(payload: RevocationAttestation): Promise<Result<SignedRevocationEnvelope, SignetError>>;
 }
 
 interface AttestationPublisher {
-  publish(groupId: string, attestation: SignedAttestation): Promise<Result<void, BrokerError>>;
-  publishRevocation(groupId: string, revocation: SignedRevocationEnvelope): Promise<Result<void, BrokerError>>;
+  publish(groupId: string, attestation: SignedAttestation): Promise<Result<void, SignetError>>;
+  publishRevocation(groupId: string, revocation: SignedRevocationEnvelope): Promise<Result<void, SignetError>>;
 }
 
 interface RevealStateStore {
-  grant(revealGrant: RevealGrant): Promise<Result<void, BrokerError>>;
-  revoke(revealId: string): Promise<Result<void, BrokerError>>;
-  activeReveals(sessionId: string): Promise<Result<RevealState, BrokerError>>;
-  isRevealed(sessionId: string, messageId: string): Promise<Result<boolean, BrokerError>>;
+  grant(revealGrant: RevealGrant): Promise<Result<void, SignetError>>;
+  revoke(revealId: string): Promise<Result<void, SignetError>>;
+  activeReveals(sessionId: string): Promise<Result<RevealState, SignetError>>;
+  isRevealed(sessionId: string, messageId: string): Promise<Result<boolean, SignetError>>;
 }
 ```
 
@@ -174,15 +174,15 @@ type GrantError = GrantDeniedError | PermissionError;
 
 ### Protocol Wire Formats
 
-Signed envelope schemas for attestations published to groups. These are Zod schemas (not plain interfaces) because they define wire formats that must be validated at boundaries. They live in contracts rather than schemas because they compose schemas with signing metadata that only makes sense in the context of the attestation/signing contracts.
+Signed envelope schemas for seals published to groups. These are Zod schemas (not plain interfaces) because they define wire formats that must be validated at boundaries. They live in contracts rather than schemas because they compose schemas with signing metadata that only makes sense in the context of the seal/signing contracts.
 
 ```typescript
 const SignedAttestationEnvelope = z.object({
-  attestation: AttestationSchema.describe("The attestation payload"),
-  signature: z.string().describe("Base64-encoded signature over the canonical attestation bytes"),
+  attestation: AttestationSchema.describe("The seal payload"),
+  signature: z.string().describe("Base64-encoded signature over the canonical seal bytes"),
   signingAlgorithm: z.string().describe("Algorithm used to produce the signature"),
   signingKeyRef: z.string().describe("Reference to the key that produced the signature"),
-}).describe("Signed attestation ready for group publication");
+}).describe("Signed seal ready for group publication");
 
 type SignedAttestation = z.infer<typeof SignedAttestationEnvelope>;
 
@@ -204,7 +204,7 @@ packages/contracts/
   tsconfig.json
   src/
     index.ts                    # Re-exports all public API
-    services.ts                 # BrokerCore, SessionManager, AttestationManager
+    services.ts                 # SignetCore, SessionManager, SealManager
     providers.ts                # SignerProvider, AttestationSigner, AttestationPublisher, RevealStateStore
     core-types.ts               # CoreState, CoreContext, GroupInfo, RawMessage, RawEvent
     session-types.ts            # SessionRecord, MaterialityCheck
@@ -220,7 +220,7 @@ Each source file stays well under 200 LOC. Interfaces are pure declarations with
 
 ```jsonc
 {
-  "name": "@xmtp-broker/contracts",
+  "name": "@xmtp/signet-contracts",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -237,7 +237,7 @@ Each source file stays well under 200 LOC. Interfaces are pure declarations with
     "test": "bun test"
   },
   "dependencies": {
-    "@xmtp-broker/schemas": "workspace:*",
+    "@xmtp/signet-schemas": "workspace:*",
     "better-result": "catalog:",
     "zod": "catalog:"
   },
@@ -249,7 +249,7 @@ Each source file stays well under 200 LOC. Interfaces are pure declarations with
 
 ## Notes
 
-- **Minimize re-exports.** Each item has one canonical home. Runtime packages import interfaces from `@xmtp-broker/contracts`, data shapes from `@xmtp-broker/schemas`. Neither re-exports from the other.
+- **Minimize re-exports.** Each item has one canonical home. Runtime packages import interfaces from `@xmtp/signet-contracts`, data shapes from `@xmtp/signet-schemas`. Neither re-exports from the other.
 - **No circular deps.** `contracts` imports from `schemas` only. Runtime packages import from both `schemas` and `contracts` but never from each other's internals.
 - **Interface evolution.** Adding a new optional method to a service interface is non-breaking. Adding a required method requires coordinating across implementing packages -- treat it as a material change.
-- **`zod` in contracts.** The signed envelope schemas are the only Zod usage in this package. They exist here (not in `schemas`) because they compose attestation schemas with signing metadata that is part of the contract, not the data shape.
+- **`zod` in contracts.** The signed envelope schemas are the only Zod usage in this package. They exist here (not in `schemas`) because they compose seal schemas with signing metadata that is part of the contract, not the data shape.
