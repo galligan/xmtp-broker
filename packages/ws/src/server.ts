@@ -150,6 +150,13 @@ export function createWsServer(
     transition(data, "closed");
   }
 
+  function stopHeartbeat(ws: ServerWebSocket<ConnectionData>): void {
+    if (ws.data.heartbeatTimer !== null) {
+      clearInterval(ws.data.heartbeatTimer);
+      ws.data.heartbeatTimer = null;
+    }
+  }
+
   function startHeartbeat(ws: ServerWebSocket<ConnectionData>): void {
     const sessionRecord = ws.data.sessionRecord;
     if (!sessionRecord) return;
@@ -303,10 +310,7 @@ export function createWsServer(
       cachedSession.sessionId,
     );
     if (!lookupResult.isOk()) {
-      ws.close(
-        WS_CLOSE_CODES.SESSION_REVOKED,
-        "Session no longer valid",
-      );
+      ws.close(WS_CLOSE_CODES.SESSION_REVOKED, "Session no longer valid");
       stopHeartbeat(ws);
       return;
     }
