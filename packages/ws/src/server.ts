@@ -291,9 +291,39 @@ export function createWsServer(
     ws: ServerWebSocket<ConnectionData>,
     frame: unknown,
   ): Promise<void> {
-    const session = ws.data.sessionRecord;
-    if (!session) {
+    const cachedSession = ws.data.sessionRecord;
+    if (!cachedSession) {
       ws.close(WS_CLOSE_CODES.PROTOCOL_ERROR, "Not authenticated");
+      return;
+    }
+
+    // Fresh session lookup — fail closed on errors instead of
+    // falling back to a stale snapshot that may be revoked/expired.
+    const lookupResult = await deps.sessionManager.lookup(
+      cachedSession.sessionId,
+    );
+    if (!lookupResult.isOk()) {
+      ws.close(
+        WS_CLOSE_CODES.SESSION_REVOKED,
+        "Session no longer valid",
+      );
+      stopHeartbeat(ws);
+      return;
+    }
+    const session = lookupResult.value;
+    ws.data.sessionRecord = session;
+
+    // Reject non-active sessions — close the socket so the client
+    // doesn't stay on a "healthy-looking" connection.
+    if (session.state !== "active") {
+      const closeCode =
+        session.state === "revoked"
+          ? WS_CLOSE_CODES.SESSION_REVOKED
+          : session.state === "expired"
+            ? WS_CLOSE_CODES.SESSION_EXPIRED
+            : WS_CLOSE_CODES.POLICY_CHANGE;
+      ws.close(closeCode, `Session is ${session.state}`);
+      stopHeartbeat(ws);
       return;
     }
 
@@ -389,6 +419,10 @@ export function createWsServer(
   }
 
   function broadcastToSession(sessionId: string, event: SignetEvent): void {
+    // Broadcasts use the cached session snapshot. The request path
+    // keeps the cache fresh via lookup on every inbound frame, so
+    // permission updates propagate without an async race here that
+    // would corrupt sequence ordering.
     const connections = registry.getBySessionId(sessionId);
     for (const ws of connections) {
       if (ws.data.phase === "active") {

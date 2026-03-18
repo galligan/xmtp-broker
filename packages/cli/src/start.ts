@@ -217,16 +217,15 @@ export function createProductionDeps(): SignetRuntimeDeps {
       ): Promise<Result<string, SignetError>> {
         if (!coreImplRef) {
           return Result.err(
-            InternalError.create("Core not initialized -- cannot resolve identity"),
+            InternalError.create(
+              "Core not initialized -- cannot resolve identity",
+            ),
           );
         }
-        const identity =
-          await coreImplRef.identityStore.getByInboxId(inboxId);
+        const identity = await coreImplRef.identityStore.getByInboxId(inboxId);
         if (!identity) {
           return Result.err(
-            InternalError.create(
-              `No identity found for inboxId: ${inboxId}`,
-            ),
+            InternalError.create(`No identity found for inboxId: ${inboxId}`),
           );
         }
         return Result.ok(identity.id);
@@ -243,10 +242,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
           }
           const idResult = await resolveIdentityId(seal.agentInboxId);
           if (Result.isError(idResult)) return idResult;
-          const stamper = createKeysSealStamper(
-            keyManagerRef,
-            idResult.value,
-          );
+          const stamper = createKeysSealStamper(keyManagerRef, idResult.value);
           return stamper.sign(seal);
         },
         async signRevocation(revocation) {
@@ -259,10 +255,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
           }
           const idResult = await resolveIdentityId(revocation.agentInboxId);
           if (Result.isError(idResult)) return idResult;
-          const stamper = createKeysSealStamper(
-            keyManagerRef,
-            idResult.value,
-          );
+          const stamper = createKeysSealStamper(keyManagerRef, idResult.value);
           return stamper.signRevocation(revocation);
         },
       };
@@ -308,16 +301,26 @@ export function createProductionDeps(): SignetRuntimeDeps {
 
       // Build the WsServerDeps with tokenLookup and requestHandler
       const ensureCoreReady = createLazyCoreUpgrade(d.core);
-      const requestHandler = createWsRequestHandler({
+      const requestHandlerDeps = {
         ensureCoreReady,
-        sendMessage: (groupId, contentType, content) =>
+        sendMessage: (groupId: string, contentType: string, content: unknown) =>
           d.core.sendMessage(groupId, contentType, content),
         sessionManager: d.sessionManager,
         pendingActions,
         broadcast: (sessionId: string, event: unknown) => {
-          wsServerRef?.broadcast(sessionId, event as import("@xmtp/signet-schemas").SignetEvent);
+          wsServerRef?.broadcast(
+            sessionId,
+            event as import("@xmtp/signet-schemas").SignetEvent,
+          );
         },
-      });
+      };
+      // Only add internalSessionManager when available (exactOptionalPropertyTypes)
+      if (internalSessionManagerRef) {
+        Object.assign(requestHandlerDeps, {
+          internalSessionManager: internalSessionManagerRef,
+        });
+      }
+      const requestHandler = createWsRequestHandler(requestHandlerDeps);
 
       const projector = createEventProjector({
         getRevealState(sessionId: string) {
