@@ -54,6 +54,12 @@ export interface WsServer {
   readonly connectionCount: number;
   /** Broadcast an event to all connections for a session. */
   broadcast(sessionId: string, event: SignetEvent): void;
+  /**
+   * Invalidate cached session state for all connections on a session.
+   * Call this when session policy changes from outside the WS request path
+   * (admin, HTTP, MCP, expiry, revocation) so broadcasts project correctly.
+   */
+  invalidateSession(sessionId: string): Promise<void>;
 }
 
 export function createWsServer(
@@ -493,6 +499,35 @@ export function createWsServer(
     },
 
     broadcast: broadcastToSession,
+
+    async invalidateSession(sessionId: string): Promise<void> {
+      const lookupResult = await deps.sessionManager.lookup(sessionId);
+      const connections = registry.getBySessionId(sessionId);
+      for (const ws of connections) {
+        if (ws.data.phase !== "active") continue;
+
+        if (!lookupResult.isOk()) {
+          // Session gone — close the socket
+          ws.close(WS_CLOSE_CODES.SESSION_REVOKED, "Session no longer valid");
+          stopHeartbeat(ws);
+          continue;
+        }
+
+        const fresh = lookupResult.value;
+        ws.data.sessionRecord = fresh;
+
+        if (fresh.state !== "active") {
+          const closeCode =
+            fresh.state === "revoked"
+              ? WS_CLOSE_CODES.SESSION_REVOKED
+              : fresh.state === "expired"
+                ? WS_CLOSE_CODES.SESSION_EXPIRED
+                : WS_CLOSE_CODES.POLICY_CHANGE;
+          ws.close(closeCode, `Session is ${fresh.state}`);
+          stopHeartbeat(ws);
+        }
+      }
+    },
 
     async start() {
       if (serverState !== "idle") {
