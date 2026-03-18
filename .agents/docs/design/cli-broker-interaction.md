@@ -5,7 +5,7 @@
 
 ## Overview
 
-The xmtp-broker is a daemon that owns the XMTP client, keys, sessions, grants, and WebSocket server. The CLI is the primary human interface for operating and administering the broker. It is not a wrapper around the existing `@xmtp/cli` binary -- it shares the same SDK (`@xmtp/node-sdk`) and uses the broker's own Zod schemas and handler contract.
+The xmtp-signet is a daemon that owns the XMTP client, keys, sessions, grants, and WebSocket server. The CLI is the primary human interface for operating and administering the broker. It is not a wrapper around the existing `@xmtp/cli` binary -- it shares the same SDK (`@xmtp/node-sdk`) and uses the broker's own Zod schemas and handler contract.
 
 Three interaction modes define how different actors reach the broker:
 
@@ -55,7 +55,7 @@ Developers and scripts run CLI commands without a running daemon. The CLI spins 
 | Auth | Raw XMTP keys (from env or keyfile) |
 | Scope | Full XMTP access -- no broker policy enforcement |
 | Key type | Inbox key (raw) |
-| Capabilities | Everything the XMTP SDK supports, no sessions/grants/attestations |
+| Capabilities | Everything the XMTP SDK supports, no sessions/grants/seals |
 
 Direct mode is explicitly lower-security than daemon mode. It exists because spinning up a full daemon for `xmtp-broker message send "hello"` during development is unnecessary friction.
 
@@ -76,7 +76,7 @@ Think of it like a database: the DBA manages users, permissions, and backups but
 | Send messages | Yes | No |
 | Receive/decrypt messages | Yes | No |
 | Join/leave groups | Yes | No |
-| Sign attestations | Yes | No |
+| Sign seals | Yes | No |
 | Start/stop daemon | No | Yes |
 | Issue sessions | No | Yes |
 | Revoke sessions/grants | No | Yes |
@@ -93,7 +93,7 @@ The broker already implements a three-tier key hierarchy:
 Root Key (hardware-bound or encrypted at rest)
   |
   +-- Operational Key (Ed25519, per-identity or per-group)
-  |     Used for XMTP signing, attestation signing
+  |     Used for XMTP signing, seal signing
   |
   +-- Session Key (ephemeral, in-memory)
         Used for JWT signing, harness auth
@@ -114,7 +114,7 @@ The admin key can _trigger_ a key rotation, but it never holds or derives the in
 
 ## Command Taxonomy
 
-Commands are grouped by domain concept. Each group maps to the broker's service interfaces (`BrokerCore`, `SessionManager`, `AttestationManager`, etc.).
+Commands are grouped by domain concept. Each group maps to the broker's service interfaces (`SignetCore`, `SessionManager`, `SealManager`, etc.).
 
 ### `broker` -- Daemon Lifecycle
 
@@ -161,16 +161,16 @@ xmtp-broker grant revoke <id>        # Revoke a specific grant
 
 All grant commands require the daemon and admin auth.
 
-### `attestation` -- Attestation Lifecycle
+### `seal` -- Seal Lifecycle
 
 ```bash
 xmtp-broker attestation list         # List attestations by group or agent
 xmtp-broker attestation inspect <id> # Show attestation content, signatures, chain
-xmtp-broker attestation verify <id>  # Run 6-check verification on an attestation
+xmtp-broker attestation verify <id>  # Run 6-check verification on a seal
 xmtp-broker attestation revoke <id>  # Revoke and publish revocation to group
 ```
 
-All attestation commands require the daemon. `verify` and `inspect` may work with reduced functionality in direct mode if given raw attestation data.
+All seal commands require the daemon. `verify` and `inspect` may work with reduced functionality in direct mode if given raw seal data.
 
 ### `message` -- Message Operations
 
@@ -211,7 +211,7 @@ Admin commands always require the daemon and admin auth. They are separated from
 | `identity`    | Yes            | --                | `init` only |
 | `session`     | Yes            | --                | No          |
 | `grant`       | Yes            | --                | No          |
-| `attestation` | Yes            | --                | Partial     |
+| `seal` | Yes            | --                | Partial     |
 | `message`     | Yes            | Yes (via session) | Yes (raw)   |
 | `conversation`| Yes            | Partial           | Yes (raw)   |
 | `admin`       | Yes            | --                | No          |
@@ -312,7 +312,7 @@ Exit code (0 = success, 1+ = error category)
 All domain logic uses the existing transport-agnostic handler signature:
 
 ```typescript
-type Handler<TInput, TOutput, TError extends BrokerError> = (
+type Handler<TInput, TOutput, TError extends SignetError> = (
   input: TInput,
   ctx: HandlerContext,
 ) => Promise<Result<TOutput, TError>>;
@@ -374,7 +374,7 @@ Direct mode intentionally lacks broker features:
 |---------|:-----------:|:-----------:|
 | Policy enforcement | Yes | No |
 | Session/grant system | Yes | No |
-| Attestation publishing | Yes | No |
+| Seal publishing | Yes | No |
 | Concurrent harness connections | Yes | No |
 | Key hierarchy (three-tier) | Yes | Partial (root key only) |
 | Audit logging | Yes | No |
@@ -392,7 +392,7 @@ Today the CLI is a standalone binary: `xmtp-broker`. The eventual target is a su
 - No CLI package yet.
 - `@xmtp/node-sdk` integration planned but not yet wired into `packages/core`.
 
-### Phase 2: Broker CLI (`@xmtp-broker/cli`)
+### Phase 2: Broker CLI (`@xmtp/signet-cli`)
 
 Built with Commander.js on Bun. Commander is lightweight, well-documented, and composes cleanly with the broker's existing Zod schemas for argument validation.
 
@@ -424,7 +424,7 @@ Eventually the broker CLI merges into `@xmtp/cli` as a subcommand namespace (`xm
 
 | Step | Owner | Notes |
 |------|-------|-------|
-| Build `@xmtp-broker/cli` with Commander | Broker team | Phase 2 |
+| Build `@xmtp/signet-cli` with Commander | Broker team | Phase 2 |
 | Implement daemon lifecycle (start/stop/socket) | Broker team | Phase 2 |
 | Implement admin key system | Broker team | Phase 2 |
 | Wire `@xmtp/node-sdk` into `packages/core` | Broker team | Phase 2 |
@@ -451,4 +451,4 @@ Eventually the broker CLI merges into `@xmtp/cli` as a subcommand namespace (`xm
 
 9. **Audit trail persistence.** Admin commands should be logged. Where? Local file? Structured log? Forwarded to an external system? What's the minimum viable audit trail for v0?
 
-10. **CLI package location.** `@xmtp-broker/cli` as a separate package in the broker monorepo (`packages/cli/`). Follows the existing package convention and keeps CLI concerns isolated from runtime packages.
+10. **CLI package location.** `@xmtp/signet-cli` as a separate package in the broker monorepo (`packages/cli/`). Follows the existing package convention and keeps CLI concerns isolated from runtime packages.

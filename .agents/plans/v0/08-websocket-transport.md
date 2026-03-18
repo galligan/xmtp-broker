@@ -1,25 +1,25 @@
 # 08-websocket-transport
 
-**Package:** `@xmtp-broker/ws`
+**Package:** `@xmtp/signet-ws`
 **Spec version:** 0.1.0
 
 ## Overview
 
-The WebSocket transport is the Phase 1 harness-facing interface for xmtp-broker. It translates the transport-agnostic handler contract into a persistent, bidirectional connection between agent harnesses and the broker. A harness connects, authenticates with a session token, and then receives a filtered event stream and sends scoped requests over a single WebSocket connection.
+The WebSocket transport is the Phase 1 harness-facing interface for xmtp-signet. It translates the transport-agnostic handler contract into a persistent, bidirectional connection between agent harnesses and the broker. A harness connects, authenticates with a session token, and then receives a filtered event stream and sends scoped requests over a single WebSocket connection.
 
-The transport is a thin adapter. It owns connection lifecycle, wire protocol framing, auth handshake, sequence numbering, backpressure, and reconnection support. It does not own policy decisions, session state, or XMTP client operations -- those are delegated to the runtime tier packages (`@xmtp-broker/sessions`, `@xmtp-broker/policy`, `@xmtp-broker/core`) via their handler interfaces.
+The transport is a thin adapter. It owns connection lifecycle, wire protocol framing, auth handshake, sequence numbering, backpressure, and reconnection support. It does not own policy decisions, session state, or XMTP client operations -- those are delegated to the runtime tier packages (`@xmtp/signet-sessions`, `@xmtp/signet-policy`, `@xmtp/signet-core`) via their handler interfaces.
 
 Built on `Bun.serve()` native WebSocket support, the transport uses per-connection state via `ws.data` typing, a connection registry for event broadcasting, and structured JSON frames with a `type` discriminator. No binary frames in v0. No HTTP-level auth -- authentication happens in-band as the first frame after upgrade.
 
 ## Dependencies
 
 **Imports:**
-- `@xmtp-broker/contracts` -- `BrokerCore`, `CoreContext`, `SessionManager`, `SessionRecord`, `AttestationManager`, `RawEvent`, `RevealStateStore` (canonical interface definitions; this package consumes these interfaces, does not implement them)
-- `@xmtp-broker/schemas` -- `BrokerEvent`, `HarnessRequest`, `RequestResponse`, `SessionToken`, `ViewConfig`, `GrantConfig`, error classes (`AuthError`, `SessionExpiredError`, `ValidationError`)
-- `@xmtp-broker/sessions` -- `SessionManager` implementation
-- `@xmtp-broker/policy` -- `projectMessage`, grant validation functions, `RevealStateStore` implementation
-- `@xmtp-broker/core` -- `BrokerCore` implementation
-- `@xmtp-broker/attestations` -- `AttestationManager` implementation
+- `@xmtp/signet-contracts` -- `SignetCore`, `CoreContext`, `SessionManager`, `SessionRecord`, `SealManager`, `RawEvent`, `RevealStateStore` (canonical interface definitions; this package consumes these interfaces, does not implement them)
+- `@xmtp/signet-schemas` -- `BrokerEvent`, `HarnessRequest`, `RequestResponse`, `SessionToken`, `ViewConfig`, `GrantConfig`, error classes (`AuthError`, `SessionExpiredError`, `ValidationError`)
+- `@xmtp/signet-sessions` -- `SessionManager` implementation
+- `@xmtp/signet-policy` -- `projectMessage`, grant validation functions, `RevealStateStore` implementation
+- `@xmtp/signet-core` -- `SignetCore` implementation
+- `@xmtp/signet-seals` -- `SealManager` implementation
 - `better-result` -- `Result`, `ok`, `err`
 - `zod` -- frame validation at the wire boundary
 
@@ -152,9 +152,9 @@ Broker-to-harness responses use the `RequestResponse` shape from 02-schemas, dis
 
 ```typescript
 interface WsServerDeps {
-  readonly core: BrokerCore;
+  readonly core: SignetCore;
   readonly sessionManager: SessionManager;
-  readonly attestationManager: AttestationManager;
+  readonly attestationManager: SealManager;
 }
 
 interface WsServer {
@@ -181,7 +181,7 @@ function createWsServer(
 
 ## Zod Schemas
 
-All event and request schemas are imported from `@xmtp-broker/schemas` (see 02-schemas.md). This package adds:
+All event and request schemas are imported from `@xmtp/signet-schemas` (see 02-schemas.md). This package adds:
 
 - `WsServerConfigSchema` -- server configuration
 - `AuthFrame` -- harness auth handshake
@@ -254,7 +254,7 @@ All event and request schemas are imported from `@xmtp-broker/schemas` (see 02-s
    - Sends `AuthenticatedFrame` with session info, view, and grant.
    - If `lastSeenSeq` is non-null, replays buffered events (see Reconnection).
    - Starts heartbeat timer.
-   - Subscribes to `BrokerCore` raw events for this session's view scope.
+   - Subscribes to `SignetCore` raw events for this session's view scope.
 6. On failure:
    - Sends `AuthErrorFrame` with the error code and message.
    - Closes the WebSocket with code 4001 (auth failed).
@@ -278,14 +278,14 @@ Request timeout: if the handler does not respond within 30 seconds, the broker s
 
 ### Event Broadcasting
 
-When the `BrokerCore` emits a `RawEvent`:
+When the `SignetCore` emits a `RawEvent`:
 
 1. The transport routes it through `projectMessage()` for each active connection's view config.
 2. If the projection result is `emit`, the transport wraps the `MessageEvent` in a `SequencedFrame`.
 3. The frame is serialized to JSON and sent on the connection.
 4. The frame is appended to the connection's replay buffer.
 
-Non-message events (`session.expired`, `heartbeat`, `attestation.updated`, etc.) are sent directly to relevant connections without projection.
+Non-message events (`session.expired`, `heartbeat`, `seal.updated`, etc.) are sent directly to relevant connections without projection.
 
 ### Sequence Numbers
 
@@ -498,7 +498,7 @@ Protocol errors (malformed frames, unknown types) send a `RequestResponse` with 
 
 ### How to Test
 
-**Unit tests**: Mock the `BrokerCore`, `SessionManager`, and `AttestationManager`. Test frame parsing, sequence numbering, replay buffer, backpressure logic, and connection state transitions in isolation.
+**Unit tests**: Mock the `SignetCore`, `SessionManager`, and `SealManager`. Test frame parsing, sequence numbering, replay buffer, backpressure logic, and connection state transitions in isolation.
 
 **Integration tests**: Start a real `WsServer` on a random port, connect with a WebSocket client, and exercise the full auth -> request -> response -> disconnect flow. Use mock runtime deps.
 
@@ -559,9 +559,9 @@ function createTestWsServer(
 ): { server: WsServer; mocks: WsTestMocks; port: number };
 
 interface WsTestMocks {
-  core: BrokerCore;
+  core: SignetCore;
   sessionManager: SessionManager;
-  attestationManager: AttestationManager;
+  attestationManager: SealManager;
   emitRawEvent: (event: RawEvent) => void;
 }
 

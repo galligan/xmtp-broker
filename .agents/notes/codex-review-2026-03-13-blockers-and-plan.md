@@ -9,11 +9,11 @@ Scope: capture the review findings, map them to the current code, and give a con
 The current stack has six blocking issues:
 
 1. A required source file is not included in the submitted patch, so a clean checkout does not build.
-2. `BrokerCoreImpl` reuses one identity-bound signer provider for every XMTP client.
+2. `SignetCoreImpl` reuses one identity-bound signer provider for every XMTP client.
 3. Shared-identity startup does not register actual group membership, so group-routed operations fail after restart.
 4. Startup ignores the result of the initial `syncAll()`, so the broker can report `running` while unsynchronized.
 5. Database encryption keys are derived from public material, which breaks the at-rest secrecy requirement.
-6. Revoked attestation pairs can be refreshed, which bypasses the revocation guard.
+6. Revoked seal pairs can be refreshed, which bypasses the revocation guard.
 
 ## Findings
 
@@ -28,7 +28,7 @@ Current state:
 - `compute-delta.ts` exists locally, but it is currently untracked in `git status --short`.
 
 Why this is blocking:
-- A fresh checkout or CI run will fail to build `@xmtp-broker/attestations` because the export target is missing from the submitted patch.
+- A fresh checkout or CI run will fail to build `@xmtp/signet-seals` because the export target is missing from the submitted patch.
 
 Fix plan:
 - Add `packages/attestations/src/compute-delta.ts` to the patch/commit.
@@ -45,7 +45,7 @@ Files:
 - `packages/keys/src/signer-provider.ts`
 
 Current state:
-- `BrokerCoreImpl.start()` loops through persisted identities.
+- `SignetCoreImpl.start()` loops through persisted identities.
 - Each `clientFactory.create()` call receives `this.#signerProvider`.
 - `createSignerProvider(manager, identityId)` produces a provider bound to a single identity.
 
@@ -54,12 +54,12 @@ Why this is blocking:
 - That breaks the per-identity isolation model the broker depends on.
 
 Recommended fix:
-- Change `BrokerCoreImpl` to depend on a signer-provider factory instead of a single provider instance.
+- Change `SignetCoreImpl` to depend on a signer-provider factory instead of a single provider instance.
 - During startup, create a fresh provider per identity and pass that provider into `clientFactory.create()`.
 - Keep the identity-specific DB encryption lookup on that per-identity provider so the signer and DB key source stay aligned.
 
 Suggested TDD:
-- Add a `broker-core` test with two persisted identities.
+- Add a `signet-core` test with two persisted identities.
 - Assert that `clientFactory.create()` is called with two distinct providers.
 - If practical, assert the providers report different fingerprints or are tagged to different identity IDs in the test double.
 
@@ -89,7 +89,7 @@ Recommended fix:
 - Treat the runtime registry as the source of truth for active group ownership after startup hydration.
 
 Sanity check while fixing:
-- `BrokerCoreContext.getInboxId()` currently routes through `identityStore.getByGroupId()`, which only works for one persisted `group_id`.
+- `SignetCoreContext.getInboxId()` currently routes through `identityStore.getByGroupId()`, which only works for one persisted `group_id`.
 - For shared mode, either:
   - switch `getInboxId(groupId)` to resolve through the hydrated runtime registry, or
   - add a durable group-to-identity mapping model.
@@ -124,7 +124,7 @@ Recommended fix:
 - Avoid starting streams or heartbeats for a client that failed initial recovery.
 
 Suggested TDD:
-- Add a `broker-core` test where `syncAll()` returns `Result.err(...)`.
+- Add a `signet-core` test where `syncAll()` returns `Result.err(...)`.
 - Assert:
   - `start()` returns `Err`
   - state ends in `"error"`
@@ -169,7 +169,7 @@ Verification:
 - `bun test packages/keys/src/__tests__/signer-provider.test.ts`
 - `bun test packages/keys/src/__tests__/key-manager.test.ts`
 
-### 6. P1: Revoked attestation pairs can still be refreshed
+### 6. P1: Revoked seal pairs can still be refreshed
 
 Files:
 - `packages/attestations/src/manager.ts`
@@ -180,7 +180,7 @@ Current state:
 - `refresh()` does not.
 
 Why this is blocking:
-- A revoked agent/group pair can mint a fresh attestation via `refresh(attestationId)`.
+- A revoked agent/group pair can mint a fresh seal via `refresh(attestationId)`.
 - That bypasses the intended terminal revocation guard.
 
 Recommended fix:
@@ -189,7 +189,7 @@ Recommended fix:
 
 Suggested TDD:
 - Add a manager test that:
-  - issues an attestation
+  - issues a seal
   - revokes it
   - attempts `refresh(originalAttestationId)`
   - expects `Err`
@@ -206,7 +206,7 @@ Recommended order:
    - Stage and commit `packages/attestations/src/compute-delta.ts`.
    - Run `bun run build`.
 
-2. Fix `BrokerCoreImpl` identity isolation first.
+2. Fix `SignetCoreImpl` identity isolation first.
    - Introduce a per-identity signer-provider creation path.
    - Add the multi-identity regression test.
 
@@ -219,7 +219,7 @@ Recommended order:
    - Replace public-key HKDF with a vault-secret-backed key source.
    - Keep restart determinism and identity isolation tests green.
 
-5. Close the revocation bypass in the attestations package.
+5. Close the revocation bypass in the seals package.
    - Add the refresh-after-revoke regression test.
    - Make `refresh()` enforce the terminal revocation rule.
 

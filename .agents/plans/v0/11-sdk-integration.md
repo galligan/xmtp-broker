@@ -1,6 +1,6 @@
 # 11-sdk-integration
 
-**Package:** `@xmtp-broker/core`
+**Package:** `@xmtp/signet-core`
 **Spec version:** 0.1.0
 
 ## Overview
@@ -21,14 +21,14 @@ The integration lives in a new `packages/core/src/sdk/` directory to keep SDK-co
 
 **Imports:**
 - `@xmtp/node-sdk` -- `Client`, `Signer`, `Conversations`, `Group`, `DecodedMessage`, `GroupPermissionsOptions` (production SDK)
-- `@xmtp-broker/schemas` -- `BrokerError`, `InternalError`, `NotFoundError`, `TimeoutError`
-- `@xmtp-broker/contracts` -- `SignerProvider` (for type reference only)
+- `@xmtp/signet-schemas` -- `SignetError`, `InternalError`, `NotFoundError`, `TimeoutError`
+- `@xmtp/signet-contracts` -- `SignerProvider` (for type reference only)
 - `better-result` -- `Result`, `Result.ok`, `Result.err`
 - `bun:sqlite` -- `Database` (for identity store extension)
 
 **Imported by:**
-- `@xmtp-broker/core` internal -- `broker-core.ts` passes `SdkClientFactory` as the production factory
-- Nothing external -- this is an internal implementation detail of `@xmtp-broker/core`
+- `@xmtp/signet-core` internal -- `broker-core.ts` passes `SdkClientFactory` as the production factory
+- Nothing external -- this is an internal implementation detail of `@xmtp/signet-core`
 
 ## Public Interfaces
 
@@ -118,8 +118,8 @@ No new interface is needed. The integration simply calls `setInboxId()` after su
 
 When per-group identity is enabled (default-on per spec 03), creating or joining a group is an atomic operation that creates a new identity for that group. The flow is:
 
-1. `BrokerCore` receives a "create group" or "join group" request.
-2. `BrokerCore` calls `ClientRegistry.createClient(groupId)`.
+1. `SignetCore` receives a "create group" or "join group" request.
+2. `SignetCore` calls `ClientRegistry.createClient(groupId)`.
 3. `ClientRegistry` generates a new identity ID and calls `SdkClientFactory.create()` with fresh `XmtpClientCreateOptions` (new `identityId`, new `dbPath`, new `dbEncryptionKey` from the vault).
 4. The factory creates a new `@xmtp/node-sdk` `Client` with its own inbox — this is the identity that joins/creates the group.
 5. `ClientRegistry` registers the new `SdkClient` and maps it to the `groupId`.
@@ -207,7 +207,7 @@ All SDK exceptions are caught and translated to broker error types:
 function wrapSdkCall<T>(
   fn: () => Promise<T>,
   context: string,
-): Promise<Result<T, BrokerError>> {
+): Promise<Result<T, SignetError>> {
   try {
     const result = await fn();
     return Result.ok(result);

@@ -1,6 +1,6 @@
 # Schema-First Architecture
 
-Extracted from `outfitter/stack` as reference for xmtp-broker's type and validation strategy.
+Extracted from `outfitter/stack` as reference for xmtp-signet's type and validation strategy.
 
 ## Core Idea
 
@@ -77,9 +77,9 @@ const ReactionContentSchema = z.object({ reference: z.string(), action: z.enum([
 // The broker validates incoming content against the schema before projecting to the agent
 ```
 
-## Attestation Schema
+## Seal Schema
 
-The broker's attestation model is a natural fit for schema-first design:
+The broker's seal model is a natural fit for schema-first design:
 
 ```typescript
 const AttestationSchema = z.object({
@@ -106,17 +106,17 @@ type Attestation = z.infer<typeof AttestationSchema>;
 ```
 
 This schema:
-- Validates attestations at the broker boundary
-- Types all internal attestation handling
+- Validates seals at the broker boundary
+- Types all internal seal handling
 - Auto-generates JSON Schema for MCP tool definitions
-- Self-documents the attestation format
-- Can be versioned as the attestation spec evolves
+- Self-documents the seal format
+- Can be versioned as the seal spec evolves
 
-## Adaptation Notes for xmtp-broker
+## Adaptation Notes for xmtp-signet
 
 **Adopt from day one:**
 - Zod as the schema library (lightweight, composable, excellent TS inference)
-- Schema-first for all broker domain types: views, grants, attestations, sessions, events
+- Schema-first for all broker domain types: views, grants, seals, sessions, events
 - `z.infer<>` for all TypeScript types — no manual interfaces
 - Validate at boundaries (incoming harness requests, config, env vars), trust types internally
 - `zodToJsonSchema()` when MCP transport is added later
@@ -124,12 +124,12 @@ This schema:
 **Key schemas to define early:**
 - `ViewSchema` — view mode, content type allowlist, thread scope
 - `GrantSchema` — messaging caps, group management caps, tool caps, egress caps
-- `AttestationSchema` — full attestation structure
+- `SealSchema` — full seal structure
 - `SessionSchema` — session config, expiry, binding
 - `BrokerEventSchema` — union of all canonical event types
 - `HarnessRequestSchema` — union of all harness -> broker requests
 
-**Why this matters for xmtp-broker specifically:**
-- The attestation format will eventually become a XIP — having it schema-defined from day one means the spec is always in sync with the code
+**Why this matters for xmtp-signet specifically:**
+- The seal format will eventually become a XIP — having it schema-defined from day one means the spec is always in sync with the code
 - Multiple transports (WebSocket, MCP, CLI) will all need the same validation — one schema serves all
 - Agent harnesses in different languages can consume the JSON Schema version

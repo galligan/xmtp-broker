@@ -1,6 +1,6 @@
 # 15-handler-sdk
 
-**Package:** `@xmtp-broker/handler`
+**Package:** `@xmtp/signet-handler`
 **Spec version:** 0.1.0
 
 ## Overview
@@ -9,18 +9,18 @@ The handler SDK is a thin TypeScript client library that harness developers inst
 
 This is a client-side library, not a harness. It abstracts the wire protocol completely -- harness developers never see `AuthFrame`, `SequencedFrame`, or WebSocket close codes. They call `sendMessage()`, iterate over `events`, and check `state`. Framework-specific adapters (Claude Agent SDK, OpenAI Agents, etc.) come later and wrap this package.
 
-The handler SDK runs in the harness process, not in the broker. It depends only on type packages (`@xmtp-broker/schemas`, `@xmtp-broker/contracts`) and `better-result`. It has no XMTP SDK dependency, no policy logic, and no framework opinions. The entire real logic is ~300 LOC -- the rest is types and tests.
+The handler SDK runs in the harness process, not in the broker. It depends only on type packages (`@xmtp/signet-schemas`, `@xmtp/signet-contracts`) and `better-result`. It has no XMTP SDK dependency, no policy logic, and no framework opinions. The entire real logic is ~300 LOC -- the rest is types and tests.
 
 ## Dependencies
 
 **Imports:**
-- `@xmtp-broker/schemas` -- `BrokerEvent`, `BrokerError`, `ValidationError`, `AuthError`, `SessionExpiredError`, `ViewConfig`, `GrantConfig`, `SessionToken`, `ContentTypeId`, error classes
-- `@xmtp-broker/contracts` -- type-only imports for `HarnessRequest`, `RequestResponse`, `SessionRecord` (wire format types used internally)
+- `@xmtp/signet-schemas` -- `BrokerEvent`, `SignetError`, `ValidationError`, `AuthError`, `SessionExpiredError`, `ViewConfig`, `GrantConfig`, `SessionToken`, `ContentTypeId`, error classes
+- `@xmtp/signet-contracts` -- type-only imports for `HarnessRequest`, `RequestResponse`, `SessionRecord` (wire format types used internally)
 - `better-result` -- `Result`, `ok`, `err`
 - `zod` -- frame validation at the wire boundary (incoming broker frames)
 
 **Does NOT import:**
-- `@xmtp-broker/core`, `@xmtp-broker/policy`, `@xmtp-broker/sessions`, `@xmtp-broker/keys` -- no runtime broker packages
+- `@xmtp/signet-core`, `@xmtp/signet-policy`, `@xmtp/signet-sessions`, `@xmtp/signet-keys` -- no runtime broker packages
 - `@xmtp/node-sdk` -- talks to the broker, not to XMTP directly
 - `Bun.serve()` -- this is a client, not a server
 
@@ -61,10 +61,10 @@ type BrokerHandlerConfig = z.infer<typeof BrokerHandlerConfigSchema>;
 ```typescript
 interface BrokerHandler {
   /** Open the WebSocket connection and authenticate. */
-  connect(): Promise<Result<void, BrokerError>>;
+  connect(): Promise<Result<void, SignetError>>;
 
   /** Close the connection gracefully. Completes in-flight requests. */
-  disconnect(): Promise<Result<void, BrokerError>>;
+  disconnect(): Promise<Result<void, SignetError>>;
 
   /** Typed async iterable of broker events, filtered by the session's view. */
   readonly events: AsyncIterable<BrokerEvent>;
@@ -73,22 +73,22 @@ interface BrokerHandler {
   sendMessage(
     groupId: string,
     content: MessageContent,
-  ): Promise<Result<MessageSent, BrokerError>>;
+  ): Promise<Result<MessageSent, SignetError>>;
 
   /** Send a reaction to a message. */
   sendReaction(
     groupId: string,
     messageId: string,
     reaction: string,
-  ): Promise<Result<ReactionSent, BrokerError>>;
+  ): Promise<Result<ReactionSent, SignetError>>;
 
   /** List conversations visible to this session. */
-  listConversations(): Promise<Result<Conversation[], BrokerError>>;
+  listConversations(): Promise<Result<Conversation[], SignetError>>;
 
   /** Get detailed info about a conversation. */
   getConversationInfo(
     groupId: string,
-  ): Promise<Result<ConversationInfo, BrokerError>>;
+  ): Promise<Result<ConversationInfo, SignetError>>;
 
   /** Current session info (view, grant, expiry). */
   readonly session: SessionInfo | null;
@@ -124,7 +124,7 @@ type StateChangeCallback = (
   previousState: HandlerState,
 ) => void;
 
-type ErrorCallback = (error: BrokerError) => void;
+type ErrorCallback = (error: SignetError) => void;
 ```
 
 ### Session Info
@@ -183,7 +183,7 @@ interface ConversationInfo {
 
 ## Zod Schemas
 
-This package adds only `BrokerHandlerConfigSchema` (defined above) and internal frame validation schemas. All event and request types are imported from `@xmtp-broker/schemas`.
+This package adds only `BrokerHandlerConfigSchema` (defined above) and internal frame validation schemas. All event and request types are imported from `@xmtp/signet-schemas`.
 
 ### Internal Frame Schemas (not exported)
 
@@ -334,7 +334,7 @@ Each request method:
 // Internal request tracking
 interface PendingRequest {
   readonly requestId: string;
-  readonly resolve: (result: Result<unknown, BrokerError>) => void;
+  readonly resolve: (result: Result<unknown, SignetError>) => void;
   readonly timer: Timer;
 }
 ```
@@ -430,7 +430,7 @@ The handler tracks `lastSeenSeq` -- the highest sequence number received from th
 **A:** Three signals: (1) a `session.expired` event on the event stream (the broker sends this before closing), (2) transition to `disconnected` or `closed` state (observable via `onStateChange`), and (3) an error via `onError`. The harness can listen on whichever channel is most natural for its architecture.
 
 **Q: Should request methods throw or return Results?**
-**A:** Return `Result<T, BrokerError>`. Consistent with the broker's internal handler contract and the project's "Result types, not exceptions" principle. Harness developers pattern-match on `result.ok` / `result.error` rather than try/catch.
+**A:** Return `Result<T, SignetError>`. Consistent with the broker's internal handler contract and the project's "Result types, not exceptions" principle. Harness developers pattern-match on `result.ok` / `result.error` rather than try/catch.
 
 **Q: Should the handler validate outbound requests?**
 **A:** No. The handler sends requests to the broker and the broker validates them against the session's grant and view. Client-side validation would duplicate logic and drift from the broker's truth. The handler does minimal structural validation (e.g., non-empty groupId) but defers policy decisions to the broker.
@@ -611,7 +611,7 @@ expect(result.error.category).toBe("validation");
 const { handler, server, sendBackpressure } = createTestHandler();
 await handler.connect();
 
-const errors: BrokerError[] = [];
+const errors: SignetError[] = [];
 handler.onError((e) => errors.push(e));
 
 sendBackpressure({ buffered: 200, limit: 256 });
@@ -692,7 +692,7 @@ Each source file targets under 150 LOC. The `handler.ts` orchestrates but delega
 
 ```jsonc
 {
-  "name": "@xmtp-broker/handler",
+  "name": "@xmtp/signet-handler",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -709,8 +709,8 @@ Each source file targets under 150 LOC. The `handler.ts` orchestrates but delega
     "test": "bun test"
   },
   "dependencies": {
-    "@xmtp-broker/contracts": "workspace:*",
-    "@xmtp-broker/schemas": "workspace:*",
+    "@xmtp/signet-contracts": "workspace:*",
+    "@xmtp/signet-schemas": "workspace:*",
     "better-result": "catalog:",
     "zod": "catalog:"
   },

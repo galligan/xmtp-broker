@@ -1,6 +1,6 @@
 # AGENTS.md Structure and Development Conventions
 
-Extracted from `outfitter/stack` as reference for xmtp-broker's agent-facing documentation.
+Extracted from `outfitter/stack` as reference for xmtp-signet's agent-facing documentation.
 
 ## CLAUDE.md vs AGENTS.md
 
@@ -82,7 +82,7 @@ env var override > explicit option > environment profile > package default
 
 Agents know exactly what CI checks and can predict what will fail.
 
-## Adaptation Notes for xmtp-broker
+## Adaptation Notes for xmtp-signet
 
 **Adopt:**
 - Single AGENTS.md as source of truth (symlink CLAUDE.md to it, already done)
@@ -94,11 +94,11 @@ Agents know exactly what CI checks and can predict what will fail.
 - Environment precedence chain pattern
 
 **Adapt:**
-- xmtp-broker is much simpler initially — AGENTS.md can be shorter
+- xmtp-signet is much simpler initially — AGENTS.md can be shorter
 - CI section can wait until CI exists
 - Package tiers will be different (broker core, transports, key management)
 
-**Development principles for xmtp-broker (draft):**
+**Development principles for xmtp-signet (draft):**
 
 ### Non-Negotiable
 - **TDD-First** — Write the test before the code. Always.

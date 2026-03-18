@@ -1,6 +1,6 @@
 # 12-admin-keys
 
-**Package:** `@xmtp-broker/keys`
+**Package:** `@xmtp/signet-keys`
 **Spec version:** 0.1.0
 
 ## Overview
@@ -26,7 +26,7 @@ Admin Key (Ed25519, in vault)  <-- THIS SPEC
 ## Dependencies
 
 **Imports:**
-- `@xmtp-broker/schemas` -- `BrokerError`, `InternalError`, `AuthError`, `ValidationError`, `NotFoundError`
+- `@xmtp/signet-schemas` -- `SignetError`, `InternalError`, `AuthError`, `ValidationError`, `NotFoundError`
 - `better-result` -- `Result`
 - `zod` -- JWT payload validation
 
@@ -36,9 +36,9 @@ Admin Key (Ed25519, in vault)  <-- THIS SPEC
 - `./config.js` -- `KeyManagerConfig` (for data directory)
 
 **Imported by:**
-- `@xmtp-broker/keys` -- `KeyManager` exposes admin key operations alongside inbox key operations
-- Future `@xmtp-broker/daemon` -- validates admin JWTs on the Unix socket
-- Future `@xmtp-broker/cli` -- generates admin JWTs for CLI-to-daemon requests
+- `@xmtp/signet-keys` -- `KeyManager` exposes admin key operations alongside inbox key operations
+- Future `@xmtp/signet-daemon` -- validates admin JWTs on the Unix socket
+- Future `@xmtp/signet-cli` -- generates admin JWTs for CLI-to-daemon requests
 
 ## Public Interfaces
 

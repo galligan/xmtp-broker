@@ -36,7 +36,7 @@ branches on top).
 
 ```text
 v0/phase2-docs (current top)
-  └── v0/lazy-core            Step 1: two-phase BrokerCore init
+  └── v0/lazy-core            Step 1: two-phase SignetCore init
        └── v0/session-actions  Step 2: session service + ActionSpecs
             └── v0/admin-auth-helper  Step 3: shared createAuthenticatedClient
                  └── v0/cli-wiring    Step 4: wire CLI commands to AdminClient
@@ -44,7 +44,7 @@ v0/phase2-docs (current top)
                            └── v0/tracer-smoke   Step 6: tracer bullet verification
 ```
 
-## Step 1: Lazy BrokerCore Init
+## Step 1: Lazy SignetCore Init
 
 **Branch:** `v0/lazy-core`
 **Scope:** `packages/contracts/`, `packages/core/`, `packages/cli/`
@@ -66,19 +66,19 @@ export type CoreState =
 ```
 
 **`packages/contracts/src/services.ts`** — Add `initializeLocal()` to
-`BrokerCore`:
+`SignetCore`:
 
 ```typescript
-interface BrokerCore {
+interface SignetCore {
   readonly state: CoreState;
-  initializeLocal(): Promise<Result<void, BrokerError>>;
-  initialize(): Promise<Result<void, BrokerError>>;
-  shutdown(): Promise<Result<void, BrokerError>>;
-  getGroupInfo(groupId: string): Promise<Result<GroupInfo, BrokerError>>;
+  initializeLocal(): Promise<Result<void, SignetError>>;
+  initialize(): Promise<Result<void, SignetError>>;
+  shutdown(): Promise<Result<void, SignetError>>;
+  getGroupInfo(groupId: string): Promise<Result<GroupInfo, SignetError>>;
 }
 ```
 
-**`packages/core/src/broker-core.ts`** — Add `"local"` to `BrokerState` and a
+**`packages/core/src/broker-core.ts`** — Add `"local"` to `SignetState` and a
 real local-only startup path:
 
 - `startLocal()` opens the identity store and sets state to `"local"`.
@@ -86,7 +86,7 @@ real local-only startup path:
 - `stop()` accepts `"local"`, `"running"`, and `"error"`.
 - No XMTP clients are created during `startLocal()`.
 
-**`packages/cli/src/start.ts`** — Update the adapter from `BrokerCoreImpl` to
+**`packages/cli/src/start.ts`** — Update the adapter from `SignetCoreImpl` to
 the contract:
 
 - Map `"local"` -> `"ready-local"`.
@@ -145,18 +145,18 @@ it matches real service behavior:
 
 ```typescript
 interface SessionManager {
-  issue(config: SessionConfig): Promise<Result<IssuedSession, BrokerError>>;
+  issue(config: SessionConfig): Promise<Result<IssuedSession, SignetError>>;
   list(
     agentInboxId?: string,
-  ): Promise<Result<readonly SessionRecord[], BrokerError>>;
-  lookup(sessionId: string): Promise<Result<SessionRecord, BrokerError>>;
-  lookupByToken(token: string): Promise<Result<SessionRecord, BrokerError>>;
+  ): Promise<Result<readonly SessionRecord[], SignetError>>;
+  lookup(sessionId: string): Promise<Result<SessionRecord, SignetError>>;
+  lookupByToken(token: string): Promise<Result<SessionRecord, SignetError>>;
   revoke(
     sessionId: string,
     reason: SessionRevocationReason,
-  ): Promise<Result<void, BrokerError>>;
-  heartbeat(sessionId: string): Promise<Result<void, BrokerError>>;
-  isActive(sessionId: string): Promise<Result<boolean, BrokerError>>;
+  ): Promise<Result<void, SignetError>>;
+  heartbeat(sessionId: string): Promise<Result<void, SignetError>>;
+  isActive(sessionId: string): Promise<Result<boolean, SignetError>>;
 }
 ```
 
@@ -202,7 +202,7 @@ export interface SessionActionDeps {
 
 export function createSessionActions(
   deps: SessionActionDeps,
-): ActionSpec<unknown, unknown, BrokerError>[]
+): ActionSpec<unknown, unknown, SignetError>[]
 ```
 
 Four ActionSpecs for Phase 2B:
@@ -219,12 +219,12 @@ Four ActionSpecs for Phase 2B:
 ```typescript
 export interface BrokerActionDeps {
   readonly status: () => DaemonStatus;
-  readonly shutdown: () => Promise<Result<void, BrokerError>>;
+  readonly shutdown: () => Promise<Result<void, SignetError>>;
 }
 
 export function createBrokerActions(
   deps: BrokerActionDeps,
-): ActionSpec<unknown, unknown, BrokerError>[]
+): ActionSpec<unknown, unknown, SignetError>[]
 ```
 
 Two ActionSpecs:
@@ -324,7 +324,7 @@ export interface AuthenticatedClient {
 
 export async function createAuthenticatedClient(
   options?: AuthenticatedClientOptions,
-): Promise<Result<AuthenticatedClient, BrokerError>>
+): Promise<Result<AuthenticatedClient, SignetError>>
 ```
 
 Sequence:

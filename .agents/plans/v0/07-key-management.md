@@ -1,34 +1,34 @@
 # 07-key-management
 
-**Package:** `@xmtp-broker/keys`
+**Package:** `@xmtp/signet-keys`
 **Spec version:** 0.1.0
 
 ## Overview
 
-The key management package implements the three-tier key hierarchy that underpins the broker's security model. It provides hardware-backed signing through macOS Secure Enclave, encrypted secret storage (vault), and the `SignerProvider` interface consumed by `@xmtp-broker/core`.
+The key management package implements the three-tier key hierarchy that underpins the broker's security model. It provides hardware-backed signing through macOS Secure Enclave, encrypted secret storage (vault), and the `SignerProvider` interface consumed by `@xmtp/signet-core`.
 
 The fundamental design principle: the broker can **invoke** signing operations without being able to **extract** the signing key. The Secure Enclave generates and holds the root key -- it is non-exportable by hardware design. Operational keys and session keys are derived from root-protected material, each with progressively weaker access policies that enable autonomous broker operation for routine tasks while gating privilege escalation behind biometric authentication.
 
 The package bridges two cryptographic worlds. The Secure Enclave supports P-256 (secp256r1) exclusively. XMTP uses Ed25519 for inbox identity signatures. The bridge strategy: the enclave-backed P-256 root key protects an encrypted vault containing the Ed25519 operational key material. The enclave key never signs XMTP messages directly -- it authorizes access to the software keys that do. This gives us hardware-backed access control without fighting the enclave's algorithm constraints.
 
-On platforms without Secure Enclave (Intel Macs, Linux), the package degrades to software key storage with Keychain or file-based encryption, and the attestation `trustTier` reflects the actual security posture.
+On platforms without Secure Enclave (Intel Macs, Linux), the package degrades to software key storage with Keychain or file-based encryption, and the seal `trustTier` reflects the actual security posture.
 
 ## Dependencies
 
 **Imports:**
-- `@xmtp-broker/contracts` -- `SignerProvider`, `AttestationSigner` (canonical interface definitions)
-- `@xmtp-broker/schemas` -- `TrustTier`, error classes (`InternalError`, `ValidationError`, `AuthError`, `NotFoundError`)
+- `@xmtp/signet-contracts` -- `SignerProvider`, `AttestationSigner` (canonical interface definitions)
+- `@xmtp/signet-schemas` -- `TrustTier`, error classes (`InternalError`, `ValidationError`, `AuthError`, `NotFoundError`)
 - `better-result` -- `Result` type
 - `zod` -- config validation
 
 **Imported by:**
-- `@xmtp-broker/core` -- consumes `SignerProvider` for XMTP client creation
-- `@xmtp-broker/sessions` -- requests session key issuance
-- `@xmtp-broker/attestations` -- consumes `AttestationSigner` for signing attestations
+- `@xmtp/signet-core` -- consumes `SignerProvider` for XMTP client creation
+- `@xmtp/signet-sessions` -- requests session key issuance
+- `@xmtp/signet-seals` -- consumes `SealStamper` for signing seals
 
 ## Public Interfaces
 
-> **Note:** The `SignerProvider` and `AttestationSigner` interfaces are canonically defined in `@xmtp-broker/contracts`. This package implements both. The duplicate `SignerProvider` definition previously in this spec now references the contracts package as the source of truth.
+> **Note:** The `SignerProvider` and `SealStamper` interfaces are canonically defined in `@xmtp/signet-contracts`. This package implements both. The duplicate `SignerProvider` definition previously in this spec now references the contracts package as the source of truth.
 
 ### Configuration
 
@@ -109,10 +109,10 @@ interface SessionKey {
 
 ### SignerProvider (consumed by broker-core)
 
-> Canonical definition: `@xmtp-broker/contracts`. This package implements it via `KeyManager.toSignerProvider()`.
+> Canonical definition: `@xmtp/signet-contracts`. This package implements it via `KeyManager.toSignerProvider()`.
 
 ```typescript
-// Imported from @xmtp-broker/contracts:
+// Imported from @xmtp/signet-contracts:
 // interface SignerProvider {
 //   getSigner(identityId: string): Promise<Result<Signer, InternalError>>;
 //   getDbEncryptionKey(identityId: string): Promise<Result<Uint8Array, InternalError>>;
@@ -215,11 +215,11 @@ function createKeyManager(
 ): Promise<Result<KeyManager, InternalError>>;
 ```
 
-### AttestationSigner Adapter
+### SealSigner Adapter
 
 ```typescript
 import type { AttestationSigner, SignedAttestation } from
-  "@xmtp-broker/contracts";
+  "@xmtp/signet-contracts";
 
 /** Creates an AttestationSigner backed by the key manager. */
 function createAttestationSigner(
@@ -230,7 +230,7 @@ function createAttestationSigner(
 
 ## Zod Schemas
 
-Key management config schemas are defined above (`KeyManagerConfigSchema`, `KeyPolicySchema`). The `TrustTier` schema is imported from `@xmtp-broker/schemas`.
+Key management config schemas are defined above (`KeyManagerConfigSchema`, `KeyPolicySchema`). The `TrustTier` schema is imported from `@xmtp/signet-schemas`.
 
 Runtime key records (`RootKeyHandle`, `OperationalKey`, `SessionKey`) are plain TypeScript interfaces, not Zod schemas, because they are internal to the runtime tier.
 
@@ -334,7 +334,7 @@ XMTP Signer (Ed25519 signatures)
 | Operation | Why |
 |-----------|-----|
 | Message signing | Routine, high-frequency |
-| Attestation publishing | Routine, tied to session lifecycle |
+| Seal publishing | Routine, tied to session lifecycle |
 | Session key issuance | Bounded by existing grants |
 | Heartbeat signing | Background liveness |
 
@@ -404,7 +404,7 @@ New Machine
     +--> Broker performs XMTP installation rotation
     |    (inbox persists, signing key material rotates)
     |
-    +--> Broker publishes updated attestation
+    +--> Broker publishes updated seal
     |
     +--> Old machine's root key is abandoned (non-exportable,
     |    hardware-bound, automatically inaccessible)
@@ -432,12 +432,12 @@ rotateOperationalKey(identityId)
     |
     +--> New sessions use the new operational key
     |
-    +--> Trigger attestation update (material change)
+    +--> Trigger seal update (material change)
 ```
 
 ### Per-Group Identity Key Management
 
-Each group identity (from `@xmtp-broker/core` per-group mode) gets:
+Each group identity (from `@xmtp/signet-core` per-group mode) gets:
 - Its own Ed25519 operational key stored in the vault as `op-key:<identityId>`
 - Its own database encryption key stored as `db-key:<identityId>`
 - Both protected by the single root key
@@ -501,7 +501,7 @@ detectPlatform()
     |
     +--> Set trustTier based on platform
     |
-    +--> Attestation includes actual platform in metadata
+    +--> Seal includes actual platform in metadata
 ```
 
 All three paths implement the same `KeyManager` interface. The `SignerProvider` returned by `toSignerProvider()` behaves identically regardless of platform. The difference is only in the security guarantees, reflected in `trustTier` and logged at startup.
@@ -560,7 +560,7 @@ The Swift subprocess has a 30-second timeout. If biometric is pending, the OS co
 **A:** Each group identity gets its own Ed25519 operational key and database encryption key, all stored in the vault under the single root key. The root key is the authority for all group identities. Creating a new group identity requires root key authorization (biometric). This scales linearly with group count but keeps the trust anchor singular.
 
 **Q: What happens on platforms without Secure Enclave?** (PRD: "degrade gracefully with clear labeling")
-**A:** The `KeyManager` interface is platform-agnostic. On Intel Macs, Keychain with software keys. On Linux, passphrase-encrypted file storage. The `trustTier` in attestations reflects the actual security posture (`source-verified` vs `unverified`). The broker logs a warning at startup.
+**A:** The `KeyManager` interface is platform-agnostic. On Intel Macs, Keychain with software keys. On Linux, passphrase-encrypted file storage. The `trustTier` in seals reflects the actual security posture (`source-verified` vs `unverified`). The broker logs a warning at startup.
 
 ## Deferred
 
@@ -582,10 +582,10 @@ The Swift subprocess has a 30-second timeout. If biometric is pending, the OS co
 4. **SignerProvider contract** -- `getSigner()` returns a valid XMTP `Signer`. `getDbEncryptionKey()` returns 32 bytes.
 5. **Vault CRUD** -- Set, get, delete, list secrets. Verify encrypted-at-rest (read raw file, confirm not plaintext).
 6. **Biometric gating** -- Operations that require root key return `AuthError` when biometric is unavailable/cancelled (mocked).
-7. **Key rotation** -- New key replaces old, attestation trigger signaled, existing sessions unaffected.
+7. **Key rotation** -- New key replaces old, seal trigger signaled, existing sessions unaffected.
 8. **Platform degradation** -- Software fallback produces correct `trustTier` and logs warnings.
 9. **Subprocess error handling** -- Timeout, crash, invalid JSON all produce `InternalError`.
-10. **AttestationSigner adapter** -- Produces valid `SignedAttestation` with correct `signerKeyRef`.
+10. **AttestationSigner adapter** -- Produces valid `SignedSeal` with correct `signerKeyRef`.
 
 ### How to Test
 
