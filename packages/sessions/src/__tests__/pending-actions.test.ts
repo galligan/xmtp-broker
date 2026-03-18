@@ -1,0 +1,101 @@
+import { describe, expect, test, beforeEach } from "bun:test";
+import {
+  createPendingActionStore,
+  type PendingAction,
+  type PendingActionStore,
+} from "../pending-actions.js";
+
+function makeAction(overrides: Partial<PendingAction> = {}): PendingAction {
+  return {
+    actionId: "act_1",
+    sessionId: "sess_1",
+    actionType: "send_message",
+    payload: { groupId: "g1", content: "hello" },
+    createdAt: "2024-01-01T00:00:00Z",
+    expiresAt: "2024-01-01T00:05:00Z",
+    ...overrides,
+  };
+}
+
+let store: PendingActionStore;
+
+beforeEach(() => {
+  store = createPendingActionStore();
+});
+
+describe("createPendingActionStore", () => {
+  test("add and get returns the action", () => {
+    const action = makeAction();
+    store.add(action);
+    expect(store.get("act_1")).toEqual(action);
+  });
+
+  test("get returns null for unknown actionId", () => {
+    expect(store.get("unknown")).toBeNull();
+  });
+
+  test("confirm removes and returns the action", () => {
+    const action = makeAction();
+    store.add(action);
+    const confirmed = store.confirm("act_1");
+    expect(confirmed).toEqual(action);
+    expect(store.get("act_1")).toBeNull();
+  });
+
+  test("confirm returns null for unknown actionId", () => {
+    expect(store.confirm("unknown")).toBeNull();
+  });
+
+  test("deny removes and returns the action", () => {
+    const action = makeAction();
+    store.add(action);
+    const denied = store.deny("act_1");
+    expect(denied).toEqual(action);
+    expect(store.get("act_1")).toBeNull();
+  });
+
+  test("deny returns null for unknown actionId", () => {
+    expect(store.deny("unknown")).toBeNull();
+  });
+
+  test("expireStale removes expired actions and returns count", () => {
+    store.add(
+      makeAction({
+        actionId: "act_expired",
+        expiresAt: "2024-01-01T00:04:00Z",
+      }),
+    );
+    store.add(
+      makeAction({ actionId: "act_valid", expiresAt: "2024-01-01T00:10:00Z" }),
+    );
+
+    // Now is after act_expired but before act_valid
+    const removed = store.expireStale(new Date("2024-01-01T00:05:00Z"));
+    expect(removed).toBe(1);
+    expect(store.get("act_expired")).toBeNull();
+    expect(store.get("act_valid")).not.toBeNull();
+  });
+
+  test("expireStale returns 0 when nothing expired", () => {
+    store.add(makeAction({ expiresAt: "2024-12-31T23:59:59Z" }));
+    const removed = store.expireStale(new Date("2024-01-01T00:00:00Z"));
+    expect(removed).toBe(0);
+  });
+
+  test("listBySession filters by sessionId", () => {
+    store.add(makeAction({ actionId: "act_a", sessionId: "sess_1" }));
+    store.add(makeAction({ actionId: "act_b", sessionId: "sess_2" }));
+    store.add(makeAction({ actionId: "act_c", sessionId: "sess_1" }));
+
+    const sess1Actions = store.listBySession("sess_1");
+    expect(sess1Actions).toHaveLength(2);
+    expect(sess1Actions.map((a) => a.actionId).sort()).toEqual([
+      "act_a",
+      "act_c",
+    ]);
+  });
+
+  test("listBySession returns empty array for unknown session", () => {
+    expect(store.listBySession("unknown")).toEqual([]);
+  });
+});
