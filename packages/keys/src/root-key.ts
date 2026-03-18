@@ -23,6 +23,28 @@ const RootKeyHandleSchema = z.object({
   createdAt: z.string(),
 });
 
+/** Convert a DER-encoded P-256 ECDSA signature to raw 64-byte (r || s). */
+function derToRaw(der: Uint8Array): Uint8Array {
+  let offset = 2; // skip SEQUENCE tag + length
+  if (der[offset] !== 0x02) return der;
+  offset++;
+  const rLen = der[offset]!;
+  offset++;
+  let r = der.slice(offset, offset + rLen);
+  offset += rLen;
+  if (der[offset] !== 0x02) return der;
+  offset++;
+  const sLen = der[offset]!;
+  offset++;
+  let s = der.slice(offset, offset + sLen);
+  while (r.length > 32 && r[0] === 0) r = r.slice(1);
+  while (s.length > 32 && s[0] === 0) s = s.slice(1);
+  const raw = new Uint8Array(64);
+  raw.set(r, 32 - r.length);
+  raw.set(s, 64 - s.length);
+  return raw;
+}
+
 const ROOT_KEY_REF = "root-key-ref";
 const ROOT_KEY_PRIVATE = "root-key:private";
 

@@ -40,7 +40,9 @@ const BuildProvenanceConfigSchema = z
     expectedIdentityPattern: z
       .string()
       .optional()
-      .describe("Prefix match for expected workflow identity (e.g. https://github.com/org/repo/)"),
+      .describe(
+        "Prefix match for expected workflow identity (e.g. https://github.com/org/repo/)",
+      ),
   })
   .describe("Build provenance verification settings");
 

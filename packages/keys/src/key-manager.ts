@@ -109,8 +109,8 @@ export async function createKeyManager(
   }
   const config = parsed.data;
 
-  const detectedPlatform = detectPlatform();
-  const trustTier = platformToTrustTier(detectedPlatform);
+  let activePlatform = detectPlatform();
+  let activeTrustTier = platformToTrustTier(activePlatform);
 
   const vaultResult = await createVault(config.dataDir);
   if (Result.isError(vaultResult)) return vaultResult;
@@ -124,11 +124,11 @@ export async function createKeyManager(
 
   const manager: KeyManager = {
     get platform(): PlatformCapability {
-      return detectedPlatform;
+      return activePlatform;
     },
 
     get trustTier(): TrustTier {
-      return trustTier;
+      return activeTrustTier;
     },
 
     get admin(): AdminKeyManager {
@@ -144,10 +144,12 @@ export async function createKeyManager(
       const result = await initializeRootKey(
         vault,
         config.rootKeyPolicy,
-        detectedPlatform,
+        activePlatform,
       );
       if (Result.isError(result)) return result;
       rootKeyHandle = result.value;
+      activePlatform = rootKeyHandle.platform;
+      activeTrustTier = platformToTrustTier(activePlatform);
       return Result.ok(rootKeyHandle);
     },
 
