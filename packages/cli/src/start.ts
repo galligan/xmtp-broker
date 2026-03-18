@@ -23,6 +23,7 @@ import { createSignerProvider } from "@xmtp/signet-keys";
 import {
   createSessionManager as createSessionManagerImpl,
   createSessionService,
+  type InternalSessionManager,
 } from "@xmtp/signet-sessions";
 import { createSealManager as createSealManagerImpl } from "@xmtp/signet-seals";
 import { createSealPublisher } from "@xmtp/signet-seals";
@@ -72,6 +73,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
   // Hold references so downstream factories can access shared instances
   let keyManagerRef: KeyManager | null = null;
   let coreImplRef: SignetCoreImpl | null = null;
+  let internalSessionManagerRef: InternalSessionManager | null = null;
 
   return {
     async createKeyManager(
@@ -178,11 +180,19 @@ export function createProductionDeps(): SignetRuntimeDeps {
         defaultTtlSeconds: cfg.defaultTtlSeconds,
         maxConcurrentPerAgent: cfg.maxConcurrentPerAgent,
       });
+      internalSessionManagerRef = internal;
 
       return createSessionService({
         manager: internal,
         keyManager,
       });
+    },
+
+    getInternalSessionManager() {
+      if (!internalSessionManagerRef) {
+        throw new Error("Internal session manager not initialized");
+      }
+      return internalSessionManagerRef;
     },
 
     createSealManager(deps: unknown) {

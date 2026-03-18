@@ -14,3 +14,5 @@ export type {
 export type { SessionServiceDeps } from "./service.js";
 export type { SessionActionDeps } from "./actions.js";
 export type { RevealActionDeps } from "./reveal-actions.js";
+export { createUpdateActions } from "./update-actions.js";
+export type { UpdateActionDeps } from "./update-actions.js";
