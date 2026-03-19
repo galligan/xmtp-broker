@@ -8,13 +8,7 @@ import {
 
 describe("ViewMode", () => {
   it("accepts all valid view modes", () => {
-    for (const mode of [
-      "full",
-      "thread-only",
-      "redacted",
-      "reveal-only",
-      "summary-only",
-    ]) {
+    for (const mode of ["full", "thread-only", "redacted", "reveal-only"]) {
       expect(ViewMode.safeParse(mode).success).toBe(true);
     }
   });

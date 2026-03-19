@@ -307,11 +307,8 @@ Determines `MessageVisibility` based on view mode and reveal state:
 | `thread-only`  | `visible`*         | `visible`          |
 | `redacted`     | `redacted`         | `revealed`         |
 | `reveal-only`  | `hidden`           | `revealed`         |
-| `summary-only` | `redacted`**       | `revealed`         |
 
 \* `thread-only` messages already passed the scope filter, so they are visible.
-
-\** `summary-only` uses `redacted` visibility with summarized content in stage 4.
 
 If visibility resolves to `hidden` and no reveal grant covers the message, the pipeline returns `DROP`.
 
@@ -322,8 +319,6 @@ Transforms content based on resolved visibility:
 - `visible` / `historical` / `revealed`: content passes through unchanged.
 - `redacted`: content is replaced with `null`. The `contentType` and metadata (sender, timestamp) are preserved.
 - `hidden`: unreachable (dropped in stage 3).
-
-**`summary-only` mode is Phase 2 behavior.** The mode exists in the schema for forward compatibility, but in v0 the broker returns a `ValidationError` if a harness attempts to create a session or update a view with `mode: "summary-only"`. This prevents harnesses from relying on placeholder behavior that will change semantically in Phase 2.
 
 ### Grant Validation Pipeline
 
@@ -485,7 +480,7 @@ The `requiresReauthorization` function checks a stricter subset: only privilege 
 #### View Mode Ordering (narrow to broad)
 
 ```
-reveal-only < summary-only < redacted < thread-only < full
+reveal-only < redacted < thread-only < full
 ```
 
 A mode change is an escalation if the new mode is broader than the old mode in this ordering.
@@ -505,7 +500,6 @@ A mode change is an escalation if the new mode is broader than the old mode in t
 | Empty effective content type allowlist | `ValidationError` | validation |
 | Reveal requested by non-owner | `PermissionError` | permission |
 | Content type not in effective allowlist (send) | `ValidationError` | validation |
-| View mode set to `summary-only` in v0 | `ValidationError` | validation |
 
 All functions return `Result<T, E>`. No exceptions are thrown.
 
@@ -517,12 +511,7 @@ All functions return `Result<T, E>`. No exceptions are thrown.
 **Q: Should non-material view/grant changes be applied within an existing session?** (PRD Session section)
 **A:** Yes. Non-material changes (e.g., adjusting a thread scope within the same groups, or minor grant tweaks that don't escalate privileges) are applied in-place and emit a `view.updated` or `grant.updated` event. Only escalations require session reauthorization. This is enforced by `requiresReauthorization` returning `false` for non-escalation changes.
 
-**Q: How does summary-only mode work in v0?** (PRD View Modes)
-**A:** In v0, `summary-only` is kept in the schema for forward compatibility but is not usable. If a harness attempts to create a session or update a view with `mode: "summary-only"`, the broker returns a `ValidationError`. Actual summarization (LLM-generated summaries) is deferred to Phase 2. The schema includes the value so the wire format is stable across versions.
-
 ## Deferred
-
-- **LLM-powered summarization**: `summary-only` mode emits placeholders. Actual summary generation requires an inference pipeline, deferred to Phase 2.
 - **Tool parameter constraint validation**: v0 checks that the `toolId` is allowed and that `parameters` is non-null if constrained. Deep parameter validation (e.g., "this integer must be < 100") is deferred.
 - **Group governance beyond owner**: v0 only allows the owner to grant reveals and modify policy. Multi-member governance (approval thresholds, admin caps) is deferred.
 - **Reveal history API**: The engine tracks active reveals but does not expose a history of past reveals. Forensic history is deferred.
@@ -577,7 +566,7 @@ All functions return `Result<T, E>`. No exceptions are thrown.
 24. **Grant escalation**: `send: false -> true` is material + reauth.
 25. **Grant reduction**: `send: true -> false` is material, no reauth.
 26. **Session rotation**: same view+grant -> not material.
-27. **Mode ordering**: verify `reveal-only < summary-only < redacted < thread-only < full`.
+27. **Mode ordering**: verify `reveal-only < redacted < thread-only < full`.
 
 ### Test Utilities
 

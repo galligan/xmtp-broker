@@ -10,7 +10,6 @@ import type { MessageVisibility, ViewMode } from "@xmtp/signet-schemas";
  * | thread-only    | visible            | visible            |
  * | redacted       | redacted           | revealed           |
  * | reveal-only    | hidden             | revealed           |
- * | summary-only   | redacted           | revealed           |
  */
 export function resolveVisibility(
   mode: ViewMode,
@@ -24,7 +23,5 @@ export function resolveVisibility(
       return isRevealed ? "revealed" : "redacted";
     case "reveal-only":
       return isRevealed ? "revealed" : "hidden";
-    case "summary-only":
-      return isRevealed ? "revealed" : "redacted";
   }
 }

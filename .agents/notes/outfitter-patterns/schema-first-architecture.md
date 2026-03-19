@@ -88,7 +88,7 @@ const AttestationSchema = z.object({
   agentInboxId: z.string(),
   ownerInboxId: z.string(),
   groupId: z.string(),
-  viewMode: z.enum(["full", "thread-only", "redacted", "reveal-only", "summary-only"]),
+  viewMode: z.enum(["full", "thread-only", "redacted", "reveal-only"]),
   contentTypes: z.array(z.string()),
   grantedOps: z.array(z.string()),
   inferenceMode: z.enum(["local", "external", "hybrid", "unknown"]),

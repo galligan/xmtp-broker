@@ -28,7 +28,9 @@ export const RevealRequest: z.ZodType<RevealRequest> = z
     scope: RevealScope.describe("What granularity to reveal"),
     targetId: z
       .string()
-      .describe("ID of the message, thread, content type, or sender"),
+      .describe(
+        "Target identifier: message ID, thread ID, content type, sender inbox ID, or 'startISO|endISO' for time-window scope",
+      ),
     requestedBy: z
       .string()
       .describe("Inbox ID of the member requesting the reveal"),

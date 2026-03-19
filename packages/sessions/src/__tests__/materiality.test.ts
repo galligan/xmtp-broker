@@ -20,20 +20,6 @@ describe("checkMateriality", () => {
       expect(result.isMaterial).toBe(true);
     });
 
-    test("summary-only -> full is material", () => {
-      const oldView: ViewConfig = { ...baseView, mode: "summary-only" };
-      const newView: ViewConfig = { ...baseView, mode: "full" };
-      const result = checkMateriality(oldView, baseGrant, newView, baseGrant);
-      expect(result.isMaterial).toBe(true);
-    });
-
-    test("summary-only -> thread-only is material", () => {
-      const oldView: ViewConfig = { ...baseView, mode: "summary-only" };
-      const newView: ViewConfig = { ...baseView, mode: "thread-only" };
-      const result = checkMateriality(oldView, baseGrant, newView, baseGrant);
-      expect(result.isMaterial).toBe(true);
-    });
-
     test("reveal-only -> full is material", () => {
       const oldView: ViewConfig = { ...baseView, mode: "reveal-only" };
       const newView: ViewConfig = { ...baseView, mode: "full" };

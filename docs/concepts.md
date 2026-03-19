@@ -41,7 +41,6 @@ Content types not in the allowlist are held at the signet and never forwarded. T
 | `thread-only` | Messages within specific threads (uses `threadId` derived from Reply content type's `referenceId`) |
 | `redacted`    | Messages with sensitive content removed        |
 | `reveal-only` | Only messages explicitly revealed to the agent |
-| `summary-only` | Signet-generated summaries (defined in schema, reserved — not implemented in v0) |
 
 A view mode is a convenience label. The underlying view object (including content type allowlist) and grant remain explicit and authoritative.
 
