@@ -16,6 +16,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@noble/curves": "^2.0.1",
     "@xmtp/signet-contracts": "workspace:*",
     "@xmtp/signet-schemas": "workspace:*",
     "better-result": "catalog:",
