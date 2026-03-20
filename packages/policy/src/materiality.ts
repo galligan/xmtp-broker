@@ -14,10 +14,9 @@ const MATERIAL_FIELD_PREFIXES = [
 /** View mode ordering from narrow to broad. */
 const VIEW_MODE_ORDER: Record<string, number> = {
   "reveal-only": 0,
-  "summary-only": 1,
-  redacted: 2,
-  "thread-only": 3,
-  full: 4,
+  redacted: 1,
+  "thread-only": 2,
+  full: 3,
 };
 
 /** Fields where false -> true is a privilege escalation. */

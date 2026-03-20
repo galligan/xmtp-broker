@@ -74,7 +74,6 @@ These decisions resolve PRD open questions and establish constraints for all spe
 | Per-group identity | Default-on, configurable; each group gets a unique identity key | Strongest isolation; matches convos-node-sdk pattern |
 | Mono-package vs monorepo | Monorepo with Bun workspaces from day one | Clean dependency boundaries between tiers |
 | Foundation tier split | `schemas` = data shapes (Zod schemas, enums, error taxonomy); `contracts` = cross-package interfaces (service/provider contracts, event types). `contracts` imports from `schemas` only. | 22 interfaces defined in runtime specs belong in Foundation. Separating shapes from contracts keeps `schemas` zero-dep beyond Zod and gives runtime packages a stable interface layer. |
-| `summary-only` view mode | Schema defined in v0; implementation deferred to Phase 2 | Schema completeness now; summarization logic is non-trivial and not needed for initial transport |
 | CLI framework | Commander.js | Lightweight, Bun-compatible, composes well with Zod for argument validation |
 | Config format | TOML at `~/.config/xmtp-broker/config.toml` with `smol-toml` parser | XDG conventions; `smol-toml` is zero-dep, spec-compliant |
 | Admin auth | Admin key JWT only; peer credentials deferred to post-v0 | Cross-platform; no native FFI in v0 |

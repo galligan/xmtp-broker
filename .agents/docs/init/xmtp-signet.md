@@ -242,7 +242,6 @@ Suggested initial view modes as convenience labels:
 - `thread-only`
 - `redacted`
 - `reveal-only`
-- `summary-only`
 
 A view mode is only a convenience label. The underlying view object (including the content type allowlist) and grant object should remain explicit and authoritative.
 

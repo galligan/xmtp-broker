@@ -8,20 +8,10 @@ import type { SignetContentTypeConfig } from "./types.js";
 
 /**
  * Validates that a view mode is supported in the current version.
- * Rejects `summary-only` which is not implemented in v0.
  */
 export function validateViewMode(
-  mode: ViewMode,
+  _mode: ViewMode,
 ): Result<void, ValidationError> {
-  if (mode === "summary-only") {
-    return Result.err(
-      ValidationError.create(
-        "viewMode",
-        "summary-only mode is not supported in v0",
-        { value: mode },
-      ),
-    );
-  }
   return Result.ok(undefined);
 }
 

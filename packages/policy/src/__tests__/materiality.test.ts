@@ -173,21 +173,21 @@ describe("requiresReauthorization", () => {
     expect(requiresReauthorization([delta])).toBe(true);
   });
 
-  test("mode ordering: reveal-only < summary-only < redacted < thread-only < full", () => {
-    // reveal-only -> summary-only is escalation
+  test("mode ordering: reveal-only < redacted < thread-only < full", () => {
+    // reveal-only -> redacted is escalation
     const d1: PolicyDelta = {
       ...emptyDelta(),
       viewChanges: [
-        { field: "view.mode", from: "reveal-only", to: "summary-only" },
+        { field: "view.mode", from: "reveal-only", to: "redacted" },
       ],
     };
     expect(requiresReauthorization([d1])).toBe(true);
 
-    // summary-only -> redacted is escalation
+    // redacted -> thread-only is escalation
     const d2: PolicyDelta = {
       ...emptyDelta(),
       viewChanges: [
-        { field: "view.mode", from: "summary-only", to: "redacted" },
+        { field: "view.mode", from: "redacted", to: "thread-only" },
       ],
     };
     expect(requiresReauthorization([d2])).toBe(true);

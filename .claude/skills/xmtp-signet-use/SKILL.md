@@ -60,7 +60,6 @@ to control:
 | `thread-only` | Messages within specific threads only |
 | `redacted` | Messages with sensitive content removed |
 | `reveal-only` | Only messages explicitly revealed to the agent |
-| `summary-only` | Broker-generated summaries, not raw messages |
 
 **Default-deny for content types.** If a content type isn't in the allowlist,
 the signet holds it and the agent never sees it. When new content types are
@@ -161,19 +160,10 @@ error. The harness cannot bypass this.
 | Only respond when explicitly asked | `reveal-only` |
 | Work within a specific thread | `thread-only` |
 | See content with PII stripped | `redacted` |
-| Get conversation summaries | `summary-only` |
 
 ### Choosing grants
 
-Start with the minimum. A summarization agent might need:
-
-```
-view:  summary-only
-grant: messaging.send (to post summaries)
-       egress.summarize (to use content for summaries)
-```
-
-A moderation agent might need:
+Start with the minimum. A moderation agent might need:
 
 ```
 view:  full

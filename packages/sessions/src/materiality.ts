@@ -21,10 +21,9 @@ export interface DetailedMaterialityCheck extends MaterialityCheck {
  */
 const VIEW_MODE_LEVEL: Record<ViewMode, number> = {
   "reveal-only": 0,
-  "summary-only": 1,
-  redacted: 2,
-  "thread-only": 3,
-  full: 4,
+  redacted: 1,
+  "thread-only": 2,
+  full: 3,
 };
 
 /** Check whether a policy change is material. */

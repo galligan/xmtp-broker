@@ -3,9 +3,9 @@ import { ContentTypeId } from "./content-types.js";
 
 /** Zod schema for an agent session's projected conversation view mode. */
 export const ViewMode: z.ZodEnum<
-  ["full", "thread-only", "redacted", "reveal-only", "summary-only"]
+  ["full", "thread-only", "redacted", "reveal-only"]
 > = z
-  .enum(["full", "thread-only", "redacted", "reveal-only", "summary-only"])
+  .enum(["full", "thread-only", "redacted", "reveal-only"])
   .describe("Visibility mode for the agent's view of conversations");
 
 /** Visibility mode for an agent session's projected conversation view. */

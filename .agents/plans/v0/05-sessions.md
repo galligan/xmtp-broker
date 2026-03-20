@@ -251,7 +251,7 @@ The broker determines whether a policy change is material by comparing the old a
 
 | Field | Material when... |
 |-------|-----------------|
-| `view.mode` | Escalation toward more access: `redacted` -> any, `summary-only` -> `thread-only`/`full`, `reveal-only` -> `full`, `thread-only` -> `full` |
+| `view.mode` | Escalation toward more access: `redacted` -> any, `reveal-only` -> `full`, `thread-only` -> `full` |
 | `grant.messaging.send` | `false` -> `true` |
 | `grant.messaging.draftOnly` | `true` -> `false` (removes guardrail) |
 | `grant.groupManagement.*` | Any `false` -> `true` |

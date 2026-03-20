@@ -27,12 +27,4 @@ describe("resolveVisibility", () => {
   test("reveal-only mode returns revealed with active reveal", () => {
     expect(resolveVisibility("reveal-only", true)).toBe("revealed");
   });
-
-  test("summary-only mode returns redacted without reveal", () => {
-    expect(resolveVisibility("summary-only", false)).toBe("redacted");
-  });
-
-  test("summary-only mode returns revealed with active reveal", () => {
-    expect(resolveVisibility("summary-only", true)).toBe("revealed");
-  });
 });

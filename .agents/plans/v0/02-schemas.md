@@ -114,7 +114,6 @@ const ViewMode = z.enum([
   "thread-only",
   "redacted",
   "reveal-only",
-  "summary-only",
 ]).describe("Visibility mode for the agent's view of conversations");
 
 type ViewMode = z.infer<typeof ViewMode>;
