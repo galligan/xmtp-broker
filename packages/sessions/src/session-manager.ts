@@ -118,6 +118,8 @@ export interface InternalSessionManager {
     state: InternalSessionRecord["state"],
   ): Result<InternalSessionRecord, NotFoundError>;
   sweepExpired(): readonly InternalSessionRecord[];
+  /** Check if a session's heartbeat has exceeded interval + grace period. */
+  isHeartbeatStale(sessionId: string): Result<boolean, NotFoundError>;
 }
 
 /** Hooks for session-manager side effects. */
@@ -480,6 +482,22 @@ export function createSessionManager(
         newGrant,
       );
       return Result.ok(result);
+    },
+
+    isHeartbeatStale(sessionId: string): Result<boolean, NotFoundError> {
+      const record = byId.get(sessionId);
+      if (!record) {
+        return Result.err(NotFoundError.create("Session", sessionId));
+      }
+      if (record.state !== "active") {
+        return Result.ok(false);
+      }
+      const lastHb = new Date(record.lastHeartbeat).getTime();
+      const deadline =
+        lastHb +
+        record.heartbeatInterval * 1000 +
+        config.heartbeatGracePeriod * 1000;
+      return Result.ok(Date.now() >= deadline);
     },
 
     sweepExpired() {
