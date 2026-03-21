@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { createBuildProvenanceCheck } from "../checks/build-provenance.js";
 import { createTestVerificationRequest } from "./fixtures.js";
+import { createCryptoBundle } from "./crypto-helpers.js";
 
 /**
  * Creates a minimal valid Sigstore bundle structure for testing.
- * This mimics the format GitHub Actions produces.
+ * Uses fake signatures — structural checks pass but crypto
+ * verification will fail.
  */
 function createTestBundle(overrides?: {
   subjectDigest?: string;
@@ -67,7 +69,9 @@ describe("build_provenance check", () => {
   test("skips when no bundle provided", async () => {
     const check = createBuildProvenanceCheck();
     const result = await check.execute(
-      createTestVerificationRequest({ buildProvenanceBundle: null }),
+      createTestVerificationRequest({
+        buildProvenanceBundle: null,
+      }),
     );
 
     expect(result.isOk()).toBe(true);
@@ -112,7 +116,9 @@ describe("build_provenance check", () => {
     const bundleWithoutEnvelope = btoa(
       JSON.stringify({
         mediaType: "application/vnd.dev.sigstore.bundle.v0.3+json",
-        verificationMaterial: { certificate: { rawBytes: btoa("cert") } },
+        verificationMaterial: {
+          certificate: { rawBytes: btoa("cert") },
+        },
         // no dsseEnvelope
       }),
     );
@@ -206,11 +212,36 @@ describe("build_provenance check", () => {
     }
   });
 
-  test("passes with valid bundle structure and matching digest", async () => {
+  test("fails when fake bundle has invalid certificate", async () => {
     const matchingDigest =
       "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
     const check = createBuildProvenanceCheck();
-    const bundle = createTestBundle({ subjectDigest: matchingDigest });
+    const bundle = createTestBundle({
+      subjectDigest: matchingDigest,
+    });
+    const result = await check.execute(
+      createTestVerificationRequest({
+        buildProvenanceBundle: bundle,
+        artifactDigest: matchingDigest,
+      }),
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value.verdict).toBe("fail");
+      expect(result.value.reason).toContain(
+        "Certificate key extraction failed",
+      );
+    }
+  });
+
+  test("skips with cryptographically valid bundle (Fulcio/Rekor not yet verified)", async () => {
+    const matchingDigest =
+      "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2";
+    const check = createBuildProvenanceCheck();
+    const bundle = createCryptoBundle({
+      subjectDigest: matchingDigest,
+    });
     const result = await check.execute(
       createTestVerificationRequest({
         buildProvenanceBundle: bundle,
@@ -223,14 +254,16 @@ describe("build_provenance check", () => {
       expect(result.value.verdict).toBe("skip");
       expect(result.value.checkId).toBe("build_provenance");
       expect(result.value.evidence).not.toBeNull();
+      const evidence = result.value.evidence as Record<string, unknown>;
+      expect(evidence["cryptoVerified"]).toBe(true);
     }
   });
 
-  test("passes when digest matches any subject in the statement", async () => {
+  test("fails when digest matches but signature is invalid", async () => {
     const matchingDigest =
       "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
 
-    // Create a bundle with multiple subjects
+    // Create a bundle with multiple subjects but fake cert/sig
     const statement = {
       _type: "https://in-toto.io/Statement/v1",
       subject: [
@@ -274,7 +307,8 @@ describe("build_provenance check", () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value.verdict).toBe("skip");
+      // Crypto verification fails on fake certificate
+      expect(result.value.verdict).toBe("fail");
     }
   });
 });

@@ -4,6 +4,8 @@ import type { VerificationCheck } from "../schemas/check.js";
 import type { VerificationRequest } from "../schemas/request.js";
 import type { CheckHandler } from "./handler.js";
 import { findMatchingSubject, parseSigstoreBundle } from "./sigstore-bundle.js";
+import { extractP256PublicKey } from "./x509-key.js";
+import { verifyDsseSignature } from "./dsse-verify.js";
 
 /** Check ID for build provenance verification. */
 export const BUILD_PROVENANCE_CHECK_ID = "build_provenance" as const;
@@ -18,11 +20,7 @@ import type { BuildProvenanceConfig } from "../config.js";
  * - In-toto statement validity
  * - Artifact digest match against statement subjects
  * - OIDC issuer and identity enforcement (when configured)
- *
- * NOTE: Full cryptographic DSSE signature verification (Fulcio certificate
- * chain, Rekor inclusion proof) is not yet implemented. The current check
- * verifies structural completeness and digest matching only.
- * TODO: Add cryptographic DSSE verification via sigstore-js.
+ * - Cryptographic DSSE signature verification (P-256 / SHA-256)
  */
 export function createBuildProvenanceCheck(
   config?: BuildProvenanceConfig,
@@ -149,15 +147,40 @@ export function createBuildProvenanceCheck(
         }
       }
 
-      // Structural validation passed but cryptographic DSSE signature
-      // verification is not yet implemented. Return skip (not pass) to
-      // avoid false-positive trust escalation. A pass verdict requires
-      // full Fulcio certificate chain + Rekor inclusion proof verification.
+      // Cryptographic DSSE signature verification
+      const keyResult = extractP256PublicKey(certificateRawBytes);
+      if (!keyResult.isOk()) {
+        return Result.ok({
+          checkId: BUILD_PROVENANCE_CHECK_ID,
+          verdict: "fail",
+          reason: `Certificate key extraction failed: ${keyResult.error}`,
+          evidence: {
+            matchedSubject: matchingSubject.name,
+            matchedDigest: matchingSubject.digest,
+            certificateError: keyResult.error,
+          },
+        });
+      }
+
+      const verifyResult = verifyDsseSignature(bundle, keyResult.value);
+      if (!verifyResult.isOk()) {
+        return Result.ok({
+          checkId: BUILD_PROVENANCE_CHECK_ID,
+          verdict: "fail",
+          reason: `DSSE signature verification failed: ${verifyResult.error}`,
+          evidence: {
+            matchedSubject: matchingSubject.name,
+            matchedDigest: matchingSubject.digest,
+            signatureError: verifyResult.error,
+          },
+        });
+      }
+
       return Result.ok({
         checkId: BUILD_PROVENANCE_CHECK_ID,
         verdict: "skip",
         reason:
-          "Build provenance bundle is structurally valid and digest matches, but cryptographic DSSE verification is not yet implemented",
+          "DSSE signature is cryptographically valid but Fulcio certificate chain and Rekor inclusion proof verification are not yet implemented",
         evidence: {
           matchedSubject: matchingSubject.name,
           matchedDigest: matchingSubject.digest,
@@ -165,7 +188,7 @@ export function createBuildProvenanceCheck(
           hasCertificate: certificateRawBytes.length > 0,
           subjectCount: statement.subject.length,
           signatureCount: signatures.length,
-          cryptoVerified: false,
+          cryptoVerified: true,
         },
       });
     },
