@@ -14,6 +14,7 @@ import { createSealCommands } from "./commands/seal.js";
 import { createMessageCommands } from "./commands/message.js";
 import { createConversationCommands } from "./commands/conversation.js";
 import { createAdminCommands } from "./commands/admin.js";
+import { buildKeysCommand } from "./commands/keys.js";
 
 const program: Command = new Command()
   .name("xmtp-signet")
@@ -31,6 +32,7 @@ program.addCommand(createSealCommands());
 program.addCommand(createMessageCommands());
 program.addCommand(createConversationCommands());
 program.addCommand(createAdminCommands());
+program.addCommand(buildKeysCommand());
 
 export { program };
 
@@ -83,6 +85,7 @@ export { createMessageCommands } from "./commands/message.js";
 export { createConversationCommands } from "./commands/conversation.js";
 export type { ConversationCommandDeps } from "./commands/conversation.js";
 export { createAdminCommands } from "./commands/admin.js";
+export { buildKeysCommand } from "./commands/keys.js";
 
 export { exitCodeFromCategory, EXIT_SUCCESS } from "./output/exit-codes.js";
 export type { OutputFormatter, FormatOptions } from "./output/formatter.js";
