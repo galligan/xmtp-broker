@@ -1,0 +1,8 @@
+node_modules
+.reference
+.agents
+.trail
+.claude
+.git
+*.test.ts
+__tests__
