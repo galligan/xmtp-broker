@@ -24,6 +24,8 @@ export type KeyManagerConfig = {
   rootKeyPolicy: KeyPolicy;
   operationalKeyPolicy: KeyPolicy;
   sessionKeyTtlSeconds: number;
+  /** Auto-rotation interval in seconds. 0 disables auto-rotation. */
+  rotationIntervalSeconds: number;
 };
 
 /** Input to KeyManagerConfigSchema (fields with defaults are optional). */
@@ -32,6 +34,7 @@ type KeyManagerConfigInput = {
   rootKeyPolicy?: KeyPolicy | undefined;
   operationalKeyPolicy?: KeyPolicy | undefined;
   sessionKeyTtlSeconds?: number | undefined;
+  rotationIntervalSeconds?: number | undefined;
 };
 
 /** Zod schema for parsed key manager configuration. */
@@ -54,5 +57,13 @@ export const KeyManagerConfigSchema: z.ZodType<
       .positive()
       .default(3600)
       .describe("Default TTL for session keys"),
+    rotationIntervalSeconds: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(86400)
+      .describe(
+        "Auto-rotation interval for operational keys (seconds). 0 disables.",
+      ),
   })
   .describe("Key manager configuration");
