@@ -19,7 +19,10 @@ services:
       - key: XMTP_SIGNET_WS_HOST
         value: "0.0.0.0"
       - key: XMTP_SIGNET_WS_PORT
-        value: "8080"
+        fromService:
+          type: web
+          name: xmtp-signet
+          property: port
       - key: XMTP_SIGNET_HTTP_ENABLED
         value: "true"
       - key: XMTP_SIGNET_HTTP_HOST

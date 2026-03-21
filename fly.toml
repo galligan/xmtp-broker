@@ -12,7 +12,7 @@ primary_region = "iad"
   XMTP_SIGNET_DATA_DIR = "/data"
   XMTP_SIGNET_ENV = "dev"
   XMTP_SIGNET_WS_HOST = "0.0.0.0"
-  XMTP_SIGNET_WS_PORT = "8080"
+  XMTP_SIGNET_WS_PORT = "8393"
   XMTP_SIGNET_HTTP_ENABLED = "true"
   XMTP_SIGNET_HTTP_HOST = "0.0.0.0"
   XMTP_SIGNET_HTTP_PORT = "8081"
@@ -26,7 +26,7 @@ primary_region = "iad"
 
 [[services]]
   protocol = "tcp"
-  internal_port = 8080
+  internal_port = 8393
 
   [[services.ports]]
     port = 443
