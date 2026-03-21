@@ -259,8 +259,7 @@ export function createSdkClient(options: SdkClientOptions): XmtpClient {
           }
           if (options?.direction !== undefined) {
             // Map public strings to SDK SortDirection enum values
-            sdkOptions["direction"] =
-              options.direction === "ascending" ? 1 : 2;
+            sdkOptions["direction"] = options.direction === "ascending" ? 1 : 2;
           }
 
           const messages = await group.messages(sdkOptions);
