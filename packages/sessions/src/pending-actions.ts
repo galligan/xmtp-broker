@@ -29,8 +29,8 @@ export interface PendingActionStore {
   /** Deny an action: removes and returns it, or null if not found. */
   deny(actionId: string): PendingAction | null;
 
-  /** Remove all expired actions. Returns the number removed. */
-  expireStale(now: Date): number;
+  /** Remove all expired actions. Returns the removed actions for logging. */
+  expireStale(now: Date): readonly PendingAction[];
 
   /** List all pending actions for a given session. */
   listBySession(sessionId: string): readonly PendingAction[];
@@ -64,16 +64,16 @@ export function createPendingActionStore(): PendingActionStore {
       return removeAndReturn(actionId);
     },
 
-    expireStale(now: Date): number {
+    expireStale(now: Date): readonly PendingAction[] {
       const nowMs = now.getTime();
-      let removed = 0;
+      const expired: PendingAction[] = [];
       for (const [id, action] of actions) {
         if (new Date(action.expiresAt).getTime() <= nowMs) {
           actions.delete(id);
-          removed++;
+          expired.push(action);
         }
       }
-      return removed;
+      return expired;
     },
 
     listBySession(sessionId: string): readonly PendingAction[] {

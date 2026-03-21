@@ -299,7 +299,11 @@ export function createProductionDeps(): SignetRuntimeDeps {
     },
 
     createWsServer(config: unknown, deps: unknown): WsServer {
-      const cfg = config as { port: number; host: string };
+      const cfg = config as {
+        port: number;
+        host: string;
+        actionExpirySeconds?: number;
+      };
       const d = deps as {
         core: SignetCore;
         sessionManager: import("@xmtp/signet-contracts").SessionManager;
@@ -307,6 +311,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
       };
 
       const pendingActions = createPendingActionStore();
+      const actionExpiryMs = (cfg.actionExpirySeconds ?? 300) * 1000;
 
       // Late-bound broadcast: the WS server isn't created yet when
       // the request handler is wired, so we capture a mutable ref.
@@ -320,6 +325,24 @@ export function createProductionDeps(): SignetRuntimeDeps {
           d.core.sendMessage(groupId, contentType, content),
         sessionManager: d.sessionManager,
         pendingActions,
+        actionExpiryMs,
+        onActionExpired: (action: {
+          actionId: string;
+          sessionId: string;
+          actionType: string;
+          createdAt: string;
+          expiresAt: string;
+        }) => {
+          // eslint-disable-next-line no-console
+          console.info(
+            "[audit] action expired: %s (%s) session=%s created=%s expired=%s",
+            action.actionId,
+            action.actionType,
+            action.sessionId,
+            action.createdAt,
+            action.expiresAt,
+          );
+        },
         broadcast: (sessionId: string, event: unknown) => {
           wsServerRef?.broadcast(
             sessionId,

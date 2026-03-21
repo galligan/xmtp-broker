@@ -154,7 +154,11 @@ export async function createSignetRuntime(
   });
 
   const wsServer = deps.createWsServer(
-    { port: config.ws.port, host: config.ws.host },
+    {
+      port: config.ws.port,
+      host: config.ws.host,
+      actionExpirySeconds: config.sessions.actionExpirySeconds,
+    },
     {
       core,
       sessionManager,

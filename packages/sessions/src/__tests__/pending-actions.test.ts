@@ -58,28 +58,28 @@ describe("createPendingActionStore", () => {
     expect(store.deny("unknown")).toBeNull();
   });
 
-  test("expireStale removes expired actions and returns count", () => {
-    store.add(
-      makeAction({
-        actionId: "act_expired",
-        expiresAt: "2024-01-01T00:04:00Z",
-      }),
-    );
+  test("expireStale removes expired actions and returns them", () => {
+    const expired = makeAction({
+      actionId: "act_expired",
+      expiresAt: "2024-01-01T00:04:00Z",
+    });
+    store.add(expired);
     store.add(
       makeAction({ actionId: "act_valid", expiresAt: "2024-01-01T00:10:00Z" }),
     );
 
     // Now is after act_expired but before act_valid
     const removed = store.expireStale(new Date("2024-01-01T00:05:00Z"));
-    expect(removed).toBe(1);
+    expect(removed).toHaveLength(1);
+    expect(removed[0]!.actionId).toBe("act_expired");
     expect(store.get("act_expired")).toBeNull();
     expect(store.get("act_valid")).not.toBeNull();
   });
 
-  test("expireStale returns 0 when nothing expired", () => {
+  test("expireStale returns empty array when nothing expired", () => {
     store.add(makeAction({ expiresAt: "2024-12-31T23:59:59Z" }));
     const removed = store.expireStale(new Date("2024-01-01T00:00:00Z"));
-    expect(removed).toBe(0);
+    expect(removed).toHaveLength(0);
   });
 
   test("listBySession filters by sessionId", () => {

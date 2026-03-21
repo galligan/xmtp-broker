@@ -100,6 +100,7 @@ export type CliConfig = {
     defaultTtlSeconds: number;
     maxConcurrentPerAgent: number;
     heartbeatIntervalSeconds: number;
+    actionExpirySeconds: number;
   };
   logging: {
     level: "debug" | "info" | "warn" | "error";
@@ -128,6 +129,7 @@ type CliConfigInput = {
         defaultTtlSeconds?: number | undefined;
         maxConcurrentPerAgent?: number | undefined;
         heartbeatIntervalSeconds?: number | undefined;
+        actionExpirySeconds?: number | undefined;
       }
     | undefined;
   logging?:
@@ -207,6 +209,12 @@ const CliConfigBaseSchema = z
           .positive()
           .default(30)
           .describe("Heartbeat interval in seconds"),
+        actionExpirySeconds: z
+          .number()
+          .int()
+          .positive()
+          .default(300)
+          .describe("TTL for pending actions awaiting confirmation (seconds)"),
       })
       .default({}),
     logging: z
