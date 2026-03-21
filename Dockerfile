@@ -27,6 +27,11 @@ RUN bun run build
 FROM oven/bun:1-slim AS runtime
 WORKDIR /app
 
+# Non-root user for production safety
+RUN groupadd --gid 1001 signet && \
+    useradd --uid 1001 --gid signet --shell /bin/sh signet && \
+    mkdir -p /data && chown signet:signet /data
+
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./
 
@@ -56,8 +61,12 @@ COPY --from=build /app/packages/sdk/package.json packages/sdk/
 COPY --from=build /app/packages/verifier/dist packages/verifier/dist
 COPY --from=build /app/packages/verifier/package.json packages/verifier/
 
+VOLUME /data
+
 ENV XMTP_SIGNET_DATA_DIR=/data
 ENV XMTP_SIGNET_ENV=dev
+
+USER signet
 
 EXPOSE 8080 8081
 
