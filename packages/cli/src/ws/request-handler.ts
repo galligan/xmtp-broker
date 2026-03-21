@@ -15,7 +15,12 @@ import type {
   RevealContentRequest,
   RevealGrant,
 } from "@xmtp/signet-schemas";
-import type { SessionManager, SessionRecord } from "@xmtp/signet-contracts";
+import type {
+  SessionManager,
+  SessionRecord,
+  SealManager,
+  MessageProvenanceMetadata,
+} from "@xmtp/signet-contracts";
 import { validateSendMessage, projectMessage } from "@xmtp/signet-policy";
 import type { RawMessage } from "@xmtp/signet-policy";
 import type { RequestHandler } from "@xmtp/signet-ws";
@@ -60,6 +65,8 @@ export interface HarnessRequestHandlerDeps {
       direction?: "ascending" | "descending";
     },
   ) => Promise<Result<readonly ReplayMessage[], SignetError>>;
+  /** Seal manager for provenance lookup on outbound messages. */
+  readonly sealManager?: Pick<SealManager, "current">;
   /** Action expiry TTL in milliseconds. Defaults to 5 minutes. */
   readonly actionExpiryMs?: number;
   /** Optional callback for logging expired actions. */
@@ -86,7 +93,11 @@ export function createWsRequestHandler(
     session: SessionRecord,
   ): Promise<
     Result<
-      { messageId: string } | { pending: true; actionId: string },
+      | {
+          messageId: string;
+          provenance: MessageProvenanceMetadata | null;
+        }
+      | { pending: true; actionId: string },
       SignetError
     >
   > {
@@ -157,11 +168,36 @@ export function createWsRequestHandler(
       return readyResult;
     }
 
-    return deps.sendMessage(
+    const sendResult = await deps.sendMessage(
       request.groupId,
       request.contentType,
       request.content,
     );
+    if (sendResult.isErr()) {
+      return sendResult;
+    }
+
+    // Attach provenance metadata if a seal exists for this agent+group
+    let provenance: MessageProvenanceMetadata | null = null;
+    if (deps.sealManager) {
+      const sealResult = await deps.sealManager.current(
+        session.agentInboxId,
+        request.groupId,
+      );
+      if (sealResult.isOk() && sealResult.value !== null) {
+        const seal = sealResult.value.seal;
+        provenance = {
+          sealId: seal.sealId,
+          sessionKeyFingerprint: seal.sessionKeyFingerprint ?? "",
+          policyHash: seal.policyHash,
+        };
+      }
+    }
+
+    return Result.ok({
+      messageId: sendResult.value.messageId,
+      provenance,
+    });
   }
 
   async function handleHeartbeat(

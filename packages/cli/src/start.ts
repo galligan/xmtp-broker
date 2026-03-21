@@ -324,6 +324,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
         sendMessage: (groupId: string, contentType: string, content: unknown) =>
           d.core.sendMessage(groupId, contentType, content),
         sessionManager: d.sessionManager,
+        sealManager: d.sealManager,
         pendingActions,
         actionExpiryMs,
         onActionExpired: (action: {
