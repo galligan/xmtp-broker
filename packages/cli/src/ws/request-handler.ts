@@ -465,6 +465,30 @@ export function createWsRequestHandler(
     request: HarnessRequest,
     session: SessionRecord,
   ): Promise<Result<unknown, SignetError>> => {
+    // Guard: reject non-heartbeat requests when the session's heartbeat
+    // is stale. This enforces liveness — the harness must maintain its
+    // heartbeat cadence to keep sending requests.
+    if (
+      request.type !== "heartbeat" &&
+      deps.internalSessionManager &&
+      typeof deps.internalSessionManager.isHeartbeatStale === "function"
+    ) {
+      try {
+        const staleResult = deps.internalSessionManager.isHeartbeatStale(
+          session.sessionId,
+        );
+        if (staleResult.isOk() && staleResult.value) {
+          return Result.err(
+            AuthError.create(
+              "Session heartbeat is stale — send a heartbeat before making requests",
+            ),
+          );
+        }
+      } catch {
+        // Staleness check failed — proceed rather than blocking the request
+      }
+    }
+
     switch (request.type) {
       case "send_message":
         return handleSendMessage(request, session);
