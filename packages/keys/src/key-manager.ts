@@ -97,6 +97,12 @@ export interface KeyManager {
 
   vaultList(): readonly string[];
 
+  /** Start periodic auto-rotation of operational keys. No-op if interval is 0. */
+  startAutoRotation(): void;
+
+  /** Stop the auto-rotation timer. */
+  stopAutoRotation(): void;
+
   close(): void;
 }
 
@@ -129,6 +135,7 @@ export async function createKeyManager(
   const adminKeys: AdminKeyManager = createAdminKeyManager(vault);
 
   let rootKeyHandle: RootKeyHandle | null = null;
+  let rotationTimer: ReturnType<typeof setInterval> | null = null;
 
   const manager: KeyManager = {
     get platform(): PlatformCapability {
@@ -284,7 +291,38 @@ export async function createKeyManager(
       return vault.list();
     },
 
+    startAutoRotation(): void {
+      if (config.rotationIntervalSeconds <= 0) return;
+      if (rotationTimer !== null) return; // already running
+
+      const intervalMs = config.rotationIntervalSeconds * 1000;
+      rotationTimer = setInterval(() => {
+        void (async () => {
+          const keys = opKeys.list();
+          for (const key of keys) {
+            const result = await opKeys.rotate(key.identityId);
+            if (Result.isError(result)) {
+              // eslint-disable-next-line no-console
+              console.warn(
+                "[keys] auto-rotation failed for %s: %s",
+                key.identityId,
+                result.error.message,
+              );
+            }
+          }
+        })();
+      }, intervalMs);
+    },
+
+    stopAutoRotation(): void {
+      if (rotationTimer !== null) {
+        clearInterval(rotationTimer);
+        rotationTimer = null;
+      }
+    },
+
     close(): void {
+      manager.stopAutoRotation();
       vault.close();
     },
   };
