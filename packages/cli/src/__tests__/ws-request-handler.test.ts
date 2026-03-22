@@ -82,7 +82,10 @@ describe("createWsRequestHandler", () => {
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      expect(result.value).toEqual({ messageId: "msg_1" });
+      expect(result.value).toEqual({
+        messageId: "msg_1",
+        provenance: null,
+      });
     }
     expect(calls).toEqual([
       "ensureCoreReady",
