@@ -34,7 +34,7 @@ export interface ReplayMessage {
 }
 
 /** Default expiry for pending actions: 5 minutes. */
-const PENDING_ACTION_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_ACTION_EXPIRY_MS = 5 * 60 * 1000;
 
 /** Dependencies required to route harness requests through the WS transport. */
 export interface HarnessRequestHandlerDeps {
@@ -60,6 +60,16 @@ export interface HarnessRequestHandlerDeps {
       direction?: "ascending" | "descending";
     },
   ) => Promise<Result<readonly ReplayMessage[], SignetError>>;
+  /** Action expiry TTL in milliseconds. Defaults to 5 minutes. */
+  readonly actionExpiryMs?: number;
+  /** Optional callback for logging expired actions. */
+  readonly onActionExpired?: (action: {
+    actionId: string;
+    sessionId: string;
+    actionType: string;
+    createdAt: string;
+    expiresAt: string;
+  }) => void;
 }
 
 /**
@@ -116,7 +126,7 @@ export function createWsRequestHandler(
           },
           createdAt: now.toISOString(),
           expiresAt: new Date(
-            now.getTime() + PENDING_ACTION_TTL_MS,
+            now.getTime() + (deps.actionExpiryMs ?? DEFAULT_ACTION_EXPIRY_MS),
           ).toISOString(),
         });
 
@@ -363,6 +373,13 @@ export function createWsRequestHandler(
       new Date(pending.expiresAt).getTime() < Date.now()
     ) {
       deps.pendingActions.deny(request.actionId);
+      deps.onActionExpired?.({
+        actionId: pending.actionId,
+        sessionId: pending.sessionId,
+        actionType: pending.actionType,
+        createdAt: pending.createdAt,
+        expiresAt: pending.expiresAt,
+      });
       return Result.err(
         PermissionError.create("Pending action has expired", {
           actionId: request.actionId,
