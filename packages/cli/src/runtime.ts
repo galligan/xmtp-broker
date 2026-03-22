@@ -233,6 +233,25 @@ export async function createSignetRuntime(
       }
       return runtimeRef.shutdown();
     },
+    rotateKeys: async () => {
+      const keys = keyManager.listOperationalKeys();
+      let rotated = 0;
+      const errors: string[] = [];
+      for (const key of keys) {
+        const result = await keyManager.rotateOperationalKey(key.identityId);
+        if (result.isOk()) {
+          rotated++;
+        } else {
+          errors.push(`${key.identityId}: ${result.error.message}`);
+        }
+      }
+      if (errors.length > 0 && rotated === 0) {
+        return Result.err(
+          InternalError.create(`All rotations failed: ${errors.join("; ")}`),
+        );
+      }
+      return Result.ok({ rotated, failed: errors.length, errors });
+    },
   })) {
     registry.register(spec);
   }

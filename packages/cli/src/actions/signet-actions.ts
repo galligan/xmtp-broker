@@ -8,6 +8,7 @@ import type { DaemonStatus } from "../daemon/status.js";
 export interface SignetActionDeps {
   readonly status: () => Promise<DaemonStatus>;
   readonly shutdown: () => Promise<Result<void, SignetError>>;
+  readonly rotateKeys?: () => Promise<Result<{ rotated: number }, SignetError>>;
 }
 
 function widenActionSpec<TInput, TOutput>(
@@ -60,7 +61,7 @@ export function createSignetActions(
     },
   });
 
-  return [
+  const specs: ActionSpec<unknown, unknown, SignetError>[] = [
     widenActionSpec(
       createStatusSpec("signet.status", "signet:status", "signet.status"),
     ),
@@ -68,4 +69,24 @@ export function createSignetActions(
       createStopSpec("signet.stop", "signet:stop", "signet.stop"),
     ),
   ];
+
+  if (deps.rotateKeys) {
+    const rotate = deps.rotateKeys;
+    const rotateSpec: ActionSpec<
+      Record<string, never>,
+      { rotated: number },
+      SignetError
+    > = {
+      id: "keys.rotate",
+      input: z.object({}),
+      handler: async () => rotate(),
+      cli: {
+        command: "keys:rotate",
+        rpcMethod: "keys.rotate",
+      },
+    };
+    specs.push(widenActionSpec(rotateSpec));
+  }
+
+  return specs;
 }
