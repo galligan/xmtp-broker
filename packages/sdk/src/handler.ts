@@ -33,15 +33,14 @@ import type { HeartbeatMonitor } from "./heartbeat-monitor.js";
 interface AuthenticatedFrameData {
   type: "authenticated";
   connectionId: string;
-  session: {
-    sessionId: string;
-    agentInboxId: string;
-    sessionKeyFingerprint: string;
+  credential: {
+    credentialId: string;
+    operatorId: string;
+    fingerprint: string;
     issuedAt: string;
     expiresAt: string;
   };
-  view: Record<string, unknown>;
-  grant: Record<string, unknown>;
+  effectiveScopes: Record<string, unknown>;
   resumedFromSeq: number | null;
 }
 
@@ -307,11 +306,10 @@ export function createSignetHandler(
             const authData = data as unknown as AuthenticatedFrameData;
             sessionInfo = {
               connectionId: authData.connectionId,
-              sessionId: authData.session.sessionId,
-              agentInboxId: authData.session.agentInboxId,
-              view: authData.view,
-              grant: authData.grant,
-              expiresAt: authData.session.expiresAt,
+              credentialId: authData.credential.credentialId,
+              operatorId: authData.credential.operatorId,
+              scopes: authData.effectiveScopes,
+              expiresAt: authData.credential.expiresAt,
             };
 
             // Start heartbeat monitoring

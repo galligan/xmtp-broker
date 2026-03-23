@@ -19,13 +19,12 @@ export type StateChangeCallback = (
 /** Callback fired for connection/protocol errors. */
 export type ErrorCallback = (error: SignetError) => void;
 
-/** Read-only session info derived from AuthenticatedFrame. */
-export interface SessionInfo {
+/** Read-only credential info derived from the authenticated frame. */
+export interface CredentialInfo {
   readonly connectionId: string;
-  readonly sessionId: string;
-  readonly agentInboxId: string;
-  readonly view: Record<string, unknown>;
-  readonly grant: Record<string, unknown>;
+  readonly credentialId: string;
+  readonly operatorId: string;
+  readonly scopes: Record<string, unknown>;
   readonly expiresAt: string;
 }
 

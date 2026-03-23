@@ -42,11 +42,11 @@ describe("Handler lifecycle", () => {
   test("session is populated after connect", async () => {
     harness = createTestHandler();
     await harness.handler.connect();
-    const session = harness.handler.session;
-    expect(session).not.toBeNull();
-    expect(session?.sessionId).toBe("sess_test");
-    expect(session?.agentInboxId).toBe("agent_inbox_1");
-    expect(session?.expiresAt).toBeTruthy();
+    const credential = harness.handler.credential;
+    expect(credential).not.toBeNull();
+    expect(credential?.credentialId).toBe("cred_test");
+    expect(credential?.operatorId).toBe("operator_1");
+    expect(credential?.expiresAt).toBeTruthy();
   });
 
   test("auth failure transitions to closed", async () => {
@@ -184,15 +184,14 @@ describe("Error category preservation", () => {
               JSON.stringify({
                 type: "authenticated",
                 connectionId: "conn_1",
-                session: {
-                  sessionId: "sess_test",
-                  agentInboxId: "agent_1",
-                  sessionKeyFingerprint: "fp_1",
+                credential: {
+                  credentialId: "cred_test",
+                  operatorId: "operator_1",
+                  fingerprint: "fp_1",
                   issuedAt: "2024-01-01T00:00:00Z",
                   expiresAt: "2025-01-01T00:00:00Z",
                 },
-                view: {},
-                grant: {},
+                effectiveScopes: {},
                 resumedFromSeq: null,
               }),
             );
