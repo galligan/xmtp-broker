@@ -29,10 +29,16 @@ export interface HandlerContext extends CoreContext {
   readonly adminAuth?: AdminAuthContext;
 
   /**
-   * Session identifier. Present when the caller is an authenticated
-   * harness session. Absent for admin callers.
+   * Operator identifier. Present when the caller is an authenticated
+   * harness operator. Absent for admin callers.
    */
-  readonly sessionId?: string;
+  readonly operatorId?: string;
+
+  /**
+   * Credential identifier. Present when the caller is an authenticated
+   * harness credential holder. Absent for admin callers.
+   */
+  readonly credentialId?: string;
 }
 
 /**
