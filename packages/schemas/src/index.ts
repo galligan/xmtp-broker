@@ -40,23 +40,19 @@ export {
   CONTENT_TYPE_SCHEMAS,
 } from "./content-types.js";
 
-// Views
+// Permission Scopes
 export {
-  ViewMode,
-  ContentTypeAllowlist,
-  ThreadScope,
-  ViewConfig,
-} from "./view.js";
-
-// Grants
-export {
-  MessagingGrant,
-  GroupManagementGrant,
-  ToolScope,
-  ToolGrant,
-  EgressGrant,
-  GrantConfig,
-} from "./grant.js";
+  ScopeCategory,
+  type ScopeCategoryType,
+  PermissionScope,
+  type PermissionScopeType,
+  SCOPES_BY_CATEGORY,
+  ScopeSet,
+  type ScopeSetType,
+  resolveScopeSet,
+  isScopeAllowed,
+  isScopeInCategory,
+} from "./permission-scopes.js";
 
 // Seal
 export {
