@@ -119,13 +119,21 @@ export {
   type Seal,
 } from "./seal.js";
 
-// Session
+// Credentials
 export {
-  SessionConfig,
-  SessionToken,
-  IssuedSession,
-  SessionState,
-} from "./session.js";
+  CredentialStatus,
+  type CredentialStatusType,
+  CredentialConfig,
+  type CredentialConfigType,
+  CredentialIssuer,
+  type CredentialIssuerType,
+  CredentialRecord,
+  type CredentialRecordType,
+  CredentialToken,
+  type CredentialTokenType,
+  IssuedCredential,
+  type IssuedCredentialType,
+} from "./credential.js";
 
 // Reveal
 export {
