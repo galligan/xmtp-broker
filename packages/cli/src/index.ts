@@ -1,5 +1,5 @@
 /**
- * CLI package for xmtp-signet. Provides the `xmtp-signet` (alias `xs`) command,
+ * CLI package for xmtp-signet. Provides the `xs` command,
  * daemon lifecycle, admin socket client/server, configuration loading,
  * and direct-mode fallback.
  * @module
@@ -17,10 +17,9 @@ import { createAdminCommands } from "./commands/admin.js";
 import { buildKeysCommand } from "./commands/keys.js";
 
 const program: Command = new Command()
-  .name("xmtp-signet")
-  .alias("xs")
+  .name("xs")
   .version("0.1.0")
-  .description("Agent signet for XMTP");
+  .description("XMTP Signet CLI");
 
 for (const command of createLifecycleCommands()) {
   program.addCommand(command);
@@ -103,3 +102,5 @@ export type {
   DirectModeDeps,
 } from "./direct/client.js";
 export { createDirectClient, DirectModeConfigSchema } from "./direct/client.js";
+
+export { createXsProgram } from "./xs-program.js";
