@@ -46,3 +46,12 @@ export type {
   SealManagerImpl,
   InputResolver,
 } from "./manager.js";
+
+// Auto-republish on credential mutation
+export { republishToChats } from "./auto-republish.js";
+export type {
+  SealRepublisher,
+  AutoRepublishConfig,
+  RepublishFailure,
+  RepublishResult,
+} from "./auto-republish.js";
