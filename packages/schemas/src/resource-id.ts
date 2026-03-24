@@ -95,7 +95,8 @@ export const InboxId: z.ZodType<string> = createResourceIdSchema("inbox_");
 export type InboxIdType = z.infer<typeof InboxId>;
 
 /** Schema for conversation resource IDs (`conv_` prefix). */
-export const ConversationId: z.ZodType<string> = createResourceIdSchema("conv_");
+export const ConversationId: z.ZodType<string> =
+  createResourceIdSchema("conv_");
 
 /** Branded TypeScript type for conversation resource IDs. */
 export type ConversationIdType = z.infer<typeof ConversationId>;
