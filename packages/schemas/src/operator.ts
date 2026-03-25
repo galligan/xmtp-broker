@@ -10,7 +10,7 @@ export const OperatorRole: z.ZodEnum<["operator", "admin", "superadmin"]> =
 /** Inferred union of operator role strings. */
 export type OperatorRoleType = z.infer<typeof OperatorRole>;
 
-/** Whether operator sessions are scoped per-chat or shared. */
+/** Whether operator credentials are scoped per-chat or shared. */
 export const ScopeMode: z.ZodEnum<["per-chat", "shared"]> = z.enum([
   "per-chat",
   "shared",
@@ -49,7 +49,7 @@ export const OperatorConfig: z.ZodObject<{
   label: z.string().min(1),
   /** Role assigned to this operator. */
   role: OperatorRole,
-  /** Whether sessions are per-chat or shared. */
+  /** Whether credentials are per-chat or shared. */
   scopeMode: ScopeMode,
   /** Wallet key source. Defaults to internal when omitted. */
   provider: WalletProvider.optional(),
