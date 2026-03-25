@@ -16,6 +16,7 @@ import {
 import { createVault } from "../vault.js";
 import { initializeRootKey, signWithRootKey } from "../root-key.js";
 import { createKeyManager } from "../key-manager.js";
+import { secureEnclaveTestCapability } from "./se-test-capability.js";
 
 /**
  * Secure Enclave integration tests.
@@ -23,8 +24,11 @@ import { createKeyManager } from "../key-manager.js";
  * These hit the real Secure Enclave — no mocks.
  */
 
-const signerPath = findSignerBinary();
-const isRealSE = process.platform === "darwin" && signerPath !== null;
+const signerPath =
+  secureEnclaveTestCapability.kind === "available"
+    ? secureEnclaveTestCapability.signerPath
+    : null;
+const isRealSE = secureEnclaveTestCapability.kind === "available";
 
 describe.skipIf(!isRealSE)("Secure Enclave integration", () => {
   // Track created keys for cleanup
