@@ -5,7 +5,7 @@ import { handleCallTool } from "../call-handler.js";
 import {
   createSendSpec,
   createTestRegistry,
-  makeSessionRecord,
+  makeCredentialRecord,
   createMockSignerProvider,
 } from "./fixtures.js";
 
@@ -13,7 +13,7 @@ function makeCallContext() {
   return {
     signetId: "signet_1",
     signerProvider: createMockSignerProvider(),
-    sessionRecord: makeSessionRecord(),
+    credentialRecord: makeCredentialRecord(),
     requestTimeoutMs: 30_000,
   };
 }

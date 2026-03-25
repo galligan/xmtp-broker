@@ -9,7 +9,7 @@ import type {
   ActionRegistry,
   ActionSpec,
   SignerProvider,
-  SessionRecord,
+  CredentialRecord,
 } from "@xmtp/signet-contracts";
 import { toActionResult } from "@xmtp/signet-contracts";
 import type { McpContentResponse } from "./output-formatter.js";
@@ -22,7 +22,7 @@ import { createHandlerContext } from "./context-factory.js";
 export interface CallHandlerContext {
   readonly signetId: string;
   readonly signerProvider: SignerProvider;
-  readonly sessionRecord: SessionRecord;
+  readonly credentialRecord: CredentialRecord;
   readonly requestTimeoutMs: number;
 }
 
@@ -62,7 +62,7 @@ export async function handleCallTool(
   const handlerCtx = createHandlerContext({
     signetId: ctx.signetId,
     signerProvider: ctx.signerProvider,
-    sessionId: ctx.sessionRecord.sessionId,
+    credentialId: ctx.credentialRecord.credentialId,
     requestTimeoutMs: ctx.requestTimeoutMs,
   });
 

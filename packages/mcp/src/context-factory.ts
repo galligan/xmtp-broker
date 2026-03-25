@@ -6,13 +6,13 @@ import type { HandlerContext, SignerProvider } from "@xmtp/signet-contracts";
 export interface ContextFactoryParams {
   readonly signetId: string;
   readonly signerProvider: SignerProvider;
-  readonly sessionId: string;
+  readonly credentialId: string;
   readonly requestTimeoutMs: number;
 }
 
 /**
  * Build a HandlerContext for an MCP tool call.
- * Session-scoped: includes sessionId, no adminAuth.
+ * Credential-scoped: includes credentialId, no adminAuth.
  */
 export function createHandlerContext(
   params: ContextFactoryParams,
@@ -22,7 +22,7 @@ export function createHandlerContext(
     signerProvider: params.signerProvider,
     requestId: crypto.randomUUID(),
     signal: AbortSignal.timeout(params.requestTimeoutMs),
-    sessionId: params.sessionId,
-    // No adminAuth -- MCP is session-scoped, not admin
+    credentialId: params.credentialId,
+    // No adminAuth -- MCP is credential-scoped, not admin
   };
 }

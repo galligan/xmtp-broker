@@ -4,121 +4,92 @@ import { NotFoundError } from "@xmtp/signet-schemas";
 import type {
   ActionSpec,
   ActionRegistry,
-  SessionManager,
-  SessionRecord,
+  CredentialRecord,
   McpSurface,
   HandlerContext,
   SignerProvider,
 } from "@xmtp/signet-contracts";
 import { createActionRegistry } from "@xmtp/signet-contracts";
+import type { TokenLookup, CredentialLookup } from "../credential-guard.js";
 
 // ---------------------------------------------------------------------------
-// Session fixtures
+// Credential fixtures
 // ---------------------------------------------------------------------------
 
-export function makeSessionRecord(
-  overrides: Partial<SessionRecord> = {},
-): SessionRecord {
+export function makeCredentialRecord(
+  overrides: Partial<CredentialRecord> = {},
+): CredentialRecord {
   return {
-    sessionId: "sess_test",
-    agentInboxId: "agent_test",
-    sessionKeyFingerprint: "fp_test",
-    view: {
-      mode: "full",
-      threadScopes: [{ groupId: "g1", threadId: null }],
-      contentTypes: ["xmtp.org/text:1.0"],
+    id: "cred_aabbccddeeff0011",
+    config: {
+      operatorId: "op_aabbccddeeff0011",
+      chatIds: ["conv_aabbccddeeff0011"],
+      allow: ["send", "reply"],
+      deny: [],
     },
-    grant: {
-      messaging: { send: true, reply: true, react: true, draftOnly: false },
-      groupManagement: {
-        addMembers: false,
-        removeMembers: false,
-        updateMetadata: false,
-        inviteUsers: false,
-      },
-      tools: { scopes: [] },
-      egress: {
-        storeExcerpts: false,
-        useForMemory: false,
-        forwardToProviders: false,
-        quoteRevealed: false,
-        summarize: false,
-      },
+    inboxIds: ["inbox_aabbccddeeff0011"],
+    credentialId: "cred_aabbccddeeff0011",
+    operatorId: "op_aabbccddeeff0011",
+    effectiveScopes: {
+      allow: ["send", "reply"],
+      deny: [],
     },
-    state: "active",
+    status: "active",
     issuedAt: "2024-01-01T00:00:00Z",
     expiresAt: "2099-01-01T00:00:00Z",
+    issuedBy: "op_bbccddeefeedbabe",
+    isExpired: false,
     lastHeartbeat: "2024-01-01T00:00:00Z",
     ...overrides,
   };
 }
 
 // ---------------------------------------------------------------------------
-// Mock SessionManager
+// Mock credential lookups
 // ---------------------------------------------------------------------------
 
-export interface MockSessionManagerState {
-  sessions: Map<string, SessionRecord>;
-  tokenMap: Map<string, string>; // token -> sessionId
+export interface MockCredentialLookups {
+  readonly tokenLookup: TokenLookup;
+  readonly credentialLookup: CredentialLookup;
+  readonly _state: {
+    credentials: Map<string, CredentialRecord>;
+    tokenMap: Map<string, string>;
+  };
 }
 
-export function createMockSessionManager(
+export function createMockCredentialLookups(
   validToken = "valid_token",
-  record: SessionRecord = makeSessionRecord(),
-): SessionManager & { _state: MockSessionManagerState } {
-  const sessions = new Map<string, SessionRecord>();
-  sessions.set(record.sessionId, record);
+  record: CredentialRecord = makeCredentialRecord(),
+): MockCredentialLookups {
+  const credentials = new Map<string, CredentialRecord>();
+  credentials.set(record.credentialId, record);
   const tokenMap = new Map<string, string>();
-  tokenMap.set(validToken, record.sessionId);
+  tokenMap.set(validToken, record.credentialId);
+
+  const tokenLookup: TokenLookup = async (token: string) => {
+    const credentialId = tokenMap.get(token);
+    if (!credentialId) {
+      return Result.err(NotFoundError.create("credential", token));
+    }
+    const credential = credentials.get(credentialId);
+    if (!credential) {
+      return Result.err(NotFoundError.create("credential", token));
+    }
+    return Result.ok(credential);
+  };
+
+  const credentialLookup: CredentialLookup = async (credentialId: string) => {
+    const credential = credentials.get(credentialId);
+    if (!credential) {
+      return Result.err(NotFoundError.create("credential", credentialId));
+    }
+    return Result.ok(credential);
+  };
 
   return {
-    _state: { sessions, tokenMap },
-    async issue() {
-      return Result.ok({
-        token: validToken,
-        session: {
-          sessionId: record.sessionId,
-          agentInboxId: record.agentInboxId,
-          sessionKeyFingerprint: record.sessionKeyFingerprint,
-          issuedAt: record.issuedAt,
-          expiresAt: record.expiresAt,
-        },
-      });
-    },
-    async list(agentInboxId?: string) {
-      const records = [...sessions.values()].filter(
-        (session) =>
-          agentInboxId === undefined || session.agentInboxId === agentInboxId,
-      );
-      return Result.ok(records);
-    },
-    async lookup(sessionId: string) {
-      const s = sessions.get(sessionId);
-      if (!s) return Result.err(NotFoundError.create("session", sessionId));
-      return Result.ok(s);
-    },
-    async lookupByToken(token: string) {
-      const sessionId = tokenMap.get(token);
-      if (!sessionId) {
-        return Result.err(NotFoundError.create("session", token));
-      }
-      const s = sessions.get(sessionId);
-      if (!s) return Result.err(NotFoundError.create("session", token));
-      return Result.ok(s);
-    },
-    async revoke() {
-      return Result.ok(undefined);
-    },
-    async heartbeat() {
-      return Result.ok(undefined);
-    },
-    async isActive(sessionId: string) {
-      const s = sessions.get(sessionId);
-      return Result.ok(s?.state === "active");
-    },
-    getRevealState() {
-      return Result.err(NotFoundError.create("session", "mock"));
-    },
+    tokenLookup,
+    credentialLookup,
+    _state: { credentials, tokenMap },
   };
 }
 
@@ -139,6 +110,9 @@ export function createMockSignerProvider(): SignerProvider {
     },
     async getDbEncryptionKey() {
       return Result.ok(new Uint8Array(32));
+    },
+    async getXmtpIdentityKey() {
+      return Result.ok(`0x${"11".repeat(32)}` as `0x${string}`);
     },
   };
 }
@@ -246,17 +220,17 @@ export function createDestructiveSpec(): ActionSpec<unknown, unknown> {
 
 export function createAdminOnlySpec(): ActionSpec<unknown, unknown> {
   return {
-    id: "session.revoke",
+    id: "credential.revoke",
     handler: async () => Result.ok(undefined),
-    input: z.object({ sessionId: z.string() }),
+    input: z.object({ credentialId: z.string() }),
     // No mcp metadata -- admin only
     cli: {
-      command: "session:revoke",
+      command: "credential:revoke",
       options: [
         {
-          flag: "--session-id <id>",
-          description: "Session ID",
-          field: "sessionId",
+          flag: "--credential-id <id>",
+          description: "Credential ID",
+          field: "credentialId",
           required: true,
         },
       ],

@@ -1,5 +1,5 @@
 /**
- * MCP transport adapter. Exposes signet ActionSpecs as session-scoped
+ * MCP transport adapter. Exposes signet ActionSpecs as credential-scoped
  * MCP tools via the Model Context Protocol SDK.
  * @module
  */
@@ -33,5 +33,10 @@ export {
 // Context factory
 export { createHandlerContext } from "./context-factory.js";
 
-// Session guard
-export { validateSession, checkSessionLiveness } from "./session-guard.js";
+// Credential guard
+export {
+  validateCredential,
+  checkCredentialLiveness,
+  type TokenLookup,
+  type CredentialLookup,
+} from "./credential-guard.js";
