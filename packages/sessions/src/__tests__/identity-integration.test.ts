@@ -24,10 +24,10 @@ import type {
 } from "@xmtp/signet-contracts";
 import { createOperatorManager } from "../operator-manager.js";
 import { createPolicyManager } from "../policy-manager.js";
-import { createCredentialManager } from "../session-manager.js";
+import { createCredentialManager } from "../credential-manager.js";
 import { createCredentialService } from "../service.js";
 import { createScopeGuard } from "@xmtp/signet-policy";
-import type { InternalCredentialManager } from "../session-manager.js";
+import type { InternalCredentialManager } from "../credential-manager.js";
 
 // ---------------------------------------------------------------------------
 // Shared test state
