@@ -1,38 +1,14 @@
 /**
- * CLI package for xmtp-signet. Provides the `xmtp-signet` (alias `xs`) command,
+ * CLI package for xmtp-signet. Provides the `xs` command,
  * daemon lifecycle, admin socket client/server, configuration loading,
  * and direct-mode fallback.
  * @module
  */
 
 import { Command } from "commander";
-import { createLifecycleCommands } from "./commands/lifecycle.js";
-import { createIdentityCommands } from "./commands/identity.js";
-import { createSessionCommands } from "./commands/session.js";
-import { createGrantCommands } from "./commands/grant.js";
-import { createSealCommands } from "./commands/seal.js";
-import { createMessageCommands } from "./commands/message.js";
-import { createConversationCommands } from "./commands/conversation.js";
-import { createAdminCommands } from "./commands/admin.js";
-import { buildKeysCommand } from "./commands/keys.js";
+import { createXsProgram } from "./xs-program.js";
 
-const program: Command = new Command()
-  .name("xmtp-signet")
-  .alias("xs")
-  .version("0.1.0")
-  .description("Agent signet for XMTP");
-
-for (const command of createLifecycleCommands()) {
-  program.addCommand(command);
-}
-program.addCommand(createIdentityCommands());
-program.addCommand(createSessionCommands());
-program.addCommand(createGrantCommands());
-program.addCommand(createSealCommands());
-program.addCommand(createMessageCommands());
-program.addCommand(createConversationCommands());
-program.addCommand(createAdminCommands());
-program.addCommand(buildKeysCommand());
+const program: Command = createXsProgram();
 
 export { program };
 
@@ -103,3 +79,5 @@ export type {
   DirectModeDeps,
 } from "./direct/client.js";
 export { createDirectClient, DirectModeConfigSchema } from "./direct/client.js";
+
+export { createXsProgram } from "./xs-program.js";
