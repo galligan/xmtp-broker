@@ -120,6 +120,14 @@ export function createWsServer(
     return sendResult;
   }
 
+  async function fingerprintToken(token: string): Promise<string> {
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(token),
+    );
+    return `sha256:${Buffer.from(digest).toString("hex")}`;
+  }
+
   function sendSequenced(
     ws: ServerWebSocket<ConnectionData>,
     event: SignetEvent,
@@ -317,6 +325,7 @@ export function createWsServer(
     }
 
     // Send authenticated frame
+    const tokenFingerprint = await fingerprintToken(authFrame.token);
     sendJson(ws, {
       type: "authenticated",
       connectionId: ws.data.connectionId,
