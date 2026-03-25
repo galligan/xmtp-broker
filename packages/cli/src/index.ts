@@ -54,8 +54,7 @@ export type {
 
 export { createLifecycleCommands } from "./commands/lifecycle.js";
 export { createIdentityCommands } from "./commands/identity.js";
-export { createSessionCommands } from "./commands/session.js";
-export { createGrantCommands } from "./commands/grant.js";
+export { createCredentialCommands } from "./commands/credential.js";
 export { createSealCommands } from "./commands/seal.js";
 export { createMessageCommands } from "./commands/message.js";
 export { createConversationCommands } from "./commands/conversation.js";

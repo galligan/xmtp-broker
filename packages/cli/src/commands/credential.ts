@@ -18,14 +18,14 @@ import {
 } from "./daemon-client.js";
 
 /** Dependencies for credential management CLI commands. */
-export interface SessionCommandDeps {
+export interface CredentialCommandDeps {
   readonly withDaemonClient: WithDaemonClient;
   readonly writeStdout: (message: string) => void;
   readonly writeStderr: (message: string) => void;
   readonly exit: (code: number) => void;
 }
 
-const defaultDeps: SessionCommandDeps = {
+const defaultDeps: CredentialCommandDeps = {
   withDaemonClient: createWithDaemonClient(),
   writeStdout(message) {
     process.stdout.write(message);
@@ -46,11 +46,11 @@ const defaultDeps: SessionCommandDeps = {
  * - revoke: Immediately revoke a credential
  * - issue: Create a new credential with scope configuration
  */
-export function createSessionCommands(
-  deps: Partial<SessionCommandDeps> = {},
+export function createCredentialCommands(
+  deps: Partial<CredentialCommandDeps> = {},
 ): Command {
-  const resolvedDeps: SessionCommandDeps = { ...defaultDeps, ...deps };
-  const cmd = new Command("session").description(
+  const resolvedDeps: CredentialCommandDeps = { ...defaultDeps, ...deps };
+  const cmd = new Command("credential").description(
     "Credential lifecycle management",
   );
 
@@ -297,7 +297,7 @@ function parseTtl(value: unknown): Result<number | undefined, SignetError> {
 }
 
 function writeError(
-  deps: SessionCommandDeps,
+  deps: CredentialCommandDeps,
   error: SignetError,
   json: boolean,
 ): void {
