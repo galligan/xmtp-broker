@@ -178,7 +178,7 @@ export function createOperatorManager(
       if (revokeCredentials) {
         const revokeResult = await revokeCredentials(
           operatorId,
-          "admin-removed",
+          "owner-initiated",
         );
         if (!revokeResult.isOk()) {
           return revokeResult;

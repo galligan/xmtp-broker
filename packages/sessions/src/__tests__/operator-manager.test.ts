@@ -244,7 +244,7 @@ describe("createOperatorManager", () => {
       expect(revokeCalls).toEqual([
         {
           operatorId: createResult.value.id,
-          reason: "admin-removed",
+          reason: "owner-initiated",
         },
       ]);
     });
