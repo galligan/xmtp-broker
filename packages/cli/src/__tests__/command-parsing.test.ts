@@ -2,8 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Command } from "commander";
 import { createLifecycleCommands } from "../commands/lifecycle.js";
 import { createIdentityCommands } from "../commands/identity.js";
-import { createSessionCommands } from "../commands/session.js";
-import { createGrantCommands } from "../commands/grant.js";
+import { createCredentialCommands } from "../commands/credential.js";
 import { createSealCommands } from "../commands/seal.js";
 import { createMessageCommands } from "../commands/message.js";
 import { createConversationCommands } from "../commands/conversation.js";
@@ -84,8 +83,8 @@ describe("identity commands", () => {
   });
 });
 
-describe("session commands", () => {
-  const cmd = createSessionCommands();
+describe("credential commands", () => {
+  const cmd = createCredentialCommands();
 
   test("registers all subcommands", () => {
     const names = getSubcommandNames(cmd);
@@ -267,8 +266,7 @@ describe("all commands on program", () => {
     const allCommands = [
       ...createLifecycleCommands(),
       createIdentityCommands(),
-      createSessionCommands(),
-      createGrantCommands(),
+      createCredentialCommands(),
       createSealCommands(),
       createMessageCommands(),
       createConversationCommands(),

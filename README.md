@@ -1,70 +1,82 @@
 # xmtp-signet
 
-Agent signet for XMTP. The signet is the real XMTP client — agent harnesses never touch raw credentials, databases, or signing keys. Instead, they connect through a controlled interface and receive a filtered **view** of conversations and a scoped **grant** of allowed actions.
+Agent signet for XMTP. The signet is the real XMTP client: it owns the signer,
+encrypted storage, message sync, and transport surfaces. Agent harnesses never
+touch raw credentials, raw databases, or the XMTP SDK directly. They connect
+through a controlled interface with scoped credentials, policy-based permission
+sets, and public seals that disclose what an agent can do.
 
 > [!NOTE]
-> This project is in active development. The signet runs on the XMTP devnet with real network connectivity, Convos interop, and a full CLI. APIs may still change.
+> The current local stack implements the v1 credential and seal model. The
+> runtime and public interfaces are operator/policy/credential/seal based.
 
 ## Why a signet?
 
-Today, an XMTP agent typically runs as a full client: it holds wallet material, stores database encryption keys, and joins groups as a normal member. Any "read-only" or "limited" permissions are advisory — the harness has raw access to everything.
+Without a signet, an XMTP agent is usually a full client: it holds wallet
+material, stores the encrypted database, and can read or send anything the raw
+SDK allows. Any "read-only" or "limited" permissions are advisory because the
+harness already has the keys.
 
-The signet model fixes this by introducing a real security boundary:
+The signet makes those limits real:
 
-- **The signet** owns the XMTP signer, database, and message sync.
-- **The agent harness** connects over a transport (WebSocket, MCP, CLI, HTTP) and only sees what its policy allows.
-- **Seals** published to the group make the agent's permissions inspectable by other participants.
+- The **signet** owns the XMTP client, signer material, and encrypted state.
+- The **harness** only receives the conversations, actions, and tools its
+  active credential allows.
+- **Seals** published into chats make the agent's scope and permissions visible
+  to other participants.
 
-This moves agents from **opaque trust** to **inspectable trust** — you can verify what an agent is allowed to do, not just take its word for it.
+This moves agents from opaque trust to inspectable trust.
 
 ## Core concepts
 
-| Concept     | What it is                                                                         |
-| ----------- | ---------------------------------------------------------------------------------- |
-| **Signet**  | Trusted runtime that owns the XMTP client, signer material, and encrypted database |
-| **View**    | Policy-filtered projection of what an agent can see                                |
-| **Grant**   | Structured description of what an agent can do                                     |
-| **Seal**    | Signed, group-visible declaration of an agent's current permissions                |
-| **Session** | Ephemeral authorization context between harness and signet                         |
+| Concept                      | What it is                                                                       |
+| ---------------------------- | -------------------------------------------------------------------------------- |
+| **Signet**                   | Trusted runtime boundary that owns the real XMTP client and key material         |
+| **Owner / Admin / Operator** | Role hierarchy for who approves, manages, and acts                               |
+| **Policy**                   | Reusable permission bundle with allow/deny scopes                                |
+| **Credential**               | Time-bound, chat-scoped authorization issued to an operator                      |
+| **Seal**                     | Signed, group-visible declaration of an operator's current permissions and scope |
 
-See [docs/concepts.md](docs/concepts.md) for the full conceptual model.
+See [docs/concepts.md](docs/concepts.md) for the full model.
 
 ## Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────┐
 │                         Transport                            │
-│               WebSocket · MCP · CLI · HTTP                   │
+│             WebSocket · MCP · CLI / HTTP admin API          │
 ├──────────────────────────────────────────────────────────────┤
 │                          Runtime                             │
-│    Core · Keys · Sessions · Seals · Policy · Verifier        │
+│    Core · Keys · Sessions · Seals · Policy · Verifier       │
 ├──────────────────────────────────────────────────────────────┤
 │                         Foundation                           │
-│                    Schemas · Contracts                        │
+│                    Schemas · Contracts                       │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-Dependencies flow downward only. Domain logic is transport-agnostic — handlers receive typed input and return `Result<T, E>`, never throw.
+Dependencies flow downward only. Domain logic is transport agnostic: handlers
+receive typed input and return `Result<T, E>`, never throw.
 
-See [docs/architecture.md](docs/architecture.md) for the full architecture guide.
+See [docs/architecture.md](docs/architecture.md) for the runtime and transport
+details.
 
 ## Packages
 
-| Package                    | Layer      | Purpose                                                 |
-| -------------------------- | ---------- | ------------------------------------------------------- |
-| `@xmtp/signet-schemas`     | Foundation | Zod schemas, inferred types, error taxonomy             |
-| `@xmtp/signet-contracts`   | Foundation | Service interfaces, provider contracts, wire formats    |
-| `@xmtp/signet-core`        | Runtime    | XMTP client lifecycle, identity store, Convos protocol  |
-| `@xmtp/signet-keys`        | Runtime    | Three-tier key hierarchy, encrypted vault, JWT auth     |
-| `@xmtp/signet-sessions`    | Runtime    | Session lifecycle, token generation, policy dedup       |
-| `@xmtp/signet-seals`       | Runtime    | Seal lifecycle, chain management, signing               |
-| `@xmtp/signet-policy`      | Runtime    | View projection pipeline, grant validation, materiality |
-| `@xmtp/signet-verifier`    | Runtime    | 6-check verification service for signet trust           |
-| `@xmtp/signet-ws`          | Transport  | WebSocket transport with Bun.serve()                    |
-| `@xmtp/signet-mcp`         | Transport  | MCP transport with session-scoped tools                 |
-| `@xmtp/signet-sdk`         | Transport  | TypeScript client SDK for harness developers            |
-| `@xmtp/signet-cli`         | Transport  | CLI daemon, admin socket, 8 command groups              |
-| `@xmtp/signet-integration` | Test       | Cross-package integration tests and fixtures            |
+| Package                    | Layer      | Purpose                                                                            |
+| -------------------------- | ---------- | ---------------------------------------------------------------------------------- |
+| `@xmtp/signet-schemas`     | Foundation | Zod schemas, inferred types, resource IDs, permission scopes, error taxonomy       |
+| `@xmtp/signet-contracts`   | Foundation | Service interfaces, handler contract, action registry, wire formats                |
+| `@xmtp/signet-core`        | Runtime    | XMTP client lifecycle, identity store, conversation and message streaming          |
+| `@xmtp/signet-keys`        | Runtime    | Local key backend, encrypted vault, admin auth, operational key rotation           |
+| `@xmtp/signet-sessions`    | Runtime    | Credential lifecycle, reveal state, and pending actions                            |
+| `@xmtp/signet-seals`       | Runtime    | Seal issuance, chaining, signing, and revocation                                   |
+| `@xmtp/signet-policy`      | Runtime    | Effective scope resolution, projection, reveal enforcement, materiality checks     |
+| `@xmtp/signet-verifier`    | Runtime    | Multi-check verification pipeline for signet trust                                 |
+| `@xmtp/signet-ws`          | Transport  | Primary harness-facing WebSocket transport                                         |
+| `@xmtp/signet-mcp`         | Transport  | MCP transport for credential-scoped tool access                                    |
+| `@xmtp/signet-sdk`         | Client     | TypeScript harness SDK with typed events and requests                              |
+| `@xmtp/signet-cli`         | Transport  | `xs` CLI, daemon lifecycle, admin socket, HTTP admin API                           |
+| `@xmtp/signet-integration` | Test       | Cross-package integration tests and fixtures                                       |
 
 ## Quick start
 
@@ -78,66 +90,73 @@ bun run bootstrap
 
 # Build and verify
 bun run build
-bun run test
 bun run check
 ```
 
 ### Run the signet
 
 ```bash
-# Initialize an identity on devnet
-xs identity init --env dev --label my-agent
+# Create a local XMTP identity and key hierarchy
+xs identity init --env dev --label owner
 
 # Start the daemon
 xs start
 
-# Check status
+# Inspect live state
 xs status --json
 
-# Create a group and invite someone
-xs conversation create --name "test" --as my-agent
-xs conversation invite <group-id> --as my-agent
+# Create a conversation
+xs conversation create
 
-# Issue a session for an agent harness
-xs session issue --agent <inbox-id> --view @view.json --grant @grant.json
+# Issue a credential for an operator
+xs credential issue --operator op_a7f3 --credential @credential.json
+
+# Inspect that credential
+xs credential inspect cred_b2c1
 ```
 
-See [docs/development.md](docs/development.md) for the full development guide.
+`xs credential ...` is the canonical v1 lifecycle surface. Credential metadata
+includes the scoped conversations and effective allow/deny sets directly.
+
+See [docs/development.md](docs/development.md) for the development workflow and
+package layout.
 
 ## CLI commands
+
+The current CLI exposes these top-level groups:
 
 | Group          | Commands                                                            |
 | -------------- | ------------------------------------------------------------------- |
 | `start`        | Start the signet daemon                                             |
 | `stop`         | Stop the signet daemon                                              |
-| `status`       | Show signet status                                                  |
-| `identity`     | `init`, `list`                                                      |
-| `session`      | `issue`, `list`, `inspect`, `revoke`                                |
+| `status`       | Show signet daemon status                                           |
+| `config`       | `show`, `validate`                                                  |
+| `identity`     | `init`, `list`, `info`, `rotate-keys`, `export-public`              |
+| `credential`   | `issue`, `list`, `inspect`, `revoke`                                |
 | `seal`         | `inspect`, `verify`, `history`                                      |
-| `conversation` | `create`, `list`, `info`, `join`, `invite`, `add-member`, `members` |
-| `admin`        | `token`                                                             |
+| `message`      | `send`, `list`, `stream`                                            |
+| `conversation` | `create`, `list`, `info`, `add-member`, `invite`, `join`, `members` |
+| `admin`        | `token`, `verify-keys`, `export-state`, `audit-log`                 |
+| `keys`         | `rotate`                                                            |
 
 ## What's working
 
-- 13 packages with comprehensive test coverage
-- Three-tier key hierarchy (root, operational, session) with encrypted vault
+- 13-package workspace with cross-package tests and a local PR stack
+- Resource IDs and network mapping with prefixed local IDs
+- Operator, policy, credential, and seal runtime model
+- Permission scopes with allow/deny resolution
 - CLI daemon with admin socket and WebSocket transport
-- Real XMTP network connectivity (devnet and production)
-- Multiple identity registration and management
-- Group creation, listing, membership management
-- Convos invite protocol (generate, parse, verify, join)
-- Session-scoped WebSocket with policy enforcement
-- View projection pipeline with content-type filtering
-- Grant validation across messaging, group management, tools, and egress
-- Seal lifecycle with materiality detection and chain management
-- 6-check verification service for signet trust anchoring
-- MCP transport with session-scoped tools (infrastructure ready)
-- TypeScript client SDK for harness developers
-- End-to-end tracer bullets validated on XMTP devnet
+- Real XMTP connectivity, group creation, invites, and membership management
+- Credential-scoped reveal flows and event projection
+- Seal lifecycle with chaining, verification, and automatic refresh
+- MCP transport with scoped read/reveal surfaces
+- TypeScript harness SDK and end-to-end tracer bullets on XMTP devnet
 
-## Design
+## Design docs
 
-For the complete product requirements document, see [.agents/docs/init/xmtp-signet.md](.agents/docs/init/xmtp-signet.md).
+- Product requirements: [.agents/docs/init/xmtp-signet.md](.agents/docs/init/xmtp-signet.md)
+- v1 architecture plan: [.agents/plans/v1/v1-architecture.md](.agents/plans/v1/v1-architecture.md)
+- OWS/key backend plan: [.agents/plans/v1/ows-integration.md](.agents/plans/v1/ows-integration.md)
 
 ## Contributing
 
@@ -146,9 +165,10 @@ This project uses:
 - **Bun** as the runtime and package manager
 - **TypeScript** in strict mode with maximum safety
 - **Exported API doc coverage** enforced by `bun run docs:check`
-- **TDD** — write the test before the code
-- **Result types** — functions that can fail return `Result<T, E>`, not exceptions
-- **Conventional commits** — `feat(scope):`, `fix(scope):`, `test(scope):`
+- **TDD**: write the test before the code
+- **Result types**: functions that can fail return `Result<T, E>`, not exceptions
+- **Conventional commits**: `feat(scope):`, `fix(scope):`, `test(scope):`
 - **Stacked PRs** via [Graphite](https://graphite.dev)
 
-See [docs/development.md](docs/development.md) for coding conventions and workflow details.
+See [docs/development.md](docs/development.md), [CLAUDE.md](CLAUDE.md), and
+[AGENTS.md](AGENTS.md) for repo-specific workflow guidance.

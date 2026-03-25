@@ -1,6 +1,11 @@
 # Core Concepts
 
-This document describes the conceptual model behind xmtp-signet. For implementation details, see [architecture.md](architecture.md).
+This document describes the current conceptual model behind xmtp-signet. For
+package boundaries and handler details, see [architecture.md](architecture.md).
+
+> [!NOTE]
+> The runtime is v1. Public workflows are described directly in terms of
+> credentials, policies, and seals.
 
 ## Signet
 
@@ -8,256 +13,147 @@ The **signet** is the trusted runtime boundary that owns the real XMTP client.
 
 It is responsible for:
 
-- Holding the XMTP signer and identity material for one or more agent inboxes
-- Maintaining installation continuity across sessions
-- Persisting the encrypted XMTP database and its encryption keys
-- Syncing, receiving, and storing conversation state
-- Enforcing policy for views, grants, and message projection
-- Issuing sessions to agent harnesses
-- Publishing group-visible seals
-- Maintaining per-agent isolation when serving multiple agents
+- holding signer material and encrypted local state
+- maintaining XMTP installation continuity
+- syncing and projecting conversation state
+- authenticating harnesses through credentials
+- enforcing permission scopes before any harness action executes
+- publishing seals that disclose what an operator can do
 
-The signet is infrastructure, not a participant. It does not appear in group membership. From the protocol's perspective, each agent is its own group member with its own XMTP inbox — the signet manages the signer for that inbox and operates its MLS state behind the scenes.
+The signet is infrastructure, not a group participant. From XMTP's point of
+view, each operator inbox is the participant; the signet manages that inbox and
+its MLS state behind the scenes.
 
-## View
+## Roles: owner, admin, operator
 
-A **view** is a policy-filtered projection of what an agent can see across one or more conversations.
+The v1 hierarchy is:
 
-Views control:
-
-- **Visibility mode** — full, redacted, reveal-only, or thread-only in v0
-- **Scope** — which groups and threads the agent can access
-- **Content types** — an explicit allowlist of content types the agent receives
-
-Content types not in the allowlist are held at the signet and never forwarded. The effective allowlist is the intersection of what the signet permits and what the agent's view configuration includes.
-
-**Default-deny for unknown content types.** When a new content type is accepted into the XMTP spec, existing agents do not automatically start seeing it. The signet updates its baseline, but each agent's view must explicitly include the new type.
-
-### View modes
-
-| Mode          | What the agent sees                            |
-| ------------- | ---------------------------------------------- |
-| `full`        | All messages in scope                          |
-| `thread-only` | Messages within specific threads (uses `threadId` derived from Reply content type's `referenceId`) |
-| `redacted`    | Messages with sensitive content removed        |
-| `reveal-only` | Only messages explicitly revealed to the agent |
-
-A view mode is a convenience label. The underlying view object (including content type allowlist) and grant remain explicit and authoritative.
-
-### Threading
-
-XMTP groups are conversation containers. "Threads" are sub-group conversations anchored by a root message — XMTP does not have native threads; threading is a content-level concept built on the Reply content type.
-
-A message's `threadId` is the `referenceId` from the Reply content type, pointing to the root message that anchors the thread. Non-reply messages have `threadId: null`.
-
-Thread scope is expressed in the view configuration as `ThreadScope`:
-
-```
-{ groupId: string; threadId: string | null }
+```text
+Owner -> Admin -> Operator -> Credential -> Seal
 ```
 
-When `threadId` is `null`, the scope covers the entire group. When set, the session only sees messages within that thread.
+### Owner
 
-Thread-scoped sessions restrict the agent's visible messages to their allowed threads. Combined with `thread-only` view mode, this enables agents that participate in specific sub-conversations without visibility into the broader group.
+The human trust anchor. The owner bootstraps the signet, controls the root
+boundary, and approves privileged operations.
 
-## Grant
+### Admin
 
-A **grant** is a structured description of what actions an agent is allowed to perform.
+The management plane. Admins create operators, issue credentials, inspect
+state, and handle orchestration workflows.
 
-Grants are organized into categories:
+### Operator
 
-### Messaging
+A purpose-built agent profile. Operators do the conversational work, but they
+only act through the credentials currently issued to them.
 
-- Send messages
-- Reply in thread
-- React
-- Draft only (requires confirmation before posting)
-- Post only with confirmation
+Operators can run in one of two scope modes:
 
-### Group management
+- **per-chat**: each chat gets isolated inbox state
+- **shared**: one operator context spans multiple chats
 
-- Add members
-- Remove members
-- Update metadata
-- Invite users
-- Change agent policy
+## Policy
 
-### Tool use
+A **policy** is a reusable permission bundle expressed as allow and deny scope
+sets.
 
-- Calendar access
-- Payment actions
-- External HTTP access
-- Search and retrieval
-- Custom application tools
+Policies answer the question: "what kinds of actions should this operator be
+able to perform in principle?" A credential can reference a policy and still
+apply inline overrides for a specific issuance.
 
-### Egress and retention
+Permissions are grouped into categories such as:
 
-- Store message excerpts
-- Use content for memory
-- Forward to model providers
-- Quote revealed content
-- Summarize hidden or revealed content
+- messaging
+- group management
+- metadata
+- access
+- observation
+- egress
 
-Views and grants are independently composable. An agent can have a `reveal-only` view paired with `send + react` capabilities, or a `full` view paired with `draft-only` capabilities.
+The signet resolves the effective permission set with deny-wins semantics.
+
+## Credential
+
+A **credential** is the time-bound, chat-scoped authorization issued to an
+operator.
+
+A credential binds together:
+
+- the target operator
+- the chat or chats it covers
+- a policy reference plus any inline allow/deny overrides
+- issuance and expiry timestamps
+- status such as `pending`, `active`, `expired`, or `revoked`
+
+This replaces the older v0 session concept. The CLI exposes that lifecycle
+directly through `xs credential issue`, `xs credential list`, and related
+commands.
 
 ## Seal
 
-A **seal** is a signed assertion about an agent's current permissions, scope, and operating posture. Seals are published to the group as messages, making the agent's capabilities visible and verifiable by other participants.
+A **seal** is the public trust surface. It is the signed declaration that tells
+chat participants what an operator can do in that chat.
 
-Seals describe:
+Seals communicate:
 
-- Who owns the agent
-- Which inbox the agent uses
-- What the agent can see (view)
-- What the agent can do (grant)
-- How the agent handles egress and inference
-- The hosting mode and trust posture
-- What changed since the previous seal
+- which operator is acting
+- which credential scope is active
+- what permissions are allowed or denied
+- how isolated the operator is
+- whether anything material has changed since the previous seal
 
-### Materiality
+In the v1 design, seals are credential scoped and chain over time so clients
+can see when permissions change.
 
-Not every internal state change produces a group-visible seal. The system distinguishes **material changes** from **routine operations**.
+## Projection and reveals
 
-**Material changes** that produce seals:
+Harnesses never receive raw XMTP traffic. Messages pass through the signet's
+projection pipeline before they are emitted over WebSocket, MCP, or the SDK.
 
-- View mode or scope changes
-- Grant additions or removals
-- Egress or inference policy changes
-- Agent addition or revocation
-- Ownership or hosting mode changes
-- Verifier statement updates
+At a high level the signet checks:
 
-**Routine operations** that remain silent:
+1. Is the conversation in the credential's allowed chat scope?
+2. Is the relevant capability present in the effective permission set?
+3. Does reveal state permit hidden or historical content to be surfaced?
+4. If yes, emit the projected event; otherwise keep it inside the signet.
 
-- Session rotation within the same view and grant
-- Heartbeat and liveness signals
-- Internal signet housekeeping
+**Reveals** are the explicit mechanism for exposing content that would
+otherwise stay hidden. Reveal state is credential scoped, not ambient.
 
-This prevents the conversation timeline from becoming a compliance log while ensuring meaningful permission changes are always visible.
+## Admin auth vs credential auth
 
-## Session
+The signet uses two distinct authentication domains:
 
-A **session** is the ephemeral authorization context between an agent harness and the signet. It is how the harness receives its active view and grant.
+- **Admin auth** for management operations such as starting the daemon,
+  exporting state, or auditing key integrity
+- **Credential auth** for harness traffic and operator actions
 
-Sessions are:
+This keeps administrative control separate from conversational authority.
 
-- **Short-lived** — bounded duration, not permanent
-- **Rotatable** — can be refreshed without disrupting the agent
-- **Scoped** — bound to a specific view and grant
-- **Revocable** — can be terminated immediately
-- **Isolated** — one session per harness connection
+## Resource IDs
 
-When policy changes are material enough to require reauthorization, the session detects this and requires the harness to re-authenticate with the updated policy.
+Most local resources use short prefixed IDs such as:
 
-## Reveals
+- `op_<16hex>`
+- `cred_<16hex>`
+- `conv_<16hex>`
+- `policy_<16hex>`
+- `seal_<16hex>`
 
-A **reveal** is an explicit authorization to expose previously hidden content to an agent. When a view mode hides content (`redacted`, `reveal-only`), reveals provide a controlled mechanism to selectively disclose specific messages or threads.
-
-### Reveal scopes
-
-| Scope          | What it reveals                                        |
-| -------------- | ------------------------------------------------------ |
-| `message`      | A single message by ID                                 |
-| `thread`       | All messages in a thread (by `threadId`)               |
-| `sender`       | All messages from a specific sender                    |
-| `content-type` | All messages of a specific content type                |
-| `time-window`  | All messages within a time range (`startISO\|endISO` in targetId) |
-
-### Scope and thread interaction
-
-Reveals operate **within** the session's thread scopes, not outside them. The projection pipeline drops out-of-scope messages before checking reveal state, so a `sender` reveal in a thread-scoped session only reveals that sender's messages within the allowed threads — it cannot expose messages from other threads.
-
-All reveal scopes respect the session's `threadScopes` boundary. The `thread` scope additionally matches by `threadId`, providing finer control within an already-scoped view.
-
-### Lifecycle
-
-Reveals are session-scoped — stored in a per-session `RevealStateStore`. Granting a reveal records the authorization; the projection pipeline checks reveal state when processing messages in `reveal-only` or `redacted` mode.
-
-**Known gap:** Granting a reveal stores the authorization but does NOT replay already-hidden historical messages. The agent begins seeing newly matching messages from the point of the reveal forward. Historical replay is future work.
-
-## Identity model
-
-Each agent has its own XMTP inbox. The signet holds the signer for that inbox and operates its MLS state, but the group sees the agent as a distinct participant.
-
-This means:
-
-- No "ventriloquist" problem — each agent has its own identity, not a shared signet identity
-- One signet can manage multiple agents, each in different groups
-- Seals are about a specific agent, not the signet as a whole
-- When multiple agents share a group, each has its own view, grant, and seal
-- The signet maintains strict isolation between agents internally
-
-## Action registry
-
-An **action** is a single signet operation (send a message, list conversations, rotate a session) defined once and exposed across all transports. Each action is described by an `ActionSpec` that bundles:
-
-- A name, description, and Zod input schema
-- A transport-agnostic handler function
-- Surface-specific metadata for CLI (command path, flags, output format) and MCP (tool name, annotations)
-
-The **action registry** collects all defined actions. Transport adapters read the registry to generate their native representations — commander subcommands for CLI, MCP tool definitions for MCP, request routes for WebSocket. This eliminates per-transport boilerplate: adding a new operation means defining one `ActionSpec`.
-
-## Admin authentication
-
-The signet distinguishes two authentication domains:
-
-- **Harness sessions** — how agent harnesses connect and prove authorization (session tokens, view/grant binding)
-- **Admin authentication** — how operators and the CLI authenticate for management operations
-
-Admin auth uses dedicated admin key pairs stored in the vault. The CLI signs JWTs with the admin key to authenticate against the signet's admin Unix socket. The `AdminAuthContext` on `HandlerContext` carries the verified admin identity, enabling fine-grained control over which admin operations are permitted.
-
-Admin keys are peers to the root→operational→session key hierarchy, not derived from it. They serve a different purpose: authorizing management operations rather than signing messages.
-
-## Direct mode
-
-When no signet daemon is running, the CLI falls back to **direct mode** — accessing the encrypted vault and key material directly to perform operations like key generation, identity inspection, and configuration management. Direct mode detects whether a daemon is available and routes commands accordingly:
-
-- **Daemon mode** — CLI sends JSON-RPC requests to the admin Unix socket
-- **Direct mode** — CLI accesses the vault directly for key and config operations
-- Operations that require a running signet (message sending, session management) are unavailable in direct mode
-
-## MCP transport
-
-The **MCP transport** exposes signet actions as Model Context Protocol tools, enabling LLM-driven agent harnesses to interact with the signet through the standard MCP tool-calling interface.
-
-Each MCP session is scoped to a harness session — the session's grant determines which tools are visible. When a harness connects via MCP, `actionSpecToMcpTool` converts the permitted `ActionSpec` definitions into MCP tool registrations with JSON Schema input validation.
-
-The MCP transport supports two modes:
-
-- **Stdio** — launched as a subprocess, communicates over stdin/stdout (standard MCP pattern)
-- **Embedded** — runs in-process for tighter integration
-
-## Security boundary
-
-The core security invariant: **the harness never touches raw keys, raw DB, or raw XMTP SDK.**
-
-The signet enforces this by:
-
-1. Managing all cryptographic material in a three-tier key hierarchy (root → operational → session)
-2. Filtering messages through the view projection pipeline before they reach the harness
-3. Validating all harness requests against the active grant
-4. Publishing seals so other participants can inspect the agent's permissions
-
-On macOS, root key private material is hardware-bound in the Secure Enclave and never enters the TypeScript process. This ensures that even a compromised signet process cannot exfiltrate the root key.
-
-This is an application-layer boundary. The signet, as a full MLS group member, can decrypt all group messages. The security model is between the signet and the harness, not between the signet and the MLS group.
+The short hex portion can be resolved when unique, but the canonical form is
+the prefixed full ID.
 
 ## Trust model
 
-The signet does not magically make an agent trustworthy. It makes the system **auditable and constrainable** in a way today's pattern is not.
+The signet does not make an operator magically trustworthy. What it does is
+make the operator's scope auditable and enforceable.
 
-The verification service provides 6 discrete checks that move agents along a trust spectrum:
+That gives other participants stronger answers to questions like:
 
-| Check              | What it verifies                                 |
-| ------------------ | ------------------------------------------------ |
-| Source available   | Agent source code is publicly accessible         |
-| Build provenance   | Binary was built from the claimed source (currently structural validation only — returns `skip`; full cryptographic verification via `sigstore-js` is planned) |
-| Release signing    | Release artifacts are cryptographically signed   |
-| Seal signature     | Seal was signed by a valid key                   |
-| Seal chain         | Seal references its predecessor correctly        |
-| Schema compliance  | Seal conforms to the expected schema             |
+- Which agent is acting here?
+- What is it allowed to do?
+- Is it isolated to this chat?
+- Has its permission set changed since earlier messages?
 
-These checks produce a trust tier
-(`unverified` → `source-verified` → `reproducibly-verified` →
-`runtime-attested`) that other participants can use to make informed decisions
-about interacting with the agent.
+That shift from opaque trust to inspectable trust is the core reason the
+signet exists.

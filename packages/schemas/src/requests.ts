@@ -143,7 +143,7 @@ const _ConfirmActionRequest = z
 export const ConfirmActionRequest: z.ZodType<ConfirmActionRequest> =
   _ConfirmActionRequest;
 
-/** Heartbeat request used to keep a session alive. */
+/** Heartbeat request used to keep a credential alive. */
 export type HeartbeatRequest = {
   type: "heartbeat";
   requestId: string;
@@ -156,9 +156,9 @@ const _HeartbeatRequest = z
     requestId: z.string().describe("Client-generated request ID"),
     credentialId: CredentialId.describe("Credential sending the heartbeat"),
   })
-  .describe("Heartbeat from the harness to keep the session alive");
+  .describe("Heartbeat from the harness to keep the credential alive");
 
-/** Heartbeat request used to keep a session alive. */
+/** Heartbeat request used to keep a credential alive. */
 export const HeartbeatRequest: z.ZodType<HeartbeatRequest> = _HeartbeatRequest;
 
 /** Union of all harness-to-signet requests. */

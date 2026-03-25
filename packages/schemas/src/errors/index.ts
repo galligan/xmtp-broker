@@ -8,7 +8,7 @@ export {
 export { type SignetError, type AnySignetError, matchError } from "./base.js";
 export { ValidationError, SealError } from "./validation.js";
 export { NotFoundError } from "./not-found.js";
-export { PermissionError, GrantDeniedError } from "./permission.js";
+export { PermissionError } from "./permission.js";
 export { AuthError, CredentialExpiredError } from "./auth.js";
 export { InternalError } from "./internal.js";
 export { TimeoutError } from "./timeout.js";

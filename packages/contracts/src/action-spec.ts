@@ -25,12 +25,12 @@ export interface CliOption {
  * and format output.
  */
 export interface CliSurface {
-  /** Command name. Colon-delimited for namespacing (e.g., `session:list`). */
+  /** Command name. Colon-delimited for namespacing (e.g., `credential:list`). */
   readonly command: string;
 
   /**
    * JSON-RPC method name for admin socket dispatch.
-   * Dot-delimited (e.g., `session.list`). Derived from `command` by
+   * Dot-delimited (e.g., `credential.list`). Derived from `command` by
    * replacing `:` with `.` if not explicitly set.
    */
   readonly rpcMethod?: string;
@@ -58,7 +58,7 @@ export interface CliSurface {
 export interface McpSurface {
   /**
    * MCP tool name. Convention: `signet/{group}/{action}`
-   * (e.g., `signet/session/list`).
+   * (e.g., `signet/credential/list`).
    */
   readonly toolName: string;
 
@@ -91,7 +91,7 @@ export interface ActionSpec<
   TOutput,
   TError extends SignetError = SignetError,
 > {
-  /** Unique action identifier. Convention: `{domain}.{verb}` (e.g., `session.list`). */
+  /** Unique action identifier. Convention: `{domain}.{verb}` (e.g., `credential.list`). */
   readonly id: string;
 
   /** The transport-agnostic handler function. */

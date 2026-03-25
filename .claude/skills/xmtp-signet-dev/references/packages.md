@@ -11,17 +11,17 @@ from a Zod schema in this package.
 
 **Exports:**
 - Content types: `TextPayload`, `ReactionPayload`, `ReplyPayload`, `ReadReceiptPayload`, `GroupUpdatedPayload`, `BASELINE_CONTENT_TYPES`, `CONTENT_TYPE_SCHEMAS`
-- Views: `ViewMode`, `ContentTypeAllowlist`, `ThreadScope`, `ViewConfig`
-- Grants: `MessagingGrant`, `GroupManagementGrant`, `ToolScope`, `ToolGrant`, `EgressGrant`, `GrantConfig`
-- Attestations: `InferenceMode`, `ContentEgressScope`, `RetentionAtProvider`, `HostingMode`, `TrustTier`, `RevocationRules`, `AttestationSchema`, `Attestation`
-- Sessions: `SessionConfig`, `SessionToken`, `SessionState`
-- Reveal: `RevealScope`, `RevealRequest`, `RevealGrant`, `RevealState`
-- Revocation: `AgentRevocationReason`, `SessionRevocationReason`, `RevocationAttestation`
-- Events: `MessageEvent`, `AttestationEvent`, `SessionStartedEvent`, `SessionExpiredEvent`, `SignetEvent` (union), and others
-- Requests: `SendMessageRequest`, `SendReactionRequest`, `UpdateViewRequest`, and others
+- Resource IDs: `OperatorId`, `ConversationId`, `PolicyId`, `CredentialId`, `SealId`, `MessageId`, `createResourceId`, `parseResourceId`, `resolveShortId`
+- Permission scopes: `ScopeCategory`, `PermissionScope`, `SCOPES_BY_CATEGORY`, `ScopeSet`, `resolveScopeSet`
+- Identity/runtime: `OperatorRole`, `ScopeMode`, `OperatorStatus`, `OperatorConfig`, `OperatorRecord`, `PolicyConfig`, `PolicyRecord`, `CredentialStatus`, `CredentialConfig`, `CredentialIssuer`, `CredentialRecord`, `CredentialToken`, `IssuedCredential`
+- Seal + revocation: `SealPayload`, `SealDelta`, `SealChain`, `MessageSealBinding`, `SealEnvelope`, `RevocationSeal`
+- Reveal: `RevealScope`, `RevealRequest`, `RevealAccess`, `RevealState`
+- Revocation: `AgentRevocationReason`, `CredentialRevocationReason`, `IdMapping`
+- Events: `MessageEvent`, `CredentialIssuedEvent`, `CredentialExpiredEvent`, `CredentialReauthRequiredEvent`, `RevealEvent`, `SignetEvent`
+- Requests: `SendMessageRequest`, `SendReactionRequest`, `SendReplyRequest`, `UpdateScopesRequest`, `RevealContentRequest`, `ConfirmActionRequest`, `HeartbeatRequest`
 - Responses: `RequestSuccess`, `RequestFailure`, `RequestResponse`
 - Action results: `ActionResultMetaSchema`, `ActionErrorSchema`, `PaginationSchema`, `ActionResultSchema`, `ActionErrorResultSchema` (and inferred types)
-- Errors: `ErrorCategory`, `ErrorCategoryMetaSchema`, `ErrorCategoryMeta`, `ERROR_CATEGORY_META`, `errorCategoryMeta`, `SignetError` (union), `AnySignetError`, `matchError`, `ValidationError`, `AttestationError`, `NotFoundError`, `PermissionError`, `GrantDeniedError`, `AuthError`, `SessionExpiredError`, `InternalError`, `TimeoutError`, `CancelledError`, `NetworkError`
+- Errors: `ErrorCategory`, `ErrorCategoryMetaSchema`, `ErrorCategoryMeta`, `ERROR_CATEGORY_META`, `errorCategoryMeta`, `SignetError` (union), `AnySignetError`, `matchError`, `ValidationError`, `NotFoundError`, `PermissionError`, `AuthError`, `CredentialExpiredError`, `InternalError`, `TimeoutError`, `CancelledError`, `NetworkError`
 
 **Dependencies:** `zod`, `better-result`
 
@@ -33,13 +33,13 @@ Service interfaces, action system, and wire format schemas that define boundarie
 
 **Exports:**
 - Core types: `CoreState`, `CoreContext`, `GroupInfo`, `RawMessage`, `RawEvent`
-- Session types: `SessionRecord`, `MaterialityCheck`
-- Policy types: `PolicyDelta`, `GrantError`
-- Attestation types: `SignedAttestation`, `SignedAttestationEnvelope`, `SignedRevocationEnvelope`, `MessageProvenanceMetadata`
-- Handler types: `HandlerContext` (with `requestId`, `signal`, optional `adminAuth`, `sessionId`), `Handler`, `AdminAuthContext`
+- Credential types: `CredentialRecord`, `MaterialityCheck`
+- Policy types: `PolicyDelta`
+- Seal types: `SignedRevocationEnvelope`, `MessageProvenanceMetadata`
+- Handler types: `HandlerContext` (with `requestId`, `signal`, optional `adminAuth`, `operatorId`, `credentialId`), `Handler`, `AdminAuthContext`
 - Action system: `ActionSpec`, `CliSurface`, `McpSurface`, `CliOption`, `ActionRegistry`, `createActionRegistry`, `ActionResult`, `toActionResult`
-- Service interfaces: `SignetCore`, `SessionManager`, `AttestationManager`
-- Provider interfaces: `SignerProvider`, `AttestationSigner`, `AttestationPublisher`, `RevealStateStore`
+- Service interfaces: `SignetCore`, `CredentialManager`, `OperatorManager`, `PolicyManager`, `ScopeGuard`, `SealManager`
+- Provider interfaces: `SignerProvider`, `SealStamper`, `SealPublisher`, `RevealStateStore`
 
 **Dependencies:** `@xmtp/signet-schemas`
 
@@ -66,32 +66,33 @@ The XMTP client abstraction layer. Defines the `XmtpClient` interface for client
 
 ### @xmtp/signet-keys
 
-Key hierarchy with encrypted vault. Three tiers (root, operational, session) plus admin keys.
+Key hierarchy with encrypted vault. Three tiers (root, operational,
+credential) plus admin keys.
 
 **Exports:**
 - Config: `KeyPolicySchema`, `PlatformCapabilitySchema`, `KeyManagerConfigSchema`
-- Types: `RootKeyHandle`, `OperationalKey`, `SessionKey`
+- Types: `RootKeyHandle`, `OperationalKey`, `CredentialKey`
 - Platform: `detectPlatform`, `platformToTrustTier`
 - Manager: `createKeyManager` (central orchestrator, `KeyManager` has `.admin` property)
 - Vault: `createVault`
-- Signers: `createSignerProvider`, `createAttestationSigner`
-- Sub-managers: `createOperationalKeyManager`, `createSessionKeyManager`
-- Admin keys: `createAdminKeyManager`, `AdminKeyManager`, `AdminKeyRecord`, `AdminAuthContext`, `AdminAuthMethod`, `AdminJwtOptions`
+- Signers: `createSignerProvider`, `createSealStamper`
+- Admin keys: `AdminKeyManager`
 - JWT: `AdminJwtConfigSchema`, `AdminJwtPayloadSchema`, `base64urlEncode`, `base64urlDecode`
-- Root key: `initializeRootKey`, `signWithRootKey`
+- Backends: `createInternalKeyBackend`, `KeyBackend`
 - Crypto: P-256/Ed25519 key gen, signing, verification, import/export, `fingerprint`, `toHex`
 
 **Dependencies:** `@xmtp/signet-contracts`, `@xmtp/signet-schemas`
 
 ### @xmtp/signet-sessions
 
-Session lifecycle and token management.
+Credential lifecycle and scope update management.
 
 **Exports:**
-- Token: `generateToken`, `generateSessionId`
+- Token: `generateToken`, `generateCredentialId`
 - Policy: `computePolicyHash`
 - Materiality: `checkMateriality`, `DetailedMaterialityCheck`
-- Manager: `createSessionManager`, `SessionManagerConfig`
+- Managers/services: `createCredentialManager`, `createOperatorManager`, `createPolicyManager`, `createCredentialService`
+- Actions: `createCredentialActions`, `createRevealActions`, `createUpdateActions`
 
 **Dependencies:** `@xmtp/signet-contracts`, `@xmtp/signet-schemas`
 
@@ -112,18 +113,18 @@ Seal lifecycle — build, sign, encode, publish, delta computation.
 
 ### @xmtp/signet-policy
 
-View projection pipeline and grant enforcement.
+Credential projection pipeline and scope enforcement.
 
 **Exports:**
 - Pipeline: `projectMessage`, `isInScope`, `isContentTypeAllowed`, `resolveVisibility`, `projectContent`
 - Allowlist: `resolveEffectiveAllowlist`, `validateViewMode`
-- Grant validation: `validateSendMessage`, `validateSendReply`, `validateSendReaction`, `validateGroupManagement`, `validateToolUse`, `validateEgress`, `checkGroupInScope`
+- Scope validation: `validateSendMessage`, `validateSendReply`, `validateSendReaction`, `validateGroupManagement`, `validateToolUse`, `validateEgress`, `checkGroupInScope`
 - Reveal state: `createRevealStateStore`
 - Materiality: `isMaterialChange`, `requiresReauthorization`
 
 **Dependencies:** `@xmtp/signet-contracts`, `@xmtp/signet-schemas`
 
-**Extending:** Add new grant validators in `src/grant/`. Add new pipeline stages in `src/pipeline/`.
+**Extending:** Add new scope validators in `src/validate/`. Add new pipeline stages in `src/pipeline/`.
 
 ### @xmtp/signet-verifier
 
@@ -151,7 +152,7 @@ WebSocket transport built on `Bun.serve()`.
 - Frames: `AuthFrame`, `AuthenticatedFrame`, `AuthErrorFrame`, `BackpressureFrame`, `SequencedFrame`, `InboundFrame`
 - Connection: `createConnectionState`, `canTransition`, `transition` (state machine: connecting → authenticating → active → draining → closed)
 - Registry: `ConnectionRegistry`
-- Replay: `CircularBuffer` (for session resumption)
+- Replay: `CircularBuffer` (for event replay and reconnect support)
 - Backpressure: `BackpressureTracker`
 - Auth: `handleAuth`, `TokenLookup`
 - Routing: `routeRequest`, `RequestHandler`
@@ -162,7 +163,7 @@ WebSocket transport built on `Bun.serve()`.
 
 ### @xmtp/signet-mcp
 
-MCP transport. Converts ActionSpecs to MCP tools with session-scoped auth.
+MCP transport. Converts ActionSpecs to MCP tools with credential-scoped auth.
 
 **Exports:**
 - Config: `McpServerConfigSchema`, `McpServerConfig`
@@ -185,7 +186,7 @@ Composition root. CLI entry point, daemon lifecycle, admin socket, config loadin
 - Daemon: `createDaemonLifecycle`, `DaemonState`, `DaemonLifecycle`, `createPidFile`, `PidFile`, `setupSignalHandlers`, `DaemonStatusSchema`, `DaemonStatus`
 - Admin socket: `createAdminServer`, `AdminServer`, `createAdminClient`, `AdminClient`, `createAdminDispatcher`, `AdminDispatcher`
 - Protocol: `JsonRpcRequestSchema`, `JsonRpcSuccessSchema`, `JsonRpcErrorSchema`, `AdminAuthFrameSchema`, `JSON_RPC_ERRORS`
-- Commands: `createSignetCommands`, `createIdentityCommands`, `createSessionCommands`, `createGrantCommands`, `createAttestationCommands`, `createMessageCommands`, `createConversationCommands`, `createAdminCommands`
+- Commands: `createLifecycleCommands`, `createIdentityCommands`, `createCredentialCommands`, `createSealCommands`, `createMessageCommands`, `createConversationCommands`, `createAdminCommands`
 - Output: `exitCodeFromCategory`, `createOutputFormatter`, `formatOutput`, `formatNdjsonLine`
 - Direct mode: `detectMode`, `CliMode`, `createDirectClient`, `DirectModeConfigSchema`
 
@@ -212,6 +213,6 @@ Harness-facing client SDK. WebSocket wrapper with typed events and Result-based 
 
 Test-only package (private, not published). Cross-package integration tests.
 
-**Test suites:** key-hierarchy, session-lifecycle, contract-verification, policy-enforcement, happy-path, attestation-lifecycle, ws-edge-cases
+**Test suites:** key-hierarchy, session-lifecycle (credential coverage), contract-verification, policy-enforcement, happy-path, seal-lifecycle, ws-edge-cases
 
 **Dependencies:** All Phase 1 runtime and transport packages

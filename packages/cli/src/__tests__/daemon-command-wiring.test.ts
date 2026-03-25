@@ -4,7 +4,7 @@ import type { SignetError } from "@xmtp/signet-schemas";
 import type { Command } from "commander";
 import type { AdminClient } from "../admin/client.js";
 import { createLifecycleCommands } from "../commands/lifecycle.js";
-import { createSessionCommands } from "../commands/session.js";
+import { createCredentialCommands } from "../commands/credential.js";
 
 const credentialConfig = {
   operatorId: "op_deadbeeffeedbabe",
@@ -87,10 +87,10 @@ describe("daemon-backed CLI command wiring", () => {
     };
     const harness = createHarness(issued);
 
-    const command = createSessionCommands(harness.deps);
+    const command = createCredentialCommands(harness.deps);
     await command.parseAsync([
       "node",
-      "session",
+      "credential",
       "issue",
       "--config",
       "/tmp/test-config.toml",
@@ -140,10 +140,10 @@ describe("daemon-backed CLI command wiring", () => {
     };
     const harness = createHarness(issued);
 
-    const command = createSessionCommands(harness.deps);
+    const command = createCredentialCommands(harness.deps);
     await command.parseAsync([
       "node",
-      "session",
+      "credential",
       "issue",
       "--operator",
       "op_deadbeeffeedbabe",
