@@ -23,7 +23,6 @@ export type KeyManagerConfig = {
   dataDir: string;
   rootKeyPolicy: KeyPolicy;
   operationalKeyPolicy: KeyPolicy;
-  sessionKeyTtlSeconds: number;
   /** Auto-rotation interval in seconds. 0 disables auto-rotation. */
   rotationIntervalSeconds: number;
 };
@@ -33,7 +32,6 @@ type KeyManagerConfigInput = {
   dataDir: string;
   rootKeyPolicy?: KeyPolicy | undefined;
   operationalKeyPolicy?: KeyPolicy | undefined;
-  sessionKeyTtlSeconds?: number | undefined;
   rotationIntervalSeconds?: number | undefined;
 };
 
@@ -51,12 +49,6 @@ export const KeyManagerConfigSchema: z.ZodType<
     operationalKeyPolicy: KeyPolicySchema.default("open").describe(
       "Access policy for routine operations",
     ),
-    sessionKeyTtlSeconds: z
-      .number()
-      .int()
-      .positive()
-      .default(3600)
-      .describe("Default TTL for session keys"),
     rotationIntervalSeconds: z
       .number()
       .int()

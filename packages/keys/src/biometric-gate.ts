@@ -7,8 +7,8 @@ import type { SignetError } from "@xmtp/signet-schemas";
 export type BiometricGateConfig = {
   rootKeyCreation: boolean;
   operationalKeyRotation: boolean;
-  viewUpgrade: boolean;
-  grantEscalation: boolean;
+  scopeExpansion: boolean;
+  egressExpansion: boolean;
   agentCreation: boolean;
 };
 
@@ -16,8 +16,8 @@ export type BiometricGateConfig = {
 export type BiometricGateConfigInput = {
   rootKeyCreation?: boolean | undefined;
   operationalKeyRotation?: boolean | undefined;
-  viewUpgrade?: boolean | undefined;
-  grantEscalation?: boolean | undefined;
+  scopeExpansion?: boolean | undefined;
+  egressExpansion?: boolean | undefined;
   agentCreation?: boolean | undefined;
 };
 
@@ -36,14 +36,14 @@ export const BiometricGateConfigSchema: z.ZodType<
       .boolean()
       .default(false)
       .describe("Require biometric for operational key rotation"),
-    viewUpgrade: z
+    scopeExpansion: z
       .boolean()
       .default(false)
-      .describe("Require biometric for upgrading view visibility"),
-    grantEscalation: z
+      .describe("Require biometric for expanding credential scope"),
+    egressExpansion: z
       .boolean()
       .default(false)
-      .describe("Require biometric for adding egress grants"),
+      .describe("Require biometric for expanding egress permissions"),
     agentCreation: z
       .boolean()
       .default(false)
@@ -55,8 +55,8 @@ export const BiometricGateConfigSchema: z.ZodType<
 export type GatedOperation =
   | "rootKeyCreation"
   | "operationalKeyRotation"
-  | "viewUpgrade"
-  | "grantEscalation"
+  | "scopeExpansion"
+  | "egressExpansion"
   | "agentCreation";
 
 /** Callback to prompt biometric authentication. Returns Ok if confirmed. */

@@ -12,8 +12,8 @@ describe("BiometricGateConfig", () => {
     const config = BiometricGateConfigSchema.parse({});
     expect(config.rootKeyCreation).toBe(true);
     expect(config.operationalKeyRotation).toBe(false);
-    expect(config.viewUpgrade).toBe(false);
-    expect(config.grantEscalation).toBe(false);
+    expect(config.scopeExpansion).toBe(false);
+    expect(config.egressExpansion).toBe(false);
     expect(config.agentCreation).toBe(false);
   });
 });
@@ -22,16 +22,16 @@ describe("createBiometricGate", () => {
   const allOff: BiometricGateConfig = {
     rootKeyCreation: false,
     operationalKeyRotation: false,
-    viewUpgrade: false,
-    grantEscalation: false,
+    scopeExpansion: false,
+    egressExpansion: false,
     agentCreation: false,
   };
 
   const allOn: BiometricGateConfig = {
     rootKeyCreation: true,
     operationalKeyRotation: true,
-    viewUpgrade: true,
-    grantEscalation: true,
+    scopeExpansion: true,
+    egressExpansion: true,
     agentCreation: true,
   };
 
@@ -70,7 +70,7 @@ describe("createBiometricGate", () => {
       });
     });
 
-    const result = await gate("viewUpgrade");
+    const result = await gate("scopeExpansion");
     expect(result.isErr()).toBe(true);
   });
 
