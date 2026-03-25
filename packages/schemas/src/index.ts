@@ -127,6 +127,22 @@ export {
   SessionState,
 } from "./session.js";
 
+// Credentials
+export {
+  CredentialStatus,
+  type CredentialStatusType,
+  CredentialConfig,
+  type CredentialConfigType,
+  CredentialIssuer,
+  type CredentialIssuerType,
+  CredentialRecord,
+  type CredentialRecordType,
+  CredentialToken,
+  type CredentialTokenType,
+  IssuedCredential,
+  type IssuedCredentialType,
+} from "./credential.js";
+
 // Reveal
 export {
   RevealScope,
