@@ -5,6 +5,7 @@ import type {
   SealEnvelopeType,
   SignetError,
 } from "@xmtp/signet-schemas";
+import type { RevocationSeal } from "@xmtp/signet-schemas";
 import type {
   SealStamper,
   SignedRevocationEnvelope,
