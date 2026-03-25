@@ -39,6 +39,14 @@ async function connectAndAuth(
   return ws;
 }
 
+async function fingerprintToken(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(token),
+  );
+  return `sha256:${Buffer.from(digest).toString("hex")}`;
+}
+
 describe("WsServer lifecycle", () => {
   afterEach(async () => {
     if (server && server.state === "listening") {
@@ -87,6 +95,9 @@ describe("Auth handshake", () => {
 
     const credential = frame["credential"] as Record<string, unknown>;
     expect(credential["credentialId"]).toBe("cred_deadbeeffeedbabe");
+    expect(credential["fingerprint"]).toBe(
+      await fingerprintToken("valid_token"),
+    );
 
     ws.close();
   });
