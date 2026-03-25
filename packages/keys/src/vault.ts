@@ -820,6 +820,25 @@ function createFileVault(dataDir: string, secretKey: CryptoKey): Vault {
       }
     },
 
+    async getWalletAccounts(
+      id: string,
+    ): Promise<Result<readonly AccountEntry[], NotFoundError | InternalError>> {
+      try {
+        const raw = await readJsonFile(join(walletsDir, `${id}.json`));
+        if (!raw || !isWalletFile(raw)) {
+          return Result.err(NotFoundError.create("Wallet", id));
+        }
+        return Result.ok([...raw.accounts]);
+      } catch (e) {
+        return Result.err(
+          InternalError.create("Failed to read wallet accounts", {
+            id,
+            cause: String(e),
+          }),
+        );
+      }
+    },
+
     async updateWalletAccounts(
       id: string,
       accounts: readonly AccountEntry[],
