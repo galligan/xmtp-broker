@@ -7,7 +7,6 @@ import { p256 } from "@noble/curves/nist.js";
 import {
   detectPlatform,
   resetPlatformCache,
-  findSignerBinary,
   seCreate,
   seSign,
   seInfo,
