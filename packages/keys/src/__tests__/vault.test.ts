@@ -1,5 +1,8 @@
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Result } from "better-result";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createVault, type Vault, type AccountEntry } from "../vault.js";
 
 describe("Vault", () => {
@@ -169,6 +172,45 @@ describe("Vault", () => {
       expect(Result.isError(result)).toBe(true);
       if (Result.isOk(result)) throw new Error("expected error");
       expect(result.error._tag).toBe("NotFoundError");
+    });
+
+    test("returns InternalError when wallet JSON is malformed", async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), "vault-wallet-read-"));
+      try {
+        const fileVaultResult = await createVault(tempDir);
+        expect(Result.isOk(fileVaultResult)).toBe(true);
+        if (Result.isError(fileVaultResult)) return;
+
+        await Bun.write(join(tempDir, "wallets", "broken.json"), "{");
+        const result = await fileVaultResult.value.readWallet("broken", "pass");
+
+        expect(Result.isError(result)).toBe(true);
+        if (Result.isOk(result)) return;
+        expect(result.error._tag).toBe("InternalError");
+      } finally {
+        await rm(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("returns InternalError when updating accounts for malformed wallet JSON", async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), "vault-wallet-update-"));
+      try {
+        const fileVaultResult = await createVault(tempDir);
+        expect(Result.isOk(fileVaultResult)).toBe(true);
+        if (Result.isError(fileVaultResult)) return;
+
+        await Bun.write(join(tempDir, "wallets", "broken.json"), "{");
+        const result = await fileVaultResult.value.updateWalletAccounts(
+          "broken",
+          [],
+        );
+
+        expect(Result.isError(result)).toBe(true);
+        if (Result.isOk(result)) return;
+        expect(result.error._tag).toBe("InternalError");
+      } finally {
+        await rm(tempDir, { recursive: true, force: true });
+      }
     });
   });
 
