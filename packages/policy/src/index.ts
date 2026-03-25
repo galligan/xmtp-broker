@@ -13,18 +13,17 @@ export { resolveVisibility } from "./pipeline/visibility-resolver.js";
 export { projectContent } from "./pipeline/content-projector.js";
 
 // Content type allowlist
-export { resolveEffectiveAllowlist, validateViewMode } from "./allowlist.js";
+export { resolveEffectiveAllowlist } from "./allowlist.js";
 
-// Grant validation
+// Permission validation
 export {
   validateSendMessage,
   validateSendReply,
-} from "./grant/validate-send.js";
-export { validateSendReaction } from "./grant/validate-reaction.js";
-export { validateGroupManagement } from "./grant/validate-group-management.js";
-export { validateToolUse } from "./grant/validate-tool.js";
-export { validateEgress } from "./grant/validate-egress.js";
-export { checkGroupInScope } from "./grant/scope-check.js";
+} from "./permissions/validate-send.js";
+export { validateSendReaction } from "./permissions/validate-reaction.js";
+export { validateGroupManagement } from "./permissions/validate-group-management.js";
+export { validateEgress } from "./permissions/validate-egress.js";
+export { checkChatInScope } from "./permissions/scope-check.js";
 
 // Reveal state
 export { createRevealStateStore } from "./reveal-state.js";

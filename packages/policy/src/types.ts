@@ -18,7 +18,7 @@ export interface RawMessage {
   readonly isHistorical?: boolean;
 }
 
-/** Result of projecting a raw message through the view pipeline. */
+/** Result of projecting a raw message through the policy pipeline. */
 export type ProjectionResult =
   | { readonly action: "emit"; readonly event: MessageEvent }
   | { readonly action: "drop" };

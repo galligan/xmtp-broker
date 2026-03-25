@@ -22,8 +22,8 @@ export interface RevealStateSnapshot {
 }
 
 /**
- * In-memory reveal state store scoped to an agent session.
- * Persisted by the session manager; the policy engine owns the logic.
+ * In-memory reveal state store scoped to a credential.
+ * Persisted by the credential manager; the policy engine owns the logic.
  */
 export interface RevealStateStore {
   /** Add a reveal grant with its originating request. */
