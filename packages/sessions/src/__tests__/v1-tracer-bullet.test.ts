@@ -46,212 +46,138 @@ function expectErr(result: Result<unknown, unknown>): void {
 // ---------------------------------------------------------------------------
 
 describe("v1 tracer bullet: the full lifecycle", () => {
-  const operators = createOperatorManager();
-  const policies = createPolicyManager();
-  const credManager = createCredentialManager();
-  const credService = createCredentialService({
-    manager: credManager,
-    policyManager: policies,
-  });
-
-  // Stable conversation IDs for the scenario
-  const CONV_DESIGN = "conv_design000";
-  const CONV_SUPPORT = "conv_support00";
-  const CONV_RESEARCH = "conv_research0";
-
-  // Mutable state threaded across ordered tests
-  let adminId: string;
-  let aliceId: string;
-  let policyId: string;
-  let credentialId: string;
-
-  // Step 1: Owner creates admin operator "lobster-bot"
-  test("owner creates admin operator", async () => {
-    const result = await operators.create({
-      label: "lobster-bot",
-      role: "admin",
-      scopeMode: "shared",
+  test("runs the end-to-end lifecycle in one self-contained flow", async () => {
+    const operators = createOperatorManager();
+    const policies = createPolicyManager();
+    const credManager = createCredentialManager();
+    const credService = createCredentialService({
+      manager: credManager,
+      policyManager: policies,
     });
-    const admin = unwrapOk(result);
+
+    const CONV_DESIGN = "conv_design000";
+    const CONV_SUPPORT = "conv_support00";
+    const CONV_RESEARCH = "conv_research0";
+
+    const admin = unwrapOk(
+      await operators.create({
+        label: "lobster-bot",
+        role: "admin",
+        scopeMode: "shared",
+      }),
+    );
     expect(admin.config.label).toBe("lobster-bot");
     expect(admin.config.role).toBe("admin");
     expect(admin.status).toBe("active");
-    adminId = admin.id;
-  });
 
-  // Step 2: Admin creates operator "alice-bot"
-  test("admin creates operator alice-bot", async () => {
-    const result = await operators.create({
-      label: "alice-bot",
-      role: "operator",
-      scopeMode: "per-chat",
-    });
-    const alice = unwrapOk(result);
+    const alice = unwrapOk(
+      await operators.create({
+        label: "alice-bot",
+        role: "operator",
+        scopeMode: "per-chat",
+      }),
+    );
     expect(alice.config.label).toBe("alice-bot");
     expect(alice.config.role).toBe("operator");
     expect(alice.config.scopeMode).toBe("per-chat");
-    aliceId = alice.id;
-  });
 
-  // Step 3: Admin creates policy "support-agent"
-  test("admin creates policy with allow/deny", async () => {
-    const result = await policies.create({
-      label: "support-agent",
-      allow: [
-        "send",
-        "reply",
-        "react",
-        "read-messages",
-        "read-receipt",
-        "list-members",
-      ],
-      deny: ["invite", "create-group", "forward-to-provider"],
-    });
-    const policy = unwrapOk(result);
+    const policy = unwrapOk(
+      await policies.create({
+        label: "support-agent",
+        allow: [
+          "send",
+          "reply",
+          "react",
+          "read-messages",
+          "read-receipt",
+          "list-members",
+        ],
+        deny: ["invite", "create-group", "forward-to-provider"],
+      }),
+    );
     expect(policy.config.label).toBe("support-agent");
     expect(policy.config.allow).toContain("send");
     expect(policy.config.deny).toContain("invite");
-    policyId = policy.id;
-  });
 
-  // Step 4: Admin issues credential for alice-bot with policy + inline deny
-  test("credential issued with policy + inline deny override", async () => {
-    const result = await credService.issue({
-      operatorId: aliceId,
-      chatIds: [CONV_DESIGN, CONV_SUPPORT],
-      policyId,
-      deny: ["react"], // inline deny: alice can't react
-    });
-    const issued = unwrapOk(result);
+    const issued = unwrapOk(
+      await credService.issue({
+        operatorId: alice.id,
+        chatIds: [CONV_DESIGN, CONV_SUPPORT],
+        policyId: policy.id,
+        deny: ["react"],
+      }),
+    );
     expect(issued.token).toBeTruthy();
     expect(issued.credential.status).toBe("active");
-    credentialId = issued.credential.id;
-  });
 
-  // Step 5: Verify effective scopes (deny-wins semantics)
-  test("effective scopes reflect deny-wins resolution", () => {
-    const record = unwrapOk(credManager.getCredentialById(credentialId));
-    const resolved = record.resolvedScopes;
+    let record = unwrapOk(credManager.getCredentialById(issued.credential.id));
+    expect(record.resolvedScopes.has("send")).toBe(true);
+    expect(record.resolvedScopes.has("reply")).toBe(true);
+    expect(record.resolvedScopes.has("read-messages")).toBe(true);
+    expect(record.resolvedScopes.has("react")).toBe(false);
+    expect(record.resolvedScopes.has("invite")).toBe(false);
+    expect(record.resolvedScopes.has("forward-to-provider")).toBe(false);
 
-    // Allowed by policy, not denied
-    expect(resolved.has("send")).toBe(true);
-    expect(resolved.has("reply")).toBe(true);
-    expect(resolved.has("read-messages")).toBe(true);
-
-    // Denied by inline deny (overrides policy allow)
-    expect(resolved.has("react")).toBe(false);
-
-    // Denied by policy deny
-    expect(resolved.has("invite")).toBe(false);
-    expect(resolved.has("forward-to-provider")).toBe(false);
-  });
-
-  // Step 6: Validate actions against credential
-  test("validateSendMessage allows in-scope chat", () => {
-    const record = unwrapOk(credManager.getCredentialById(credentialId));
-    const result = validateSendMessage(
-      { groupId: CONV_DESIGN },
-      record.resolvedScopes,
-      record.chatIds,
+    expect(
+      validateSendMessage(
+        { groupId: CONV_DESIGN },
+        record.resolvedScopes,
+        record.chatIds,
+      ).isOk(),
+    ).toBe(true);
+    expectErr(
+      validateSendMessage(
+        { groupId: CONV_RESEARCH },
+        record.resolvedScopes,
+        record.chatIds,
+      ),
     );
-    expect(result.isOk()).toBe(true);
-  });
-
-  test("validateSendMessage denies out-of-scope chat", () => {
-    const record = unwrapOk(credManager.getCredentialById(credentialId));
-    const result = validateSendMessage(
-      { groupId: CONV_RESEARCH },
-      record.resolvedScopes,
-      record.chatIds,
+    expectErr(
+      validateSendReaction(
+        { groupId: CONV_SUPPORT },
+        record.resolvedScopes,
+        record.chatIds,
+      ),
     );
-    expectErr(result);
-  });
+    expectErr(validateEgress("forward-to-provider", record.resolvedScopes));
+    expectErr(validateEgress("store-excerpts", record.resolvedScopes));
 
-  test("validateSendReaction denied by inline deny", () => {
-    const record = unwrapOk(credManager.getCredentialById(credentialId));
-    const result = validateSendReaction(
-      { groupId: CONV_SUPPORT },
-      record.resolvedScopes,
-      record.chatIds,
+    expect(
+      (await credService.revoke(issued.credential.id, "admin-revoked")).isOk(),
+    ).toBe(true);
+
+    const reissued = unwrapOk(
+      await credService.issue({
+        operatorId: alice.id,
+        chatIds: [CONV_DESIGN, CONV_SUPPORT, CONV_RESEARCH],
+        policyId: policy.id,
+        deny: ["react"],
+      }),
     );
-    expectErr(result);
-  });
+    record = unwrapOk(credManager.getCredentialById(reissued.credential.id));
+    expect(
+      validateSendMessage(
+        { groupId: CONV_RESEARCH },
+        record.resolvedScopes,
+        record.chatIds,
+      ).isOk(),
+    ).toBe(true);
 
-  test("validateEgress denies forward-to-provider (policy deny)", () => {
-    const record = unwrapOk(credManager.getCredentialById(credentialId));
-    const result = validateEgress("forward-to-provider", record.resolvedScopes);
-    expectErr(result);
-  });
+    expect(
+      (
+        await credService.revoke(reissued.credential.id, "admin-revoked")
+      ).isOk(),
+    ).toBe(true);
+    expect(
+      unwrapOk(credManager.getCredentialById(reissued.credential.id)).status,
+    ).toBe("revoked");
 
-  test("validateEgress denies store-excerpts (not in allow)", () => {
-    const record = unwrapOk(credManager.getCredentialById(credentialId));
-    const result = validateEgress("store-excerpts", record.resolvedScopes);
-    expectErr(result);
-  });
+    const aliceAfterRevoke = unwrapOk(await operators.lookup(alice.id));
+    expect(aliceAfterRevoke.status).toBe("active");
+    expect(aliceAfterRevoke.config.label).toBe("alice-bot");
 
-  // Step 7: Admin updates credential scopes to add conv_research
-  test("credential update adds new chatId via scope update", async () => {
-    // The credential service update operates on scopes, not chatIds directly.
-    // We re-issue a credential for the expanded chat set to simulate step 7.
-    // First revoke the old one, then issue a new one.
-    const revokeResult = await credService.revoke(
-      credentialId,
-      "admin-revoked",
-    );
-    expect(revokeResult.isOk()).toBe(true);
-
-    const result = await credService.issue({
-      operatorId: aliceId,
-      chatIds: [CONV_DESIGN, CONV_SUPPORT, CONV_RESEARCH],
-      policyId,
-      deny: ["react"],
-    });
-    const issued = unwrapOk(result);
-    credentialId = issued.credential.id;
-  });
-
-  // Step 8: Verify conv_research now accessible
-  test("conv_research now accessible after re-issue", () => {
-    const record = unwrapOk(credManager.getCredentialById(credentialId));
-    const result = validateSendMessage(
-      { groupId: CONV_RESEARCH },
-      record.resolvedScopes,
-      record.chatIds,
-    );
-    expect(result.isOk()).toBe(true);
-  });
-
-  // Step 9: Admin revokes credential
-  test("admin revokes credential", async () => {
-    const result = await credService.revoke(credentialId, "admin-revoked");
-    expect(result.isOk()).toBe(true);
-  });
-
-  // Step 10: Verify credential status is "revoked"
-  test("credential status is revoked", () => {
-    const record = unwrapOk(credManager.getCredentialById(credentialId));
-    expect(record.status).toBe("revoked");
-  });
-
-  // Step 11: Verify operator list still shows alice-bot (active)
-  test("alice-bot still active after credential revocation", async () => {
-    const result = await operators.lookup(aliceId);
-    const alice = unwrapOk(result);
-    expect(alice.status).toBe("active");
-    expect(alice.config.label).toBe("alice-bot");
-  });
-
-  // Step 12: Admin removes alice-bot
-  test("admin removes alice-bot", async () => {
-    const result = await operators.remove(aliceId);
-    expect(result.isOk()).toBe(true);
-  });
-
-  // Step 13: Verify alice-bot status is "removed"
-  test("alice-bot status is removed", async () => {
-    const result = await operators.lookup(aliceId);
-    const alice = unwrapOk(result);
-    expect(alice.status).toBe("removed");
+    expect((await operators.remove(alice.id)).isOk()).toBe(true);
+    expect(unwrapOk(await operators.lookup(alice.id)).status).toBe("removed");
   });
 });
 
@@ -260,71 +186,49 @@ describe("v1 tracer bullet: the full lifecycle", () => {
 // ---------------------------------------------------------------------------
 
 describe("v1 tracer bullet: scope guard round-trip", () => {
-  const policies = createPolicyManager();
-  const credManager = createCredentialManager();
-  const credService = createCredentialService({
-    manager: credManager,
-    policyManager: policies,
-  });
+  test("keeps scope guard assertions self-contained", async () => {
+    const policies = createPolicyManager();
+    const credManager = createCredentialManager();
+    const credService = createCredentialService({
+      manager: credManager,
+      policyManager: policies,
+    });
 
-  let credentialId: string;
-
-  test("issue credential with specific scopes", async () => {
     await policies.create({
       label: "guard-test-policy",
       allow: ["send", "reply", "read-messages"],
       deny: ["invite"],
     });
 
-    const result = await credService.issue({
-      operatorId: "op_guardtest01",
-      chatIds: ["conv_guardchat0"],
-      allow: ["send", "reply", "read-messages"],
-      deny: ["invite"],
-    });
-    const issued = unwrapOk(result);
-    credentialId = issued.credential.id;
-  });
+    const issued = unwrapOk(
+      await credService.issue({
+        operatorId: "op_guardtest01",
+        chatIds: ["conv_guardchat0"],
+        allow: ["send", "reply", "read-messages"],
+        deny: ["invite"],
+      }),
+    );
 
-  test("scope guard check allowed scope returns true", async () => {
-    const guard = createScopeGuard(async (cid: string) => {
-      const record = credManager.getCredentialById(cid);
+    const guard = createScopeGuard(async (credentialId: string) => {
+      const record = credManager.getCredentialById(credentialId);
       if (record.isErr()) return record;
       return Result.ok(record.value.effectiveScopes);
     });
 
-    const result = await guard.check("send", credentialId);
-    const allowed = unwrapOk(result);
-    expect(allowed).toBe(true);
-  });
+    expect(unwrapOk(await guard.check("send", issued.credential.id))).toBe(
+      true,
+    );
+    expect(unwrapOk(await guard.check("invite", issued.credential.id))).toBe(
+      false,
+    );
 
-  test("scope guard check denied scope returns false", async () => {
-    const guard = createScopeGuard(async (cid: string) => {
-      const record = credManager.getCredentialById(cid);
-      if (record.isErr()) return record;
-      return Result.ok(record.value.effectiveScopes);
-    });
-
-    const result = await guard.check("invite", credentialId);
-    const allowed = unwrapOk(result);
-    expect(allowed).toBe(false);
-  });
-
-  test("scope guard effectiveScopes returns scope set", async () => {
-    const guard = createScopeGuard(async (cid: string) => {
-      const record = credManager.getCredentialById(cid);
-      if (record.isErr()) return record;
-      return Result.ok(record.value.effectiveScopes);
-    });
-
-    const result = await guard.effectiveScopes(credentialId);
-    const scopes = unwrapOk(result);
+    const scopes = unwrapOk(await guard.effectiveScopes(issued.credential.id));
     expect(scopes.allow).toContain("send");
     expect(scopes.deny).toContain("invite");
-  });
 
-  test("resolveScopeSet produces correct effective set", () => {
-    const record = unwrapOk(credManager.getCredentialById(credentialId));
+    const record = unwrapOk(
+      credManager.getCredentialById(issued.credential.id),
+    );
     const resolved = resolveScopeSet(record.effectiveScopes);
     expect(resolved.has("send")).toBe(true);
     expect(resolved.has("reply")).toBe(true);
@@ -338,94 +242,74 @@ describe("v1 tracer bullet: scope guard round-trip", () => {
 // ---------------------------------------------------------------------------
 
 describe("v1 tracer bullet: multi-operator isolation", () => {
-  const operators = createOperatorManager();
-  const credManager = createCredentialManager();
-  const credService = createCredentialService({ manager: credManager });
+  test("keeps operator isolation assertions self-contained", async () => {
+    const operators = createOperatorManager();
+    const credManager = createCredentialManager();
+    const credService = createCredentialService({ manager: credManager });
 
-  let operatorAId: string;
-  let operatorBId: string;
+    const operatorA = unwrapOk(
+      await operators.create({
+        label: "agent-alpha",
+        role: "operator",
+        scopeMode: "per-chat",
+      }),
+    );
+    const operatorB = unwrapOk(
+      await operators.create({
+        label: "agent-beta",
+        role: "operator",
+        scopeMode: "shared",
+      }),
+    );
 
-  test("create operator A (per-chat) and operator B (shared)", async () => {
-    const resultA = await operators.create({
-      label: "agent-alpha",
-      role: "operator",
-      scopeMode: "per-chat",
-    });
-    const resultB = await operators.create({
-      label: "agent-beta",
-      role: "operator",
-      scopeMode: "shared",
-    });
-    operatorAId = unwrapOk(resultA).id;
-    operatorBId = unwrapOk(resultB).id;
-  });
+    expect(
+      (
+        await credService.issue({
+          operatorId: operatorA.id,
+          chatIds: ["conv_alphaonly0"],
+          allow: ["send", "read-messages"] satisfies PermissionScopeType[],
+          deny: [],
+        })
+      ).isOk(),
+    ).toBe(true);
+    expect(
+      (
+        await credService.issue({
+          operatorId: operatorB.id,
+          chatIds: ["conv_betaonly00"],
+          allow: ["send", "reply", "react"] satisfies PermissionScopeType[],
+          deny: [],
+        })
+      ).isOk(),
+    ).toBe(true);
 
-  test("issue credentials for different chats", async () => {
-    const resultA = await credService.issue({
-      operatorId: operatorAId,
-      chatIds: ["conv_alphaonly0"],
-      allow: ["send", "read-messages"] satisfies PermissionScopeType[],
-      deny: [],
-    });
-    const resultB = await credService.issue({
-      operatorId: operatorBId,
-      chatIds: ["conv_betaonly00"],
-      allow: ["send", "reply", "react"] satisfies PermissionScopeType[],
-      deny: [],
-    });
-    expect(resultA.isOk()).toBe(true);
-    expect(resultB.isOk()).toBe(true);
-  });
-
-  test("each operator's credentials are isolated", () => {
-    const credsA = credManager.listCredentials(operatorAId);
-    const credsB = credManager.listCredentials(operatorBId);
-
+    const credsA = credManager.listCredentials(operatorA.id);
+    const credsB = credManager.listCredentials(operatorB.id);
     expect(credsA.length).toBe(1);
     expect(credsB.length).toBe(1);
 
-    // A's credential only covers alpha chat
     const recordA = credsA[0];
+    const recordB = credsB[0];
     expect(recordA).toBeDefined();
+    expect(recordB).toBeDefined();
+
     expect(recordA!.chatIds).toContain("conv_alphaonly0");
     expect(recordA!.chatIds).not.toContain("conv_betaonly00");
-
-    // B's credential only covers beta chat
-    const recordB = credsB[0];
-    expect(recordB).toBeDefined();
     expect(recordB!.chatIds).toContain("conv_betaonly00");
     expect(recordB!.chatIds).not.toContain("conv_alphaonly0");
-  });
 
-  test("cross-operator chat access is denied", () => {
-    const credsA = credManager.listCredentials(operatorAId);
-    const recordA = credsA[0];
-    expect(recordA).toBeDefined();
+    expectErr(checkChatInScope("conv_betaonly00", recordA!.chatIds));
+    expect(checkChatInScope("conv_alphaonly0", recordA!.chatIds).isOk()).toBe(
+      true,
+    );
 
-    // Operator A tries to access beta's chat
-    const result = checkChatInScope("conv_betaonly00", recordA!.chatIds);
-    expectErr(result);
-  });
-
-  test("operator A can access their own chat", () => {
-    const credsA = credManager.listCredentials(operatorAId);
-    const recordA = credsA[0];
-    expect(recordA).toBeDefined();
-
-    const result = checkChatInScope("conv_alphaonly0", recordA!.chatIds);
-    expect(result.isOk()).toBe(true);
-  });
-
-  test("list by operatorId returns only that operator's credentials", () => {
     const all = credManager.listCredentials();
-    const onlyA = credManager.listCredentials(operatorAId);
-    const onlyB = credManager.listCredentials(operatorBId);
-
+    const onlyA = credManager.listCredentials(operatorA.id);
+    const onlyB = credManager.listCredentials(operatorB.id);
     expect(all.length).toBe(2);
     expect(onlyA.length).toBe(1);
     expect(onlyB.length).toBe(1);
-
-    expect(onlyA[0]!.operatorId).toBe(operatorAId);
-    expect(onlyB[0]!.operatorId).toBe(operatorBId);
+    expect(onlyA[0]!.operatorId).toBe(operatorA.id);
+    expect(onlyB[0]!.operatorId).toBe(operatorB.id);
   });
 });
