@@ -10,7 +10,7 @@ import {
  * Configuration for a reusable permission policy.
  *
  * Policies bundle allow/deny scope lists under a human-readable label
- * so they can be referenced by sessions and grants without repeating
+ * so they can be referenced by credentials and reveal flows without repeating
  * individual scopes.
  */
 export type PolicyConfigType = {
