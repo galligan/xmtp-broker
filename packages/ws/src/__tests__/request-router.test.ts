@@ -63,7 +63,7 @@ describe("routeRequest", () => {
     const request: HarnessRequest = {
       type: "heartbeat",
       requestId: "req_3",
-      sessionId: "sess_123",
+      credentialId: "cred_123",
     };
 
     const handler = async () => Result.ok(null as unknown);
