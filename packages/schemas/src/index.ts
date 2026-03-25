@@ -98,6 +98,15 @@ export {
   type OperatorRecordType,
 } from "./operator.js";
 
+// Policies
+export {
+  PolicyConfig,
+  type PolicyConfigType,
+  PolicyRecord,
+  type PolicyRecordType,
+  resolvePolicy,
+} from "./policy.js";
+
 // Seal
 export {
   InferenceMode,
