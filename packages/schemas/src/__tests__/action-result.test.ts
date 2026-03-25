@@ -180,8 +180,8 @@ describe("ActionErrorResultSchema", () => {
       error: {
         _tag: "NotFoundError",
         category: "not_found",
-        message: "Session not found",
-        context: { sessionId: "s-123" },
+        message: "Credential not found",
+        context: { credentialId: "cred_123" },
       },
       meta: validMeta(),
     });
