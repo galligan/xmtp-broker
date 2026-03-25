@@ -12,6 +12,39 @@ describe("Vault", () => {
     vault = result.value;
   });
 
+  describe("generic secret storage", () => {
+    test("stores and retrieves opaque secrets", async () => {
+      const secret = new Uint8Array([1, 2, 3, 4]);
+
+      const setResult = await vault.set("root-key:ref", secret);
+      expect(Result.isOk(setResult)).toBe(true);
+
+      const getResult = await vault.get("root-key:ref");
+      expect(Result.isOk(getResult)).toBe(true);
+      if (Result.isError(getResult)) throw new Error("get failed");
+      expect([...getResult.value]).toEqual([1, 2, 3, 4]);
+    });
+
+    test("lists stored secret names", async () => {
+      await vault.set("secret:a", new Uint8Array([1]));
+      await vault.set("secret:b", new Uint8Array([2]));
+
+      expect(vault.list()).toEqual(["secret:a", "secret:b"]);
+    });
+
+    test("deletes stored secrets", async () => {
+      await vault.set("secret:temp", new Uint8Array([9]));
+
+      const deleteResult = await vault.delete("secret:temp");
+      expect(Result.isOk(deleteResult)).toBe(true);
+
+      const getResult = await vault.get("secret:temp");
+      expect(Result.isError(getResult)).toBe(true);
+      if (Result.isOk(getResult)) throw new Error("expected error");
+      expect(getResult.error._tag).toBe("NotFoundError");
+    });
+  });
+
   describe("wallet create/read/delete cycle", () => {
     test("creates a wallet and reads it back with correct passphrase", async () => {
       const createResult = await vault.createWallet(

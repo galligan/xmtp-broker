@@ -41,6 +41,18 @@ export interface AccountEntry {
  * API key files use HKDF-SHA256 + AES-256-GCM (token-based).
  */
 export interface Vault {
+  /** Encrypt and store an opaque internal secret. */
+  set(name: string, value: Uint8Array): Promise<Result<void, InternalError>>;
+
+  /** Decrypt and return an opaque internal secret. */
+  get(name: string): Promise<Result<Uint8Array, NotFoundError | InternalError>>;
+
+  /** Remove a stored internal secret. */
+  delete(name: string): Promise<Result<void, NotFoundError>>;
+
+  /** List all stored internal secret names. */
+  list(): readonly string[];
+
   /** Encrypt and store a wallet mnemonic. */
   createWallet(
     id: string,
@@ -164,6 +176,86 @@ interface ApiKeyFile {
 const IV_BYTES = 12;
 const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
+
+function asArrayBuffer(data: Uint8Array): ArrayBuffer {
+  return data.buffer.slice(
+    data.byteOffset,
+    data.byteOffset + data.byteLength,
+  ) as ArrayBuffer;
+}
+
+async function importSecretKey(raw: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    "raw",
+    asArrayBuffer(raw),
+    { name: "AES-GCM" },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+
+async function getOrCreateSecretKey(dataDir: string): Promise<CryptoKey> {
+  const keyPath = join(dataDir, "vault.key");
+  const file = Bun.file(keyPath);
+
+  if (await file.exists()) {
+    const raw = new Uint8Array(await file.arrayBuffer());
+    if (raw.byteLength !== 32) {
+      throw new Error(
+        `Vault key file has invalid length: expected 32 bytes, got ${raw.byteLength}`,
+      );
+    }
+    return importSecretKey(raw);
+  }
+
+  const raw = crypto.getRandomValues(new Uint8Array(32));
+  await Bun.write(keyPath, raw);
+  chmodSync(keyPath, 0o600);
+  return importSecretKey(raw);
+}
+
+async function encryptSecret(
+  key: CryptoKey,
+  plaintext: Uint8Array,
+): Promise<Uint8Array> {
+  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    asArrayBuffer(plaintext),
+  );
+  const result = new Uint8Array(IV_BYTES + ciphertext.byteLength);
+  result.set(iv, 0);
+  result.set(new Uint8Array(ciphertext), IV_BYTES);
+  return result;
+}
+
+async function decryptSecret(
+  key: CryptoKey,
+  data: Uint8Array,
+): Promise<Uint8Array> {
+  const iv = data.slice(0, IV_BYTES);
+  const ciphertext = data.slice(IV_BYTES);
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    ciphertext,
+  );
+  return new Uint8Array(plaintext);
+}
+
+function encodeSecretName(name: string): string {
+  return encodeURIComponent(name);
+}
+
+function decodeSecretName(filename: string): string | null {
+  if (!filename.endsWith(".bin")) return null;
+  try {
+    return decodeURIComponent(filename.slice(0, -4));
+  } catch {
+    return null;
+  }
+}
 
 /** Type guard for API key payload shape. */
 function isApiKeyPayload(
@@ -361,12 +453,43 @@ function decryptWithHkdf(
 // ---------------------------------------------------------------------------
 
 function createMemoryVault(): Vault {
+  const secrets = new Map<string, Uint8Array>();
   const wallets = new Map<string, WalletFile>();
   const apiKeys = new Map<string, ApiKeyFile>();
   // token -> key id index for readApiKey lookups
   const tokenIndex = new Map<string, string>();
 
   return {
+    async set(
+      name: string,
+      value: Uint8Array,
+    ): Promise<Result<void, InternalError>> {
+      secrets.set(name, value.slice());
+      return Result.ok();
+    },
+
+    async get(
+      name: string,
+    ): Promise<Result<Uint8Array, NotFoundError | InternalError>> {
+      const value = secrets.get(name);
+      if (value === undefined) {
+        return Result.err(NotFoundError.create("VaultSecret", name));
+      }
+      return Result.ok(value.slice());
+    },
+
+    async delete(name: string): Promise<Result<void, NotFoundError>> {
+      if (!secrets.has(name)) {
+        return Result.err(NotFoundError.create("VaultSecret", name));
+      }
+      secrets.delete(name);
+      return Result.ok();
+    },
+
+    list(): readonly string[] {
+      return [...secrets.keys()].sort();
+    },
+
     async createWallet(
       id: string,
       label: string,
@@ -500,6 +623,7 @@ function createMemoryVault(): Vault {
     },
 
     close(): void {
+      secrets.clear();
       wallets.clear();
       apiKeys.clear();
       tokenIndex.clear();
@@ -511,11 +635,16 @@ function createMemoryVault(): Vault {
 // File-based vault
 // ---------------------------------------------------------------------------
 
-function createFileVault(dataDir: string): Vault {
+function createFileVault(dataDir: string, secretKey: CryptoKey): Vault {
+  const secretsDir = join(dataDir, "secrets");
   const walletsDir = join(dataDir, "wallets");
   const keysDir = join(dataDir, "keys");
 
   // Ensure directory structure
+  if (!existsSync(secretsDir)) {
+    mkdirSync(secretsDir, { recursive: true });
+    chmodSync(secretsDir, 0o700);
+  }
   if (!existsSync(walletsDir)) {
     mkdirSync(walletsDir, { recursive: true });
     chmodSync(walletsDir, 0o700);
@@ -542,7 +671,69 @@ function createFileVault(dataDir: string): Vault {
     return JSON.parse(text) as unknown;
   }
 
+  function secretPath(name: string): string {
+    return join(secretsDir, `${encodeSecretName(name)}.bin`);
+  }
+
   return {
+    async set(
+      name: string,
+      value: Uint8Array,
+    ): Promise<Result<void, InternalError>> {
+      try {
+        const encrypted = await encryptSecret(secretKey, value);
+        await Bun.write(secretPath(name), encrypted);
+        chmodSync(secretPath(name), 0o600);
+        return Result.ok();
+      } catch (e) {
+        return Result.err(
+          InternalError.create("Failed to store vault secret", {
+            name,
+            cause: String(e),
+          }),
+        );
+      }
+    },
+
+    async get(
+      name: string,
+    ): Promise<Result<Uint8Array, NotFoundError | InternalError>> {
+      const filePath = secretPath(name);
+      if (!existsSync(filePath)) {
+        return Result.err(NotFoundError.create("VaultSecret", name));
+      }
+      try {
+        const encrypted = new Uint8Array(
+          await Bun.file(filePath).arrayBuffer(),
+        );
+        const plaintext = await decryptSecret(secretKey, encrypted);
+        return Result.ok(plaintext);
+      } catch (e) {
+        return Result.err(
+          InternalError.create("Failed to read vault secret", {
+            name,
+            cause: String(e),
+          }),
+        );
+      }
+    },
+
+    async delete(name: string): Promise<Result<void, NotFoundError>> {
+      const filePath = secretPath(name);
+      if (!existsSync(filePath)) {
+        return Result.err(NotFoundError.create("VaultSecret", name));
+      }
+      unlinkSync(filePath);
+      return Result.ok();
+    },
+
+    list(): readonly string[] {
+      return readdirSync(secretsDir)
+        .map(decodeSecretName)
+        .filter((name): name is string => name !== null)
+        .sort();
+    },
+
     async createWallet(
       id: string,
       label: string,
@@ -750,7 +941,8 @@ export async function createVault(
       chmodSync(dataDir, 0o700);
     }
 
-    return Result.ok(createFileVault(dataDir));
+    const secretKey = await getOrCreateSecretKey(dataDir);
+    return Result.ok(createFileVault(dataDir, secretKey));
   } catch (e) {
     return Result.err(
       InternalError.create("Failed to create vault", {
