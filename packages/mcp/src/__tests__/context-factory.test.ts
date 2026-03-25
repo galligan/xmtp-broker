@@ -1,16 +1,16 @@
 import { describe, test, expect } from "bun:test";
 import { createHandlerContext } from "../context-factory.js";
-import { makeSessionRecord, createMockSignerProvider } from "./fixtures.js";
+import { makeCredentialRecord, createMockSignerProvider } from "./fixtures.js";
 
 describe("createHandlerContext", () => {
-  const sessionRecord = makeSessionRecord();
+  const credentialRecord = makeCredentialRecord();
   const signerProvider = createMockSignerProvider();
 
   test("context has requestId in UUID format", () => {
     const ctx = createHandlerContext({
       signetId: "signet_1",
       signerProvider,
-      sessionId: sessionRecord.sessionId,
+      credentialId: credentialRecord.credentialId,
       requestTimeoutMs: 30_000,
     });
 
@@ -25,7 +25,7 @@ describe("createHandlerContext", () => {
     const ctx = createHandlerContext({
       signetId: "signet_1",
       signerProvider,
-      sessionId: sessionRecord.sessionId,
+      credentialId: credentialRecord.credentialId,
       requestTimeoutMs: 30_000,
     });
 
@@ -33,22 +33,22 @@ describe("createHandlerContext", () => {
     expect(ctx.signal.aborted).toBe(false);
   });
 
-  test("context has sessionId from session record", () => {
+  test("context has credentialId from credential record", () => {
     const ctx = createHandlerContext({
       signetId: "signet_1",
       signerProvider,
-      sessionId: "sess_custom",
+      credentialId: "cred_bbccddeefeedbabe",
       requestTimeoutMs: 30_000,
     });
 
-    expect(ctx.sessionId).toBe("sess_custom");
+    expect(ctx.credentialId).toBe("cred_bbccddeefeedbabe");
   });
 
   test("context does NOT have adminAuth", () => {
     const ctx = createHandlerContext({
       signetId: "signet_1",
       signerProvider,
-      sessionId: sessionRecord.sessionId,
+      credentialId: credentialRecord.credentialId,
       requestTimeoutMs: 30_000,
     });
 

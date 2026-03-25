@@ -47,48 +47,15 @@ const server = createMcpServer(
         throw new Error("SignerProvider not configured");
       },
     },
-    sessionManager: {
-      // Placeholder -- real session manager injected by daemon
-      async issue() {
-        return Result.err(
-          InternalError.create("SessionManager not configured"),
-        );
-      },
-      async list() {
-        return Result.err(
-          InternalError.create("SessionManager not configured"),
-        );
-      },
-      async lookup() {
-        return Result.err(
-          InternalError.create("SessionManager not configured"),
-        );
-      },
-      async lookupByToken() {
-        return Result.err(
-          InternalError.create("SessionManager not configured"),
-        );
-      },
-      async revoke() {
-        return Result.err(
-          InternalError.create("SessionManager not configured"),
-        );
-      },
-      async heartbeat() {
-        return Result.err(
-          InternalError.create("SessionManager not configured"),
-        );
-      },
-      async isActive() {
-        return Result.err(
-          InternalError.create("SessionManager not configured"),
-        );
-      },
-      getRevealState() {
-        return Result.err(
-          InternalError.create("SessionManager not configured"),
-        );
-      },
+    tokenLookup: async () => {
+      return Result.err(
+        InternalError.create("Credential manager not configured"),
+      );
+    },
+    credentialLookup: async () => {
+      return Result.err(
+        InternalError.create("Credential manager not configured"),
+      );
     },
   },
 );

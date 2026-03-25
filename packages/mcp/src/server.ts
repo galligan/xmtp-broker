@@ -9,8 +9,7 @@ import type { ActionResultMeta } from "@xmtp/signet-schemas";
 import { InternalError, AuthError } from "@xmtp/signet-schemas";
 import type {
   ActionRegistry,
-  SessionManager,
-  SessionRecord,
+  CredentialRecord,
   SignerProvider,
 } from "@xmtp/signet-contracts";
 import type { McpServerConfig } from "./config.js";
@@ -20,7 +19,12 @@ import {
   type McpToolRegistration,
 } from "./tool-registration.js";
 import { handleCallTool } from "./call-handler.js";
-import { validateSession, checkSessionLiveness } from "./session-guard.js";
+import {
+  validateCredential,
+  checkCredentialLiveness,
+  type TokenLookup,
+  type CredentialLookup,
+} from "./credential-guard.js";
 import { formatActionResult } from "./output-formatter.js";
 import { toActionResult } from "@xmtp/signet-contracts";
 
@@ -36,12 +40,13 @@ export interface McpServerDeps {
   readonly registry: ActionRegistry;
   readonly signetId: string;
   readonly signerProvider: SignerProvider;
-  readonly sessionManager: SessionManager;
+  readonly tokenLookup: TokenLookup;
+  readonly credentialLookup: CredentialLookup;
 }
 
-/** Session-scoped MCP server instance exposing signet actions as MCP tools. */
+/** Credential-scoped MCP server instance exposing signet actions as MCP tools. */
 export interface McpServerInstance {
-  /** Start the server: validate session, discover tools, connect transport. */
+  /** Start the server: validate credential, discover tools, connect transport. */
   start(): Promise<Result<void, InternalError | AuthError>>;
 
   /** Stop the server and close the underlying MCP SDK server. */
@@ -71,8 +76,8 @@ function buildMeta(requestId: string, startTime: number): ActionResultMeta {
 // ---------------------------------------------------------------------------
 
 /**
- * Create a session-scoped MCP server that exposes signet ActionSpecs
- * as MCP tools. Validates the session token at startup and checks
+ * Create a credential-scoped MCP server that exposes signet ActionSpecs
+ * as MCP tools. Validates the credential token at startup and checks
  * liveness on each tool call.
  */
 export function createMcpServer(
@@ -82,7 +87,7 @@ export function createMcpServer(
   const config = McpServerConfigSchema.parse(rawConfig);
 
   let state: McpServerState = "idle";
-  let cachedSession: SessionRecord | undefined;
+  let cachedCredential: CredentialRecord | undefined;
   let sdkServer: Server | undefined;
   const tools: McpToolRegistration[] = [];
 
@@ -96,15 +101,17 @@ export function createMcpServer(
     },
 
     async start() {
-      // Validate session token
-      const sessionResult = await validateSession(
+      // Validate credential token
+      const credentialResult = await validateCredential(
         config.sessionToken,
-        deps.sessionManager,
+        deps.tokenLookup,
       );
-      if (!sessionResult.isOk()) {
-        return Result.err(AuthError.create("Invalid session token at startup"));
+      if (!credentialResult.isOk()) {
+        return Result.err(
+          AuthError.create("Invalid credential token at startup"),
+        );
       }
-      cachedSession = sessionResult.value;
+      cachedCredential = credentialResult.value;
 
       // Discover MCP tools from registry
       const mcpSpecs = deps.registry.listForSurface("mcp");
@@ -137,8 +144,8 @@ export function createMcpServer(
       sdkServer.setRequestHandler(CallToolRequestSchema, async (request) => {
         const startTime = Date.now();
 
-        if (!cachedSession) {
-          const error = AuthError.create("No active session");
+        if (!cachedCredential) {
+          const error = AuthError.create("No active credential");
           const actionResult = toActionResult(
             Result.err(error),
             buildMeta("unknown", startTime),
@@ -153,10 +160,10 @@ export function createMcpServer(
           };
         }
 
-        // Session liveness check
-        const livenessResult = await checkSessionLiveness(
-          cachedSession,
-          deps.sessionManager,
+        // Credential liveness check
+        const livenessResult = await checkCredentialLiveness(
+          cachedCredential,
+          deps.credentialLookup,
         );
         if (!livenessResult.isOk()) {
           state = "stopping";
@@ -187,7 +194,7 @@ export function createMcpServer(
           {
             signetId: deps.signetId,
             signerProvider: deps.signerProvider,
-            sessionRecord: cachedSession,
+            credentialRecord: cachedCredential,
             requestTimeoutMs: config.requestTimeoutMs,
           },
         );
