@@ -13,7 +13,8 @@ import { secureEnclaveTestCapability } from "./se-test-capability.js";
 
 /**
  * Secure Enclave integration tests.
- * Gated on macOS + signer binary availability.
+ * Opt-in via SIGNET_RUN_LIVE_SE_TESTS=1, then gated on macOS + signer
+ * binary availability.
  * These hit the real Secure Enclave -- no mocks.
  */
 

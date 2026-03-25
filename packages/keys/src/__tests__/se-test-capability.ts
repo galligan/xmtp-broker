@@ -1,15 +1,25 @@
 import { findSignerBinary } from "../se-bridge.js";
 
 type SecureEnclaveTestCapability =
+  | { kind: "disabled"; reason: string }
   | { kind: "unsupported" }
   | { kind: "available"; signerPath: string }
   | { kind: "blocked"; signerPath: string; reason: string };
+
+const LIVE_SE_TESTS_ENABLED = process.env["SIGNET_RUN_LIVE_SE_TESTS"] === "1";
 
 function decode(bytes: Uint8Array<ArrayBufferLike>): string {
   return new TextDecoder().decode(bytes).trim();
 }
 
 function probeSecureEnclaveForTests(): SecureEnclaveTestCapability {
+  if (!LIVE_SE_TESTS_ENABLED) {
+    return {
+      kind: "disabled",
+      reason: "Set SIGNET_RUN_LIVE_SE_TESTS=1 to run live Secure Enclave tests",
+    };
+  }
+
   if (process.platform !== "darwin") {
     return { kind: "unsupported" };
   }
@@ -111,8 +121,9 @@ function probeSecureEnclaveForTests(): SecureEnclaveTestCapability {
 export const secureEnclaveTestCapability = probeSecureEnclaveForTests();
 
 /**
- * True when this environment advertises Secure Enclave support but blocks real
- * key creation, which would make integration tests fail for operational reasons.
+ * True when live Secure Enclave key creation should be skipped for operational
+ * reasons or because the test run did not opt into hardware-backed coverage.
  */
 export const shouldSkipBlockedSECreate =
-  secureEnclaveTestCapability.kind === "blocked";
+  secureEnclaveTestCapability.kind === "blocked" ||
+  secureEnclaveTestCapability.kind === "disabled";
