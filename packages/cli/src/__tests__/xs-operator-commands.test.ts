@@ -199,15 +199,10 @@ describe("credential commands", () => {
   });
 
   test("issue rejects invalid ttl values", async () => {
-    const { parsePositiveIntegerOption } = await import(
-      "../commands/xs-credential.js"
-    );
-    expect(() => parsePositiveIntegerOption("10s")).toThrow(
-      /positive integer/,
-    );
-    expect(() => parsePositiveIntegerOption("abc")).toThrow(
-      /positive integer/,
-    );
+    const { parsePositiveIntegerOption } =
+      await import("../commands/xs-credential.js");
+    expect(() => parsePositiveIntegerOption("10s")).toThrow(/positive integer/);
+    expect(() => parsePositiveIntegerOption("abc")).toThrow(/positive integer/);
   });
 
   test("has exactly 5 subcommands", async () => {

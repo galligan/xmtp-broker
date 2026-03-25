@@ -104,7 +104,7 @@ From `Client.ts` source (`.reference/xmtp-js/sdks/node-sdk/src/Client.ts`):
 const client = await Client.build(identifier, { dbEncryptionKey, dbPath, env });
 ```
 
-`Client.build` skips `register()` entirely. The identifier must already be registered. **Correct pattern for broker on restart** — avoids consuming a new installation slot.
+`Client.build` skips `register()` entirely. The identifier must already be registered. **Correct pattern for signet on restart** — avoids consuming a new installation slot.
 
 ## dbPath auto-derivation
 
@@ -112,14 +112,14 @@ From `createClient.ts`: if `dbPath` is undefined:
 ```
 process.cwd()/xmtp-${env}-${inboxId}.db3
 ```
-Brokers should use an explicit fixed path or the `(inboxId) => string` callback form.
+Signets should use an explicit fixed path or the `(inboxId) => string` callback form.
 
 ## Installation limits and re-registration hazard
 
 - An inbox can have at most **10 active installations**.
 - Every `Client.create()` call against an identifier with no existing local DB creates a NEW installation and consumes one slot.
 - If the local DB is lost OR the `dbEncryptionKey` changes, `Client.create()` silently creates a new installation and loses access to all prior message history.
-- **Broker implication**: persist the private key, `dbEncryptionKey`, and `dbPath` together as a unit. Losing any one forces a new installation.
+- **Signet implication**: persist the private key, `dbEncryptionKey`, and `dbPath` together as a unit. Losing any one forces a new installation.
 
 ## Key line ranges in blz docs
 

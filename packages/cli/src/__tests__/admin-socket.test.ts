@@ -290,7 +290,8 @@ describe("AdminSocket round-trip", () => {
     const registry = createActionRegistry();
     const spec = makeTestSpec(
       "credential.lookup",
-      async () => Result.err(CredentialExpiredError.create("cred_deadbeeffeedbabe")),
+      async () =>
+        Result.err(CredentialExpiredError.create("cred_deadbeeffeedbabe")),
       "credential.lookup",
     );
     registry.register(spec);

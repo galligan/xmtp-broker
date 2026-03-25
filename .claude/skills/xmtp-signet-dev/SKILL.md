@@ -30,12 +30,12 @@ package.
 
 ```text
 Client       sdk
-             ↓
-Transport    ws · mcp · cli / http
-             ↓
-Runtime      core · keys · sessions · seals · policy · verifier
-             ↓
-Foundation   schemas · contracts
+             |
+Transport    ws . mcp . cli / http
+             |
+Runtime      core . keys . sessions . seals . policy . verifier
+             |
+Foundation   schemas . contracts
 
 Test         integration
 ```
@@ -43,30 +43,34 @@ Test         integration
 ### By intent
 
 **"I'm adding a new data shape or boundary type"**
-→ `schemas`, then `contracts` if it crosses package boundaries
+-> `schemas`, then `contracts` if it crosses package boundaries
 
 **"I'm adding a new operator capability or auth flow"**
-→ `schemas` for inputs, `policy` for scope logic, then the relevant runtime
+-> `schemas` for inputs, `policy` for scope logic, then the relevant runtime
 package for behavior
 
 **"I'm changing credential lifecycle behavior"**
-→ `sessions`
+-> `sessions`
 
 **"I'm changing how messages are filtered or revealed"**
-→ `policy` for projection and scope checks, `sessions` for reveal state, and
+-> `policy` for projection and scope checks, `sessions` for reveal state, and
 `ws` or `sdk` only if the wire shape changes
 
 **"I'm working on key material or signing"**
-→ `keys`
+-> `keys`
 
 **"I'm working on seals or trust disclosure"**
-→ `seals` or `verifier`
+-> `seals` or `verifier`
 
 **"I'm exposing or adapting an action on a transport"**
-→ define or update the action spec, then wire CLI or MCP metadata where needed
+-> define or update the action spec, then wire CLI or MCP metadata where needed
 
 **"I'm working on the actual XMTP integration"**
-→ `core`
+-> `core`
+
+**"I'm adding a new event type"**
+-> `schemas` for the event schema, `contracts` for wire format, `ws` for
+delivery, `sdk` for client-side typing
 
 ## Handler contract
 
@@ -92,6 +96,16 @@ Rules:
 - parse with Zod at the boundary, not inside handlers
 - return `Result<T, E>`, never throw for normal failures
 - keep protocol concerns in transports, not handlers
+
+### Adding a handler
+
+1. Define input/output schemas in `schemas`
+2. Register an `ActionSpec` in `contracts` with action ID, input schema, and
+   optional CLI/MCP metadata
+3. Implement the handler in the appropriate runtime package
+4. Write the test first (TDD is non-negotiable)
+5. Transport adapters pick it up via the action registry — no per-transport
+   wiring needed
 
 ## Result types
 
@@ -122,16 +136,15 @@ normal control flow.
 
 Use the shared categories from `@xmtp/signet-schemas`:
 
-- `validation`
-- `not_found`
-- `permission`
-- `auth`
-- `internal`
-- `timeout`
-- `cancelled`
-
-In this repo, `auth` usually means invalid or expired admin tokens or
-credentials.
+| Category | When to use |
+|----------|-------------|
+| `validation` | Input fails schema validation or business rules |
+| `not_found` | Requested resource does not exist |
+| `permission` | Caller lacks the required scope |
+| `auth` | Invalid or expired credential/admin token |
+| `internal` | Unexpected runtime failure |
+| `timeout` | Operation exceeded its deadline |
+| `cancelled` | Operation cancelled via abort signal |
 
 ## Schema-first types
 
@@ -161,29 +174,74 @@ Typical flow:
 3. compute effective scopes
 4. enforce per-request in handlers or policy helpers
 
-The current scope categories are:
+30 scopes across 6 categories: messaging, group-management, metadata, access,
+observation, egress.
 
-- messaging
-- group-management
-- metadata
-- access
-- observation
-- egress
+## Projection pipeline
 
-## Projection model
-
-Harnesses do not receive raw XMTP traffic. Messages are projected before
-delivery:
+Harnesses do not receive raw XMTP traffic. Messages pass through a four-stage
+pipeline in `packages/policy/src/pipeline/`:
 
 ```text
-Raw XMTP event
-  → chat scope check
-  → permission / reveal check
-  → content projection
-  → transport event to harness
+Stage 1: Scope filter        — isInScope() checks credential chat membership
+Stage 2: Content type filter — isContentTypeAllowed() checks effective allowlist
+Stage 3: Visibility resolver — resolveVisibility() produces visibility state
+Stage 4: Content projector   — projectContent() passes or redacts
 ```
 
+Six visibility states: `visible`, `historical`, `revealed`, `redacted`,
+`hidden`, `dropped`. Harness sees only the first four.
+
 If a change affects what a harness can see, start in `policy` and work outward.
+
+## Event model
+
+11 event types in a discriminated union (`SignetEvent`):
+
+- `message.visible`, `message.revealed`, `seal.stamped`
+- `credential.issued`, `credential.expired`,
+  `credential.reauthorization_required`
+- `scopes.updated`, `agent.revoked`, `action.confirmation_required`
+- `heartbeat`, `signet.recovery.complete`
+
+7 request types (`HarnessRequest`):
+
+- `send_message`, `send_reaction`, `send_reply`
+- `update_scopes`, `reveal_content`, `confirm_action`, `heartbeat`
+
+All events are wrapped in `SequencedFrame` with monotonic `seq` for ordered
+delivery over WebSocket.
+
+## Connection lifecycle
+
+The WebSocket transport (`packages/ws/`) manages a state machine:
+
+```text
+authenticating -> active -> draining -> closed
+```
+
+Key mechanics:
+
+- **Auth**: credential token + optional `lastSeenSeq` for replay
+- **Active**: sequenced frames, 30s heartbeat, per-request timeout timers
+- **Reconnection**: replay from per-credential `CircularBuffer` via
+  `lastSeenSeq`, historical messages tagged with `historical` visibility
+- **Draining**: on revocation — no new requests, cancel in-flight, close,
+  publish revocation seal
+
+## Seal lifecycle
+
+The seal manager (`packages/seals/`) handles:
+
+- **Issuance**: Ed25519 signature in `SealEnvelope`, chain to previous
+- **Chaining**: inline previous payload + computed delta + validation
+  (matching IDs, monotonic timestamps)
+- **Message binding**: `createMessageBinding` signs canonical
+  `{ messageId, sealId }`
+- **Renewal**: TTL-based (24h default, renew at 75% elapsed)
+- **Materiality**: `isMaterialChange()` skips reissue when delta is empty
+- **Republish**: `republishToChats()` with exponential backoff retry
+- **Revocation**: `RevocationSeal` permanently marks credential-chat pairs
 
 ## Action registry
 
@@ -201,11 +259,12 @@ CLI, MCP, and WebSocket consume the same action definitions.
 
 ## Transport notes
 
-- `ws` is the primary harness-facing transport
-- `mcp` exposes the scoped tool surface
+- `ws` is the primary harness-facing transport with sequenced frames and replay
+- `mcp` exposes the scoped tool surface with credential context
 - `cli` is the composition root and also owns the HTTP admin API
-- `xs credential ...` is the public credential lifecycle surface
+- `xs cred ...` is the public credential lifecycle surface
 - `xs seal ...` is the public seal inspection and verification surface
+- `xs policy ...` is the public policy management surface
 
 Do not reintroduce a parallel v0 session/view/grant model when editing these
 surfaces.

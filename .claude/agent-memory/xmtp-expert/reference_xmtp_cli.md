@@ -139,7 +139,7 @@ Config priority: CLI flags > `--env-file <path>` > `.env` in cwd > `~/.xmtp/.env
 
 The streaming commands (`stream`, `stream-all-messages`, `preferences stream`) can run indefinitely until Ctrl+C, `--timeout`, or `--count` is reached — but they are not daemons, just blocking foreground processes.
 
-## No daemon gaps relevant to broker design
+## No daemon gaps relevant to signet design
 
 The CLI has no:
 - Server/daemon mode
@@ -149,7 +149,7 @@ The CLI has no:
 - Request/response protocol beyond stdio
 - Access control or scoping for multiple callers
 
-These are exactly what the broker adds on top.
+These are exactly what the signet adds on top.
 
 ## BaseCommand flags (available on all commands that create a client)
 

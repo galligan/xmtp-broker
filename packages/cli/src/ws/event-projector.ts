@@ -78,9 +78,7 @@ export function createEventProjector(
     const resolvedChatIds =
       deps.getChatIds?.(credential.credentialId) ?? credential.config.chatIds;
     const chatIds =
-      resolvedChatIds.length > 0
-        ? resolvedChatIds
-        : credential.config.chatIds;
+      resolvedChatIds.length > 0 ? resolvedChatIds : credential.config.chatIds;
     // In v1, content types are not restricted at the credential level.
     // Include the message's own type to pass the content-type filter.
     const effectiveAllowlist = new Set<ContentTypeId>([rawMessage.contentType]);

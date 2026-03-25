@@ -200,11 +200,7 @@ function parsePath(path: string): readonly PathSegment[] {
       throw new Error(`Invalid derivation path segment: "${part}"`);
     }
     const index = Number.parseInt(indexStr, 10);
-    if (
-      !Number.isFinite(index) ||
-      index < 0 ||
-      index > MAX_DERIVATION_INDEX
-    ) {
+    if (!Number.isFinite(index) || index < 0 || index > MAX_DERIVATION_INDEX) {
       throw new Error(`Invalid derivation path segment: "${part}"`);
     }
     segments.push({ index, hardened });

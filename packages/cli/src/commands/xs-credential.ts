@@ -16,7 +16,11 @@ import type {
   ScopeSetType,
   SignetError,
 } from "@xmtp/signet-schemas";
-import { CredentialConfig, ScopeSet, ValidationError } from "@xmtp/signet-schemas";
+import {
+  CredentialConfig,
+  ScopeSet,
+  ValidationError,
+} from "@xmtp/signet-schemas";
 import { exitCodeFromCategory } from "../output/exit-codes.js";
 import { formatOutput } from "../output/formatter.js";
 import {
@@ -108,9 +112,7 @@ function buildIssueConfig(input: {
     ...(input.policyId !== undefined ? { policyId: input.policyId } : {}),
     ...(input.allow !== undefined ? { allow: splitScopes(input.allow) } : {}),
     ...(input.deny !== undefined ? { deny: splitScopes(input.deny) } : {}),
-    ...(input.ttlSeconds !== undefined
-      ? { ttlSeconds: input.ttlSeconds }
-      : {}),
+    ...(input.ttlSeconds !== undefined ? { ttlSeconds: input.ttlSeconds } : {}),
   });
 
   if (!parsed.success) {
@@ -131,8 +133,12 @@ function buildScopeSet(input: {
   readonly deny?: string | undefined;
 }): ScopeSetType | ValidationError {
   const parsed = ScopeSet.safeParse({
-    ...(input.allow !== undefined ? { allow: splitScopes(input.allow) ?? [] } : {}),
-    ...(input.deny !== undefined ? { deny: splitScopes(input.deny) ?? [] } : {}),
+    ...(input.allow !== undefined
+      ? { allow: splitScopes(input.allow) ?? [] }
+      : {}),
+    ...(input.deny !== undefined
+      ? { deny: splitScopes(input.deny) ?? [] }
+      : {}),
   });
 
   if (!parsed.success) {
@@ -257,29 +263,25 @@ export function createCredentialCommands(
     .argument("<id>", "Credential ID")
     .option("--config <path>", "Path to config file")
     .option("--json", "JSON output")
-    .action(
-      async (id: string, opts: { config?: string; json?: true }) => {
-        const json = opts.json === true;
-        const result = await resolvedDeps.withDaemonClient(
-          {
-            configPath: opts.config,
-          },
-          (client) =>
-            client.request<CredentialRecordType>("credential.lookup", {
-              credentialId: id,
-            }),
-        );
+    .action(async (id: string, opts: { config?: string; json?: true }) => {
+      const json = opts.json === true;
+      const result = await resolvedDeps.withDaemonClient(
+        {
+          configPath: opts.config,
+        },
+        (client) =>
+          client.request<CredentialRecordType>("credential.lookup", {
+            credentialId: id,
+          }),
+      );
 
-        if (result.isErr()) {
-          writeError(resolvedDeps, result.error, json);
-          return;
-        }
+      if (result.isErr()) {
+        writeError(resolvedDeps, result.error, json);
+        return;
+      }
 
-        resolvedDeps.writeStdout(
-          formatOutput(result.value, { json }) + "\n",
-        );
-      },
-    );
+      resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
+    });
 
   cmd
     .command("revoke")

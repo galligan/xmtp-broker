@@ -117,7 +117,9 @@ export function createMessageCommands(): Command {
         if (opts.chat !== undefined) params["chatId"] = opts.chat;
         if (opts.all === true) params["all"] = true;
         if (opts.as !== undefined) params["as"] = opts.as;
-        process.stdout.write(stubOutput("msg.read", params, opts.json === true));
+        process.stdout.write(
+          stubOutput("msg.read", params, opts.json === true),
+        );
       },
     );
 
@@ -128,13 +130,15 @@ export function createMessageCommands(): Command {
     .option("--as <inbox>", "Inbox ID to act as")
     .option("--watch", "Watch for new messages")
     .option("--json", "JSON output")
-    .action((opts: { from: string; as?: string; watch?: true; json?: true }) => {
-      const json = opts.json === true;
-      const params: Record<string, unknown> = { chatId: opts.from };
-      if (opts.as !== undefined) params["as"] = opts.as;
-      if (opts.watch === true) params["watch"] = true;
-      process.stdout.write(stubOutput("msg.list", params, json));
-    });
+    .action(
+      (opts: { from: string; as?: string; watch?: true; json?: true }) => {
+        const json = opts.json === true;
+        const params: Record<string, unknown> = { chatId: opts.from };
+        if (opts.as !== undefined) params["as"] = opts.as;
+        if (opts.watch === true) params["watch"] = true;
+        process.stdout.write(stubOutput("msg.list", params, json));
+      },
+    );
 
   cmd
     .command("info")

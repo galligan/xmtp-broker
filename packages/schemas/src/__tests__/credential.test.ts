@@ -165,11 +165,15 @@ describe("CredentialIssuer", () => {
   });
 
   it("accepts operator issuer ids", () => {
-    expect(CredentialIssuer.safeParse("op_deadbeeffeedbabe").success).toBe(true);
+    expect(CredentialIssuer.safeParse("op_deadbeeffeedbabe").success).toBe(
+      true,
+    );
   });
 
   it("rejects unrelated resource ids", () => {
-    expect(CredentialIssuer.safeParse("cred_deadbeeffeedbabe").success).toBe(false);
+    expect(CredentialIssuer.safeParse("cred_deadbeeffeedbabe").success).toBe(
+      false,
+    );
   });
 });
 

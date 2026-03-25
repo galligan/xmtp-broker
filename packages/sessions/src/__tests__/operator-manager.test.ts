@@ -172,7 +172,9 @@ describe("createOperatorManager", () => {
     });
 
     test("returns NotFoundError for unknown ID", async () => {
-      const result = await manager.update("op_00000000feedbabe", { label: "X" });
+      const result = await manager.update("op_00000000feedbabe", {
+        label: "X",
+      });
       expect(result.isErr()).toBe(true);
       if (!result.isErr()) return;
       expect(result.error).toBeInstanceOf(NotFoundError);

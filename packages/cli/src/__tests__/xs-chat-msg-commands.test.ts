@@ -334,9 +334,9 @@ describe("message commands", () => {
       ]);
     });
     const output = writes.join("");
-    expect(output).toContain("\"action\": \"msg.read\"");
-    expect(output).toContain("\"all\": true");
-    expect(output).not.toContain("\"messageIds\"");
+    expect(output).toContain('"action": "msg.read"');
+    expect(output).toContain('"all": true');
+    expect(output).not.toContain('"messageIds"');
   });
 
   test("read rejects ambiguous ids plus --all", async () => {
@@ -347,13 +347,7 @@ describe("message commands", () => {
     });
     cmd.exitOverride();
     await expect(
-      cmd.parseAsync([
-        "node",
-        "msg",
-        "read",
-        "msg_aabbccddeeff0011",
-        "--all",
-      ]),
+      cmd.parseAsync(["node", "msg", "read", "msg_aabbccddeeff0011", "--all"]),
     ).rejects.toBeDefined();
   });
 

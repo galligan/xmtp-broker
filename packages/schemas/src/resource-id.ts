@@ -67,9 +67,7 @@ const PREFIX_TO_TYPE = Object.fromEntries(
 const ALL_PREFIXES = Object.values(RESOURCE_PREFIXES) as PrefixValue[];
 /** Canonical hex suffix length for generated local resource IDs. */
 export const RESOURCE_ID_HEX_LENGTH = 16;
-const SHORT_ID_HEX = new RegExp(
-  `^[0-9a-f]{${RESOURCE_ID_HEX_LENGTH}}$`,
-);
+const SHORT_ID_HEX = new RegExp(`^[0-9a-f]{${RESOURCE_ID_HEX_LENGTH}}$`);
 
 function createResourceIdSchema(prefix: PrefixValue): z.ZodType<string> {
   return z.string().refine((value) => {

@@ -27,14 +27,20 @@ describe("SealManager", () => {
   describe("issue", () => {
     test("creates and publishes a seal for a new credential+chat", async () => {
       const { manager, publisher } = createTestManager();
-      const result = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const result = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(result)).toBe(true);
       expect(publisher.published.length).toBe(1);
     });
 
     test("returns the signed seal envelope on success", async () => {
       const { manager } = createTestManager();
-      const result = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const result = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(result)).toBe(true);
       if (Result.isError(result)) return;
       expect(result.value.chain.current.sealId).toMatch(/^seal_[0-9a-f]{16}$/);
@@ -44,7 +50,10 @@ describe("SealManager", () => {
 
     test("first seal has no previous payload", async () => {
       const { manager } = createTestManager();
-      const result = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const result = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(result)).toBe(true);
       if (Result.isError(result)) return;
       expect(result.value.chain.previous).toBeUndefined();
@@ -52,10 +61,16 @@ describe("SealManager", () => {
 
     test("second seal chains when input has material changes", async () => {
       const overrides = new Map<string, SealInput>();
-      overrides.set("cred_abcd1234feedbabe:conv_abcd1234feedbabe", validInput());
+      overrides.set(
+        "cred_abcd1234feedbabe:conv_abcd1234feedbabe",
+        validInput(),
+      );
 
       const { manager } = createTestManager(overrides);
-      const first = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const first = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(first)).toBe(true);
       if (Result.isError(first)) return;
 
@@ -70,7 +85,10 @@ describe("SealManager", () => {
         }),
       );
 
-      const second = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const second = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(second)).toBe(true);
       if (Result.isError(second)) return;
       expect(second.value.chain.previous).toBeDefined();
@@ -82,7 +100,10 @@ describe("SealManager", () => {
     test("tracks current seal per credential+chat", async () => {
       const { manager } = createTestManager();
       await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
-      const current = await manager.current("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const current = await manager.current(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(current)).toBe(true);
       if (Result.isError(current)) return;
       expect(current.value).not.toBeNull();
@@ -109,20 +130,36 @@ describe("SealManager", () => {
       );
 
       const { manager } = createTestManager(overrides);
-      const first = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
-      const second = await manager.issue("cred_dcba4321feedbabe", "conv_abcd1234feedbabe");
+      const first = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
+      const second = await manager.issue(
+        "cred_dcba4321feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(first)).toBe(true);
       expect(Result.isOk(second)).toBe(true);
       if (Result.isError(first) || Result.isError(second)) return;
 
-      const currentA = await manager.current("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
-      const currentB = await manager.current("cred_dcba4321feedbabe", "conv_abcd1234feedbabe");
+      const currentA = await manager.current(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
+      const currentB = await manager.current(
+        "cred_dcba4321feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(currentA)).toBe(true);
       expect(Result.isOk(currentB)).toBe(true);
       if (Result.isError(currentA) || Result.isError(currentB)) return;
 
-      expect(currentA.value?.chain.current.credentialId).toBe("cred_abcd1234feedbabe");
-      expect(currentB.value?.chain.current.credentialId).toBe("cred_dcba4321feedbabe");
+      expect(currentA.value?.chain.current.credentialId).toBe(
+        "cred_abcd1234feedbabe",
+      );
+      expect(currentB.value?.chain.current.credentialId).toBe(
+        "cred_dcba4321feedbabe",
+      );
       expect(currentA.value?.chain.current.sealId).not.toBe(
         currentB.value?.chain.current.sealId,
       );
@@ -130,8 +167,14 @@ describe("SealManager", () => {
 
     test("different chats have independent chains", async () => {
       const { manager } = createTestManager();
-      const g1 = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
-      const g2 = await manager.issue("cred_abcd1234feedbabe", "conv_efab5678feedbabe");
+      const g1 = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
+      const g2 = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_efab5678feedbabe",
+      );
       expect(Result.isOk(g1)).toBe(true);
       expect(Result.isOk(g2)).toBe(true);
       if (Result.isError(g1) || Result.isError(g2)) return;
@@ -142,7 +185,10 @@ describe("SealManager", () => {
 
     test("rejects issue for revoked operator+chat", async () => {
       const { manager } = createTestManager();
-      const issued = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const issued = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(issued)).toBe(true);
       if (Result.isError(issued)) return;
 
@@ -151,7 +197,10 @@ describe("SealManager", () => {
         "owner-initiated",
       );
 
-      const result = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const result = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isError(result)).toBe(true);
       if (Result.isOk(result)) return;
       expect(result.error._tag).toBe("SealError");
@@ -161,12 +210,18 @@ describe("SealManager", () => {
   describe("materiality", () => {
     test("returns existing seal when input has no material changes", async () => {
       const { manager, publisher } = createTestManager();
-      const first = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const first = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(first)).toBe(true);
       if (Result.isError(first)) return;
 
       // Same input again -- no material change
-      const second = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const second = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(second)).toBe(true);
       if (Result.isError(second)) return;
 
@@ -179,10 +234,16 @@ describe("SealManager", () => {
 
     test("creates new seal when permissions change", async () => {
       const overrides = new Map<string, SealInput>();
-      overrides.set("cred_abcd1234feedbabe:conv_abcd1234feedbabe", validInput());
+      overrides.set(
+        "cred_abcd1234feedbabe:conv_abcd1234feedbabe",
+        validInput(),
+      );
 
       const { manager, publisher } = createTestManager(overrides);
-      const first = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const first = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(first)).toBe(true);
 
       // Material change: permissions
@@ -196,7 +257,10 @@ describe("SealManager", () => {
         }),
       );
 
-      const second = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const second = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(second)).toBe(true);
       if (Result.isError(second) || Result.isError(first)) return;
       expect(second.value.chain.current.sealId).not.toBe(
@@ -207,7 +271,10 @@ describe("SealManager", () => {
 
     test("creates new seal when scopeMode changes", async () => {
       const overrides = new Map<string, SealInput>();
-      overrides.set("cred_abcd1234feedbabe:conv_abcd1234feedbabe", validInput());
+      overrides.set(
+        "cred_abcd1234feedbabe:conv_abcd1234feedbabe",
+        validInput(),
+      );
 
       const { manager, publisher } = createTestManager(overrides);
       await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
@@ -217,14 +284,20 @@ describe("SealManager", () => {
         validInput({ scopeMode: "shared" }),
       );
 
-      const second = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const second = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(second)).toBe(true);
       expect(publisher.published.length).toBe(2);
     });
 
     test("always creates first seal even with no previous", async () => {
       const { manager, publisher } = createTestManager();
-      const result = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const result = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(result)).toBe(true);
       expect(publisher.published.length).toBe(1);
     });
@@ -233,7 +306,10 @@ describe("SealManager", () => {
   describe("refresh", () => {
     test("renews a seal with same fields and new timestamps", async () => {
       const { manager } = createTestManager();
-      const issued = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const issued = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(issued)).toBe(true);
       if (Result.isError(issued)) return;
 
@@ -268,7 +344,10 @@ describe("SealManager", () => {
     test("refresh is rejected after revoke", async () => {
       const { manager, publisher } = createTestManager();
 
-      const issued = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const issued = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(issued)).toBe(true);
       if (Result.isError(issued)) return;
       const sealId = issued.value.chain.current.sealId;
@@ -287,10 +366,16 @@ describe("SealManager", () => {
 
     test("refresh rejects historical seals once a newer head exists", async () => {
       const overrides = new Map<string, SealInput>();
-      overrides.set("cred_abcd1234feedbabe:conv_abcd1234feedbabe", validInput());
+      overrides.set(
+        "cred_abcd1234feedbabe:conv_abcd1234feedbabe",
+        validInput(),
+      );
 
       const { manager, publisher } = createTestManager(overrides);
-      const first = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const first = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(first)).toBe(true);
       if (Result.isError(first)) return;
 
@@ -304,7 +389,10 @@ describe("SealManager", () => {
         }),
       );
 
-      const second = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const second = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(second)).toBe(true);
       if (Result.isError(second)) return;
 
@@ -312,7 +400,10 @@ describe("SealManager", () => {
       expect(Result.isError(refreshed)).toBe(true);
       expect(publisher.published.length).toBe(2);
 
-      const current = await manager.current("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const current = await manager.current(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(current)).toBe(true);
       if (Result.isError(current)) return;
       expect(current.value?.chain.current.sealId).toBe(
@@ -324,7 +415,10 @@ describe("SealManager", () => {
   describe("revoke", () => {
     test("publishes a revocation to the chat", async () => {
       const { manager, publisher } = createTestManager();
-      const issued = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const issued = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(issued)).toBe(true);
       if (Result.isError(issued)) return;
 
@@ -338,7 +432,10 @@ describe("SealManager", () => {
 
     test("marks credential+chat as revoked (terminal)", async () => {
       const { manager } = createTestManager();
-      const issued = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const issued = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(issued)).toBe(true);
       if (Result.isError(issued)) return;
 
@@ -347,7 +444,10 @@ describe("SealManager", () => {
         "owner-initiated",
       );
 
-      const current = await manager.current("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const current = await manager.current(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(current)).toBe(true);
       if (Result.isError(current)) return;
       expect(current.value).toBeNull();
@@ -361,7 +461,10 @@ describe("SealManager", () => {
 
     test("returns error for already-revoked seal", async () => {
       const { manager } = createTestManager();
-      const issued = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const issued = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(issued)).toBe(true);
       if (Result.isError(issued)) return;
 
@@ -378,7 +481,10 @@ describe("SealManager", () => {
 
     test("validates revocation against schema", async () => {
       const { manager, publisher } = createTestManager();
-      const issued = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const issued = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(issued)).toBe(true);
       if (Result.isError(issued)) return;
 
@@ -408,7 +514,10 @@ describe("SealManager", () => {
 
     test("returns latest seal for known credential+chat", async () => {
       const overrides = new Map<string, SealInput>();
-      overrides.set("cred_abcd1234feedbabe:conv_abcd1234feedbabe", validInput());
+      overrides.set(
+        "cred_abcd1234feedbabe:conv_abcd1234feedbabe",
+        validInput(),
+      );
 
       const { manager } = createTestManager(overrides);
       await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
@@ -423,11 +532,17 @@ describe("SealManager", () => {
           },
         }),
       );
-      const second = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const second = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(second)).toBe(true);
       if (Result.isError(second)) return;
 
-      const current = await manager.current("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const current = await manager.current(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isOk(current)).toBe(true);
       if (Result.isError(current)) return;
       expect(current.value?.chain.current.sealId).toBe(
@@ -488,7 +603,10 @@ describe("SealManager", () => {
         publisher,
         resolveInput,
       });
-      const result = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const result = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isError(result)).toBe(true);
       if (Result.isOk(result)) return;
       expect(result.error._tag).toBe("InternalError");
@@ -512,7 +630,10 @@ describe("SealManager", () => {
         publisher: failingPublisher,
         resolveInput,
       });
-      const result = await manager.issue("cred_abcd1234feedbabe", "conv_abcd1234feedbabe");
+      const result = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
       expect(Result.isError(result)).toBe(true);
       if (Result.isOk(result)) return;
       expect(result.error._tag).toBe("InternalError");

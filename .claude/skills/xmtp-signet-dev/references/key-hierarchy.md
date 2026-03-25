@@ -1,16 +1,17 @@
 # Key Hierarchy
 
-The signet uses a three-tier key hierarchy inspired by keypo-cli's Secure
-Enclave patterns. Each tier has a different lifetime and security posture.
+The signet uses a multi-tier key hierarchy with OWS-inspired encrypted vault
+storage. Each tier has a different lifetime and security posture.
 
 ## Tiers
 
 ```
-Root Key (platform-bound, long-lived)
-  └─ Operational Key (daily signing, rotatable)
-       └─ Credential Key (credential-bound, ephemeral)
+Root Key (P-256, platform-bound, long-lived)
+  └─ protects vault containing:
+       Operational Key (Ed25519, BIP-39/44 derived, per-identity)
+       Admin Key (Ed25519, standalone — NOT derived from root)
 
-Admin Key (standalone, peer to root — not derived from it)
+Credential Token (per-credential, ephemeral)
 ```
 
 ### Root keys
@@ -24,14 +25,17 @@ Bound to platform security hardware when available:
 | Fallback | Software-derived | P-256 |
 
 Root keys never leave the secure boundary. The `initializeRootKey` function
-detects platform capabilities and creates the appropriate key handle.
+detects platform capabilities and creates the appropriate key handle. The root
+key protects the encrypted vault but does not sign XMTP messages directly.
 
 ### Operational keys
 
-Derived from the root key. Handle day-to-day signing:
-- Seal signing
-- Message provenance metadata
-- Operator-bound runtime signing
+Derived via BIP-39/44 from operator wallet mnemonics (passes Trezor test
+vectors). Stored in the vault protected by the root key. Handle day-to-day
+signing:
+- XMTP message signing
+- Seal signing and message-seal binding
+- Credential token issuance
 
 Operational keys can be rotated without changing the root.
 
@@ -54,7 +58,7 @@ credential keys remain runtime-scoped.
 
 `detectPlatform()` probes the runtime environment and returns a
 `PlatformCapability` describing available security features. This feeds into:
-- `platformToTrustTier()` — maps capabilities to a `TrustTier` for attestations
+- `platformToTrustTier()` — maps capabilities to a `TrustTier` for seals
 - Key generation — chooses hardware-backed or software keys
 - Vault encryption — selects appropriate cipher based on platform
 

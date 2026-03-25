@@ -100,9 +100,7 @@ describe("per-prefix Zod schemas", () => {
   });
 
   it("OperatorId rejects wrong prefix", () => {
-    expect(
-      OperatorId.safeParse("inbox_1234567890abcdef").success,
-    ).toBe(false);
+    expect(OperatorId.safeParse("inbox_1234567890abcdef").success).toBe(false);
   });
 
   it("InboxId accepts inbox_ prefix", () => {
@@ -141,9 +139,9 @@ describe("per-prefix Zod schemas", () => {
   });
 
   it("AnyResourceId rejects unknown prefix", () => {
-    expect(
-      AnyResourceId.safeParse("unknown_aabbccddeeff0011").success,
-    ).toBe(false);
+    expect(AnyResourceId.safeParse("unknown_aabbccddeeff0011").success).toBe(
+      false,
+    );
   });
 });
 
