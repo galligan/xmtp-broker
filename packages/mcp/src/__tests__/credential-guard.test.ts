@@ -96,4 +96,24 @@ describe("checkCredentialLiveness", () => {
 
     expect(result.isOk()).toBe(true);
   });
+
+  test("uses the refreshed credential expiry after renewal", async () => {
+    const cached = makeCredentialRecord({
+      expiresAt: "2020-01-01T00:00:00Z",
+      status: "active",
+    });
+    const renewed = makeCredentialRecord({
+      expiresAt: "2099-01-01T00:00:00Z",
+      status: "active",
+    });
+    const { credentialLookup, _state } = createMockCredentialLookups(
+      "valid_token",
+      cached,
+    );
+    _state.credentials.set(cached.credentialId, renewed);
+
+    const result = await checkCredentialLiveness(cached, credentialLookup);
+
+    expect(result.isOk()).toBe(true);
+  });
 });
