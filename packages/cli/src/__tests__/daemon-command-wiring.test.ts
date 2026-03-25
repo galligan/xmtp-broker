@@ -140,10 +140,10 @@ describe("daemon-backed CLI command wiring", () => {
     };
     const harness = createHarness(issued);
 
-    const command = createSessionCommands(harness.deps);
+    const command = createCredentialCommands(harness.deps);
     await command.parseAsync([
       "node",
-      "session",
+      "credential",
       "issue",
       "--operator",
       "op_deadbeeffeedbabe",
