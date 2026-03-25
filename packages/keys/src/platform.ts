@@ -1,7 +1,4 @@
 import type { PlatformCapability } from "./config.js";
-
-/** Trust tier derived from platform hardware capability. */
-export type TrustTier = "source-verified" | "unverified";
 import { findSignerBinary } from "./se-bridge.js";
 
 /** Trust tiers exposed by the key manager's platform detection. */
@@ -9,7 +6,6 @@ export type KeyTrustTier = "unverified" | "source-verified";
 
 /** Alias retained for branches that still import the older name. */
 export type TrustTier = KeyTrustTier;
-
 /** Cached platform detection result. */
 let cachedPlatform: PlatformCapability | null = null;
 
