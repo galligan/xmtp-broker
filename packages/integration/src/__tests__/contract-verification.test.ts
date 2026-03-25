@@ -23,7 +23,7 @@ import {
   PermissionError,
   GrantDeniedError,
   AuthError,
-  SessionExpiredError,
+  CredentialExpiredError,
   InternalError,
   TimeoutError,
   CancelledError,
@@ -63,9 +63,9 @@ describe("contract-verification", () => {
         tag: "AuthError",
       },
       {
-        instance: SessionExpiredError.create("session-id"),
+        instance: CredentialExpiredError.create("cred_id"),
         category: "auth",
-        tag: "SessionExpiredError",
+        tag: "CredentialExpiredError",
       },
       {
         instance: InternalError.create("internal"),
@@ -111,9 +111,9 @@ describe("contract-verification", () => {
     expect(err.message).toContain("send_message");
   });
 
-  test("SessionExpiredError contains sessionId context", () => {
-    const err = SessionExpiredError.create("sess-123");
-    expect(err.context.sessionId).toBe("sess-123");
+  test("CredentialExpiredError contains credentialId context", () => {
+    const err = CredentialExpiredError.create("cred_123");
+    expect(err.context.credentialId).toBe("cred_123");
   });
 
   /**

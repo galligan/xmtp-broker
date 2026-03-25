@@ -1,145 +1,224 @@
+/**
+ * Credential service -- public API over the internal credential manager.
+ *
+ * Maps internal records to contract types for consumption by
+ * transports (CLI, WS, MCP, HTTP).
+ */
+
 import { Result } from "better-result";
 import type {
-  SignetError,
-  IssuedSession,
-  SessionConfig,
-  SessionRevocationReason,
+  CredentialConfigType,
+  CredentialRecordType,
+  CredentialIssuerType,
+  IssuedCredentialType,
+  CredentialRevocationReason,
+  ScopeSetType,
 } from "@xmtp/signet-schemas";
-import type { SessionManager, SessionRecord } from "@xmtp/signet-contracts";
-import { generateSessionId } from "./token.js";
-import { computePolicyHash } from "./policy-hash.js";
+import { ValidationError } from "@xmtp/signet-schemas";
 import type {
-  InternalSessionManager,
-  InternalSessionRecord,
+  CredentialManager,
+  CredentialRecord,
+} from "@xmtp/signet-contracts";
+import { fingerprintToken, generateCredentialId } from "./token.js";
+import type {
+  InternalCredentialManager,
+  InternalCredentialRecord,
 } from "./session-manager.js";
 
-/** Dependencies required by the session service. */
-export interface SessionServiceDeps {
-  readonly manager: InternalSessionManager;
-  readonly keyManager: {
-    issueSessionKey(
-      sessionId: string,
-      ttlSeconds: number,
-    ): Promise<Result<{ fingerprint: string }, SignetError>>;
-    revokeSessionKey?(keyId: string): Result<void, SignetError>;
+/** Dependencies required by the credential service. */
+export interface CredentialServiceDeps {
+  readonly manager: InternalCredentialManager;
+}
+
+/** Optional provenance supplied at credential issuance time. */
+export interface CredentialServiceIssueOptions {
+  /** Actor that issued the credential. Defaults to `"owner"` when omitted. */
+  readonly issuedBy?: CredentialIssuerType;
+}
+
+/** Map internal record to the schema credential record. */
+function toSchemaCredentialRecord(
+  record: InternalCredentialRecord,
+): CredentialRecordType {
+  return {
+    id: record.credentialId,
+    config: {
+      operatorId: record.operatorId,
+      chatIds: [...record.chatIds],
+      allow: [...record.effectiveScopes.allow],
+      deny: [...record.effectiveScopes.deny],
+    },
+    inboxIds: [],
+    status: record.status,
+    issuedAt: record.issuedAt,
+    expiresAt: record.expiresAt,
+    issuedBy: record.issuedBy,
   };
 }
 
-function toSessionRecord(record: InternalSessionRecord): SessionRecord {
+/** Map internal record to the runtime-enriched credential contract. */
+function toCredentialRecord(
+  record: InternalCredentialRecord,
+): CredentialRecord {
+  const baseRecord = toSchemaCredentialRecord(record);
   return {
-    sessionId: record.sessionId,
-    agentInboxId: record.agentInboxId,
-    sessionKeyFingerprint: record.sessionKeyFingerprint,
-    view: record.view,
-    grant: record.grant,
-    state: record.state,
-    issuedAt: record.issuedAt,
-    expiresAt: record.expiresAt,
+    ...baseRecord,
+    credentialId: record.credentialId,
+    operatorId: record.operatorId,
+    effectiveScopes: {
+      allow: [...record.effectiveScopes.allow],
+      deny: [...record.effectiveScopes.deny],
+    },
+    isExpired:
+      record.status === "expired" ||
+      new Date(record.expiresAt).getTime() <= Date.now(),
     lastHeartbeat: record.lastHeartbeat,
   };
 }
 
-function toIssuedSession(record: InternalSessionRecord): IssuedSession {
+/** Map internal record to the issued credential response. */
+function toIssuedCredential(
+  record: InternalCredentialRecord,
+): IssuedCredentialType {
   return {
     token: record.token,
-    session: {
-      sessionId: record.sessionId,
-      agentInboxId: record.agentInboxId,
-      sessionKeyFingerprint: record.sessionKeyFingerprint,
-      issuedAt: record.issuedAt,
-      expiresAt: record.expiresAt,
-    },
+    credential: toSchemaCredentialRecord(record),
   };
 }
 
-/** Create the public session service implementation. */
-export function createSessionService(deps: SessionServiceDeps): SessionManager {
+/** Create the public credential service implementation. */
+export function createCredentialService(
+  deps: CredentialServiceDeps,
+): CredentialManager {
   return {
-    async issue(config: SessionConfig) {
+    async issue(
+      config: CredentialConfigType,
+      options?: CredentialServiceIssueOptions,
+    ) {
       deps.manager.sweepExpired();
 
-      const policyHash = computePolicyHash(config.view, config.grant);
-      const existing = deps.manager
-        .getActiveSessions(config.agentInboxId)
-        .find((record) => record.policyHash === policyHash);
-      if (existing) {
-        return Result.ok(toIssuedSession(existing));
-      }
+      const credentialId = generateCredentialId();
 
-      const sessionId = generateSessionId();
-      const ttlSeconds = config.ttlSeconds ?? 3600;
+      const issueOptions =
+        options?.issuedBy !== undefined
+          ? {
+              credentialId,
+              issuedBy: options.issuedBy,
+            }
+          : { credentialId };
 
-      const sessionKey = await deps.keyManager.issueSessionKey(
-        sessionId,
-        ttlSeconds,
-      );
-      if (Result.isError(sessionKey)) {
-        return sessionKey;
-      }
-
-      const created = await deps.manager.createSession(
-        config,
-        sessionKey.value.fingerprint,
-        { sessionId },
-      );
+      const created = await deps.manager.issueCredential(config, issueOptions);
       if (Result.isError(created)) {
         return created;
       }
 
-      return Result.ok(toIssuedSession(created.value));
+      return Result.ok(toIssuedCredential(created.value));
     },
 
-    async list(agentInboxId?: string) {
+    async list(operatorId?: string) {
       deps.manager.sweepExpired();
       return Result.ok(
-        deps.manager.listSessions(agentInboxId).map(toSessionRecord),
+        deps.manager.listCredentials(operatorId).map(toCredentialRecord),
       );
     },
 
-    async lookup(sessionId: string) {
+    async lookup(credentialId: string) {
       deps.manager.sweepExpired();
-      const result = deps.manager.getSessionById(sessionId);
+      const result = deps.manager.getCredentialById(credentialId);
       if (Result.isError(result)) {
         return result;
       }
-      return Result.ok(toSessionRecord(result.value));
+      return Result.ok(toCredentialRecord(result.value));
     },
 
     async lookupByToken(token: string) {
-      const result = deps.manager.getSessionByToken(token);
+      const result = deps.manager.getCredentialByToken(token);
       if (Result.isError(result)) {
         return result;
       }
-      return Result.ok(toSessionRecord(result.value));
+      return Result.ok(toCredentialRecord(result.value));
     },
 
-    async revoke(sessionId: string, reason: SessionRevocationReason) {
-      const result = deps.manager.revokeSession(sessionId, reason);
-      if (Result.isError(result)) {
-        return result;
-      }
-      return Result.ok(undefined);
-    },
-
-    async heartbeat(sessionId: string) {
-      const result = deps.manager.recordHeartbeat(sessionId);
+    async revoke(credentialId: string, reason: CredentialRevocationReason) {
+      const result = deps.manager.revokeCredential(credentialId, reason);
       if (Result.isError(result)) {
         return result;
       }
       return Result.ok(undefined);
     },
 
-    getRevealState(sessionId: string) {
-      return deps.manager.getRevealState(sessionId);
+    async update(credentialId: string, changes: Partial<CredentialConfigType>) {
+      const current = deps.manager.getCredentialById(credentialId);
+      if (Result.isError(current)) {
+        return current;
+      }
+
+      if (
+        changes.operatorId !== undefined ||
+        changes.chatIds !== undefined ||
+        changes.ttlSeconds !== undefined
+      ) {
+        return Result.err(
+          ValidationError.create(
+            "changes",
+            "Credential updates only support allow/deny changes",
+          ),
+        );
+      }
+
+      const hasScopeChanges =
+        changes.allow !== undefined || changes.deny !== undefined;
+
+      if (!hasScopeChanges) {
+        return Result.ok(toCredentialRecord(current.value));
+      }
+
+      const nextScopes = {
+        allow: changes.allow ?? current.value.effectiveScopes.allow,
+        deny: changes.deny ?? current.value.effectiveScopes.deny,
+      } satisfies ScopeSetType;
+
+      const materialityResult = deps.manager.checkMateriality(
+        credentialId,
+        nextScopes,
+      );
+      if (Result.isError(materialityResult)) {
+        return materialityResult;
+      }
+
+      if (materialityResult.value.requiresReauthorization) {
+        const revokeResult = deps.manager.revokeCredential(
+          credentialId,
+          "reauthorization-required",
+        );
+        if (Result.isError(revokeResult)) {
+          return revokeResult;
+        }
+        return Result.ok(toCredentialRecord(revokeResult.value));
+      }
+
+      const updateResult = deps.manager.updateCredentialScopes(
+        credentialId,
+        nextScopes,
+      );
+      if (Result.isError(updateResult)) {
+        return updateResult;
+      }
+      return Result.ok(toCredentialRecord(updateResult.value));
     },
 
-    async isActive(sessionId: string) {
-      deps.manager.sweepExpired();
-      const result = deps.manager.getSessionById(sessionId);
+    async renew(credentialId: string) {
+      const result = await deps.manager.renewCredential(credentialId);
       if (Result.isError(result)) {
         return result;
       }
-      return Result.ok(result.value.state === "active");
+      return Result.ok({
+        credentialId: result.value.credentialId,
+        operatorId: result.value.operatorId,
+        fingerprint,
+        issuedAt: result.value.issuedAt,
+        expiresAt: result.value.expiresAt,
+      });
     },
   };
 }

@@ -1,232 +1,175 @@
 /**
- * Session lifecycle integration tests.
+ * Credential lifecycle integration tests.
  *
- * Validates session issuance, lookup, heartbeat, expiry,
- * revocation, and materiality checks through real SessionManager.
+ * Validates credential issuance, lookup, heartbeat, expiry,
+ * revocation, and materiality checks through the exported
+ * credential manager.
  */
 
 import { describe, test, expect } from "bun:test";
-import { createSessionManager } from "@xmtp/signet-sessions";
-import type { ViewConfig, GrantConfig } from "@xmtp/signet-schemas";
+import { createCredentialManager } from "@xmtp/signet-sessions";
+import type {
+  CredentialConfigType,
+  PermissionScopeType,
+  ScopeSetType,
+} from "@xmtp/signet-schemas";
 
-function makeView(mode: ViewConfig["mode"] = "full"): ViewConfig {
+function makeCredentialConfig(
+  overrides: Partial<CredentialConfigType> = {},
+): CredentialConfigType {
   return {
-    mode,
-    threadScopes: [{ groupId: "group-1", threadId: null }],
-    contentTypes: ["xmtp.org/text:1.0", "xmtp.org/reaction:1.0"],
+    operatorId: "op_test1234",
+    chatIds: ["conv_group1"],
+    allow: ["read-messages", "list-conversations"] as PermissionScopeType[],
+    deny: [],
+    ttlSeconds: 60,
+    ...overrides,
   };
 }
 
-function makeGrant(overrides?: Partial<GrantConfig["messaging"]>): GrantConfig {
+function makeScopes(overrides: Partial<ScopeSetType> = {}): ScopeSetType {
   return {
-    messaging: {
-      send: true,
-      reply: true,
-      react: true,
-      draftOnly: false,
-      ...overrides,
-    },
-    groupManagement: {
-      addMembers: false,
-      removeMembers: false,
-      updateMetadata: false,
-      inviteUsers: false,
-    },
-    tools: { scopes: [] },
-    egress: {
-      storeExcerpts: false,
-      useForMemory: false,
-      forwardToProviders: false,
-      quoteRevealed: false,
-      summarize: false,
-    },
+    allow: ["read-messages", "list-conversations"] as PermissionScopeType[],
+    deny: [],
+    ...overrides,
   };
 }
 
-describe("session-lifecycle", () => {
-  test("issue session returns token and correct view/grant/expiry", async () => {
-    const sm = createSessionManager({ defaultTtlSeconds: 60 });
+describe("credential-lifecycle", () => {
+  test("issueCredential returns token and correct metadata", async () => {
+    const manager = createCredentialManager({ defaultTtlSeconds: 60 });
 
-    const result = await sm.createSession(
-      {
-        agentInboxId: "agent-1",
-        view: makeView(),
-        grant: makeGrant(),
-        ttlSeconds: 60,
-      },
-      "session-key-fp",
-    );
+    const result = await manager.issueCredential(makeCredentialConfig());
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
 
-    const session = result.value;
-    expect(session.sessionId).toBeTruthy();
-    expect(session.token).toBeTruthy();
-    expect(session.agentInboxId).toBe("agent-1");
-    expect(session.view.mode).toBe("full");
-    expect(session.grant.messaging.send).toBe(true);
-    expect(session.sessionKeyFingerprint).toBe("session-key-fp");
-    expect(session.state).toBe("active");
+    const credential = result.value;
+    expect(credential.credentialId).toMatch(/^cred_[0-9a-f]{8}$/);
+    expect(credential.token).toBeTruthy();
+    expect(credential.operatorId).toBe("op_test1234");
+    expect(credential.chatIds).toEqual(["conv_group1"]);
+    expect(credential.status).toBe("active");
 
-    // Expiry is approximately 60s in the future
-    const expiresAt = new Date(session.expiresAt).getTime();
-    const now = Date.now();
-    expect(expiresAt - now).toBeGreaterThan(55_000);
-    expect(expiresAt - now).toBeLessThan(65_000);
+    const expiresAt = new Date(credential.expiresAt).getTime();
+    const issuedAt = new Date(credential.issuedAt).getTime();
+    expect(expiresAt - issuedAt).toBeGreaterThanOrEqual(59_000);
+    expect(expiresAt - issuedAt).toBeLessThanOrEqual(61_000);
   });
 
-  test("lookup session by ID returns matching record", async () => {
-    const sm = createSessionManager();
+  test("lookup by ID and token returns matching credential", async () => {
+    const manager = createCredentialManager();
 
-    const createResult = await sm.createSession(
-      { agentInboxId: "agent-2", view: makeView(), grant: makeGrant() },
-      "fp-2",
-    );
-    expect(createResult.isOk()).toBe(true);
-    if (!createResult.isOk()) return;
+    const issued = await manager.issueCredential(makeCredentialConfig());
+    expect(issued.isOk()).toBe(true);
+    if (!issued.isOk()) return;
 
-    const lookupResult = sm.getSessionById(createResult.value.sessionId);
-    expect(lookupResult.isOk()).toBe(true);
-    if (!lookupResult.isOk()) return;
+    const byId = manager.getCredentialById(issued.value.credentialId);
+    expect(byId.isOk()).toBe(true);
+    if (!byId.isOk()) return;
 
-    expect(lookupResult.value.agentInboxId).toBe("agent-2");
-    expect(lookupResult.value.sessionKeyFingerprint).toBe("fp-2");
+    const byToken = manager.getCredentialByToken(issued.value.token);
+    expect(byToken.isOk()).toBe(true);
+    if (!byToken.isOk()) return;
+
+    expect(byId.value.credentialId).toBe(issued.value.credentialId);
+    expect(byToken.value.credentialId).toBe(issued.value.credentialId);
+    expect(byToken.value.operatorId).toBe("op_test1234");
   });
 
-  test("lookup session by token returns matching record", async () => {
-    const sm = createSessionManager();
+  test("heartbeat updates lastHeartbeat on active credential", async () => {
+    const manager = createCredentialManager();
 
-    const createResult = await sm.createSession(
-      { agentInboxId: "agent-3", view: makeView(), grant: makeGrant() },
-      "fp-3",
-    );
-    expect(createResult.isOk()).toBe(true);
-    if (!createResult.isOk()) return;
+    const issued = await manager.issueCredential(makeCredentialConfig());
+    expect(issued.isOk()).toBe(true);
+    if (!issued.isOk()) return;
 
-    const tokenResult = sm.getSessionByToken(createResult.value.token);
-    expect(tokenResult.isOk()).toBe(true);
-    if (!tokenResult.isOk()) return;
+    const firstHeartbeat = issued.value.lastHeartbeat;
+    await Bun.sleep(20);
 
-    expect(tokenResult.value.sessionId).toBe(createResult.value.sessionId);
+    const heartbeat = manager.recordHeartbeat(issued.value.credentialId);
+    expect(heartbeat.isOk()).toBe(true);
+
+    const afterHeartbeat = manager.getCredentialById(issued.value.credentialId);
+    expect(afterHeartbeat.isOk()).toBe(true);
+    if (!afterHeartbeat.isOk()) return;
+    expect(afterHeartbeat.value.lastHeartbeat).not.toBe(firstHeartbeat);
   });
 
-  test("heartbeat keeps session alive", async () => {
-    const sm = createSessionManager();
+  test("expired credential returns CredentialExpiredError on token lookup", async () => {
+    const manager = createCredentialManager({ defaultTtlSeconds: 1 });
 
-    const createResult = await sm.createSession(
-      { agentInboxId: "agent-4", view: makeView(), grant: makeGrant() },
-      "fp-4",
+    const issued = await manager.issueCredential(
+      makeCredentialConfig({ ttlSeconds: 1 }),
     );
-    expect(createResult.isOk()).toBe(true);
-    if (!createResult.isOk()) return;
+    expect(issued.isOk()).toBe(true);
+    if (!issued.isOk()) return;
 
-    const sessionId = createResult.value.sessionId;
-    const firstHb = createResult.value.lastHeartbeat;
+    await Bun.sleep(1_100);
 
-    // Small delay so timestamps differ
-    await new Promise((r) => setTimeout(r, 10));
+    const lookup = manager.getCredentialByToken(issued.value.token);
+    expect(lookup.isErr()).toBe(true);
+    if (!lookup.isErr()) return;
+    expect(lookup.error._tag).toBe("CredentialExpiredError");
 
-    const hbResult = sm.recordHeartbeat(sessionId);
-    expect(hbResult.isOk()).toBe(true);
-
-    const afterHb = sm.getSessionById(sessionId);
-    expect(afterHb.isOk()).toBe(true);
-    if (!afterHb.isOk()) return;
-    // Heartbeat timestamp should be updated
-    expect(afterHb.value.lastHeartbeat).not.toBe(firstHb);
+    const byId = manager.getCredentialById(issued.value.credentialId);
+    expect(byId.isOk()).toBe(true);
+    if (!byId.isOk()) return;
+    expect(byId.value.status).toBe("expired");
   });
 
-  test("expired session returns SessionExpiredError on token lookup", async () => {
-    const sm = createSessionManager({ defaultTtlSeconds: 1 });
+  test("revokeCredential causes immediate invalidation", async () => {
+    const manager = createCredentialManager();
 
-    const createResult = await sm.createSession(
-      {
-        agentInboxId: "agent-5",
-        view: makeView(),
-        grant: makeGrant(),
-        ttlSeconds: 1,
-      },
-      "fp-5",
+    const issued = await manager.issueCredential(makeCredentialConfig());
+    expect(issued.isOk()).toBe(true);
+    if (!issued.isOk()) return;
+
+    const revoke = manager.revokeCredential(
+      issued.value.credentialId,
+      "owner-initiated",
     );
-    expect(createResult.isOk()).toBe(true);
-    if (!createResult.isOk()) return;
+    expect(revoke.isOk()).toBe(true);
+    if (!revoke.isOk()) return;
+    expect(revoke.value.status).toBe("revoked");
 
-    // Wait for TTL to expire
-    await new Promise((r) => setTimeout(r, 1_100));
+    const byToken = manager.getCredentialByToken(issued.value.token);
+    expect(byToken.isErr()).toBe(true);
+    if (!byToken.isErr()) return;
+    expect(byToken.error._tag).toBe("CredentialExpiredError");
 
-    const lookupResult = sm.getSessionByToken(createResult.value.token);
-    expect(lookupResult.isErr()).toBe(true);
-    if (!lookupResult.isErr()) return;
-    expect(lookupResult.error._tag).toBe("SessionExpiredError");
+    const heartbeat = manager.recordHeartbeat(issued.value.credentialId);
+    expect(heartbeat.isErr()).toBe(true);
+    if (!heartbeat.isErr()) return;
+    expect(heartbeat.error._tag).toBe("CredentialExpiredError");
   });
 
-  test("revoke session causes immediate invalidation", async () => {
-    const sm = createSessionManager();
+  test("materiality check detects scope escalation", async () => {
+    const manager = createCredentialManager();
 
-    const createResult = await sm.createSession(
-      { agentInboxId: "agent-6", view: makeView(), grant: makeGrant() },
-      "fp-6",
+    const issued = await manager.issueCredential(
+      makeCredentialConfig({
+        allow: ["read-messages"] as PermissionScopeType[],
+      }),
     );
-    expect(createResult.isOk()).toBe(true);
-    if (!createResult.isOk()) return;
+    expect(issued.isOk()).toBe(true);
+    if (!issued.isOk()) return;
 
-    const sessionId = createResult.value.sessionId;
-    const revokeResult = sm.revokeSession(sessionId, "owner-initiated");
-    expect(revokeResult.isOk()).toBe(true);
-    if (!revokeResult.isOk()) return;
-    expect(revokeResult.value.state).toBe("revoked");
-
-    // Token lookup fails
-    const tokenResult = sm.getSessionByToken(createResult.value.token);
-    expect(tokenResult.isErr()).toBe(true);
-
-    // Heartbeat fails
-    const hbResult = sm.recordHeartbeat(sessionId);
-    expect(hbResult.isErr()).toBe(true);
-  });
-
-  test("materiality check detects privilege escalation", async () => {
-    const sm = createSessionManager();
-
-    const createResult = await sm.createSession(
-      {
-        agentInboxId: "agent-7",
-        view: makeView("redacted"),
-        grant: makeGrant({ send: false }),
-      },
-      "fp-7",
+    const escalated = manager.checkMateriality(
+      issued.value.credentialId,
+      makeScopes({
+        allow: ["read-messages", "send"] as PermissionScopeType[],
+      }),
     );
-    expect(createResult.isOk()).toBe(true);
-    if (!createResult.isOk()) return;
+    expect(escalated.isOk()).toBe(true);
+    if (!escalated.isOk()) return;
+    expect(escalated.value.isMaterial).toBe(true);
 
-    // Escalate view mode: redacted -> full
-    const checkResult = sm.checkMateriality(
-      createResult.value.sessionId,
-      makeView("full"),
-      makeGrant({ send: false }),
+    const unchanged = manager.checkMateriality(
+      issued.value.credentialId,
+      makeScopes({ allow: ["read-messages"] as PermissionScopeType[] }),
     );
-    expect(checkResult.isOk()).toBe(true);
-    if (!checkResult.isOk()) return;
-    expect(checkResult.value.isMaterial).toBe(true);
-
-    // Escalate grant: send false -> true
-    const grantCheckResult = sm.checkMateriality(
-      createResult.value.sessionId,
-      makeView("redacted"),
-      makeGrant({ send: true }),
-    );
-    expect(grantCheckResult.isOk()).toBe(true);
-    if (!grantCheckResult.isOk()) return;
-    expect(grantCheckResult.value.isMaterial).toBe(true);
-
-    // No change: same policy
-    const noChangeResult = sm.checkMateriality(
-      createResult.value.sessionId,
-      makeView("redacted"),
-      makeGrant({ send: false }),
-    );
-    expect(noChangeResult.isOk()).toBe(true);
-    if (!noChangeResult.isOk()) return;
-    expect(noChangeResult.value.isMaterial).toBe(false);
+    expect(unchanged.isOk()).toBe(true);
+    if (!unchanged.isOk()) return;
+    expect(unchanged.value.isMaterial).toBe(false);
   });
 });
