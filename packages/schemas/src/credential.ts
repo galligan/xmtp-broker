@@ -1,12 +1,20 @@
 import { z } from "zod";
 import {
   OperatorId,
+  type OperatorIdType,
   CredentialId,
+  type CredentialIdType,
   ConversationId,
+  type ConversationIdType,
   InboxId,
+  type InboxIdType,
   PolicyId,
+  type PolicyIdType,
 } from "./resource-id.js";
-import { PermissionScope } from "./permission-scopes.js";
+import {
+  PermissionScope,
+  type PermissionScopeType,
+} from "./permission-scopes.js";
 
 /**
  * Lifecycle status of a credential.
@@ -16,15 +24,12 @@ import { PermissionScope } from "./permission-scopes.js";
  * - `expired` -- past its TTL
  * - `revoked` -- explicitly revoked by an admin
  */
-export const CredentialStatus = z.enum([
-  "pending",
-  "active",
-  "expired",
-  "revoked",
-]);
+export const CredentialStatus: z.ZodEnum<
+  ["pending", "active", "expired", "revoked"]
+> = z.enum(["pending", "active", "expired", "revoked"]);
 
-/** Inferred union of credential status literals. */
-export type CredentialStatusType = z.infer<typeof CredentialStatus>;
+/** Union of credential status literals. */
+export type CredentialStatusType = "pending" | "active" | "expired" | "revoked";
 
 /**
  * Configuration used to issue a new credential.
@@ -32,7 +37,17 @@ export type CredentialStatusType = z.infer<typeof CredentialStatus>;
  * Scopes an operator to specific conversations, with optional
  * policy reference and inline allow/deny overrides.
  */
-export const CredentialConfig = z
+export type CredentialConfigType = {
+  operatorId: OperatorIdType;
+  chatIds: ConversationIdType[];
+  policyId?: PolicyIdType | undefined;
+  allow?: PermissionScopeType[] | undefined;
+  deny?: PermissionScopeType[] | undefined;
+  ttlSeconds?: number | undefined;
+};
+
+/** Zod schema for {@link CredentialConfigType}. */
+export const CredentialConfig: z.ZodType<CredentialConfigType> = z
   .object({
     /** Which operator this credential is for. */
     operatorId: OperatorId,
@@ -49,9 +64,6 @@ export const CredentialConfig = z
   })
   .describe("Configuration for issuing a new credential");
 
-/** Inferred type for {@link CredentialConfig}. */
-export type CredentialConfigType = z.infer<typeof CredentialConfig>;
-
 /**
  * Actor that issued a credential.
  *
@@ -62,13 +74,24 @@ export const CredentialIssuer: z.ZodUnion<
   [z.ZodType<string>, z.ZodLiteral<"owner">]
 > = z.union([OperatorId, z.literal("owner")]);
 
-/** Inferred type for a credential issuer. */
-export type CredentialIssuerType = z.infer<typeof CredentialIssuer>;
+/** Type for a credential issuer. */
+export type CredentialIssuerType = OperatorIdType | "owner";
 
 /**
  * Persisted credential record with identity, status, and timestamps.
  */
-export const CredentialRecord = z
+export type CredentialRecordType = {
+  id: CredentialIdType;
+  config: CredentialConfigType;
+  inboxIds: InboxIdType[];
+  status: CredentialStatusType;
+  issuedAt: string;
+  expiresAt: string;
+  issuedBy: CredentialIssuerType;
+};
+
+/** Zod schema for {@link CredentialRecordType}. */
+export const CredentialRecord: z.ZodType<CredentialRecordType> = z
   .object({
     /** Unique credential identifier (`cred_` prefix). */
     id: CredentialId,
@@ -82,18 +105,24 @@ export const CredentialRecord = z
     issuedAt: z.string().datetime(),
     /** ISO 8601 timestamp when the credential expires. */
     expiresAt: z.string().datetime(),
-    /** Operator (admin/superadmin) that issued this credential. */
-    issuedBy: OperatorId,
+    /** Owner or delegated operator that issued this credential. */
+    issuedBy: CredentialIssuer,
   })
   .describe("Persisted credential record");
-
-/** Inferred type for {@link CredentialRecord}. */
-export type CredentialRecordType = z.infer<typeof CredentialRecord>;
 
 /**
  * Opaque credential token metadata returned for verification.
  */
-export const CredentialToken = z
+export type CredentialTokenType = {
+  credentialId: CredentialIdType;
+  operatorId: OperatorIdType;
+  fingerprint: string;
+  issuedAt: string;
+  expiresAt: string;
+};
+
+/** Zod schema for {@link CredentialTokenType}. */
+export const CredentialToken: z.ZodType<CredentialTokenType> = z
   .object({
     /** Credential this token belongs to. */
     credentialId: CredentialId,
@@ -108,14 +137,17 @@ export const CredentialToken = z
   })
   .describe("Credential token metadata for verification");
 
-/** Inferred type for {@link CredentialToken}. */
-export type CredentialTokenType = z.infer<typeof CredentialToken>;
-
 /**
  * Issued credential containing the bearer token (shown once)
  * and the full credential record.
  */
-export const IssuedCredential = z
+export type IssuedCredentialType = {
+  token: string;
+  credential: CredentialRecordType;
+};
+
+/** Zod schema for {@link IssuedCredentialType}. */
+export const IssuedCredential: z.ZodType<IssuedCredentialType> = z
   .object({
     /** The bearer token, shown only at issuance. */
     token: z.string().min(1),
@@ -123,6 +155,3 @@ export const IssuedCredential = z
     credential: CredentialRecord,
   })
   .describe("Issued credential with bearer token");
-
-/** Inferred type for {@link IssuedCredential}. */
-export type IssuedCredentialType = z.infer<typeof IssuedCredential>;

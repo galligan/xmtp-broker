@@ -119,6 +119,14 @@ export {
   type Seal,
 } from "./seal.js";
 
+// Session
+export {
+  SessionConfig,
+  SessionToken,
+  IssuedSession,
+  SessionState,
+} from "./session.js";
+
 // Credentials
 export {
   CredentialStatus,
