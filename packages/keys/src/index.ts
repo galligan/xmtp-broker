@@ -104,6 +104,22 @@ export type { AdminJwtConfig, AdminJwtPayload } from "./jwt.js";
 export { initializeRootKey, signWithRootKey } from "./root-key.js";
 export type { RootKeyResult } from "./root-key.js";
 
+// Derivation (BIP-39/BIP-44)
+export {
+  generateMnemonic,
+  mnemonicToSeed,
+  derivePath,
+  deriveEvmKey,
+  deriveEd25519Key,
+  EVM_PATH_PREFIX,
+  ED25519_PATH_PREFIX,
+} from "./derivation.js";
+export type {
+  DerivedKey,
+  DerivedEvmKey,
+  DerivedEd25519Key,
+} from "./derivation.js";
+
 // Crypto utilities
 export {
   generateP256KeyPair,

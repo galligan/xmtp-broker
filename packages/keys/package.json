@@ -16,13 +16,14 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@noble/curves": "^2.0.1",
+    "@noble/hashes": "^1.8.0",
     "@xmtp/signet-contracts": "workspace:*",
     "@xmtp/signet-schemas": "workspace:*",
     "better-result": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@noble/curves": "^2.0.1",
     "bun-types": "catalog:",
     "typescript": "catalog:"
   }
