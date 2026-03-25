@@ -1,4 +1,9 @@
 import { z } from "zod";
+import type {
+  CredentialIdType,
+  MessageSealBindingType,
+  OperatorIdType,
+} from "@xmtp/signet-schemas";
 import { RevocationSeal } from "@xmtp/signet-schemas";
 
 /** Provenance metadata attached to outbound messages. */
