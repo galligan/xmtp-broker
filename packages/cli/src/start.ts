@@ -266,11 +266,12 @@ export function createProductionDeps(): SignetRuntimeDeps {
         credentialManager: import("@xmtp/signet-contracts").CredentialManager;
       };
 
-      // Dynamic stamper: resolves the signing identity from the seal
-      // payload. The key manager stores operational keys under the internal
-      // identityId, not the XMTP inboxId, so we resolve via the identity store.
+      // Dynamic stamper: resolves the signing identity from the seal payload's
+      // chat binding. Operational keys are keyed by internal identityId, while
+      // seals themselves carry operator metadata, so we resolve the XMTP
+      // identity associated with the target conversation.
       async function resolveIdentityId(
-        inboxId: string,
+        groupId: string,
       ): Promise<Result<string, SignetError>> {
         if (!coreImplRef) {
           return Result.err(
@@ -279,10 +280,10 @@ export function createProductionDeps(): SignetRuntimeDeps {
             ),
           );
         }
-        const identity = await coreImplRef.identityStore.getByInboxId(inboxId);
+        const identity = await coreImplRef.identityStore.getByGroupId(groupId);
         if (!identity) {
           return Result.err(
-            InternalError.create(`No identity found for inboxId: ${inboxId}`),
+            InternalError.create(`No identity found for groupId: ${groupId}`),
           );
         }
         return Result.ok(identity.id);
@@ -299,10 +300,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
           }
           const idResult = await resolveIdentityId(seal.chatId);
           if (Result.isError(idResult)) return idResult;
-          const stamper = createSealStamper(
-            keyManagerRef,
-            idResult.value,
-          );
+          const stamper = createSealStamper(keyManagerRef, idResult.value);
           return stamper.sign(seal);
         },
         async signRevocation(revocation) {
@@ -315,10 +313,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
           }
           const idResult = await resolveIdentityId(revocation.chatId);
           if (Result.isError(idResult)) return idResult;
-          const stamper = createSealStamper(
-            keyManagerRef,
-            idResult.value,
-          );
+          const stamper = createSealStamper(keyManagerRef, idResult.value);
           return stamper.signRevocation(revocation);
         },
       };
