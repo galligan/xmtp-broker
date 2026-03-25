@@ -11,6 +11,8 @@ import { createLifecycleCommands } from "./commands/lifecycle.js";
 import { createIdentityInitCommand } from "./commands/identity.js";
 import { createOperatorCommands } from "./commands/xs-operator.js";
 import { createCredentialCommands } from "./commands/xs-credential.js";
+import { createChatCommands } from "./commands/xs-chat.js";
+import { createMessageCommands } from "./commands/xs-message.js";
 
 /** Placeholder action for stub commands not yet implemented. */
 function stubAction(): void {
@@ -90,19 +92,11 @@ export function createXsProgram(): Command {
 
   // --- chat ---
 
-  const chat = new Command("chat").description("Chat management");
-  chat.addCommand(stub("create", "Create a conversation"));
-  chat.addCommand(stub("list", "List conversations"));
-  chat.addCommand(stub("info", "Show conversation details"));
-  program.addCommand(chat);
+  program.addCommand(createChatCommands());
 
   // --- msg ---
 
-  const msg = new Command("msg").description("Messaging");
-  msg.addCommand(stub("send", "Send a message"));
-  msg.addCommand(stub("reply", "Reply to a message"));
-  msg.addCommand(stub("react", "React to a message"));
-  program.addCommand(msg);
+  program.addCommand(createMessageCommands());
 
   // --- policy ---
 
