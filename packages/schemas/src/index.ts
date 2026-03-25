@@ -82,6 +82,22 @@ export {
   type GrantConfig as GrantConfigType,
 } from "./grant.js";
 
+// Operators
+export {
+  OperatorRole,
+  type OperatorRoleType,
+  ScopeMode,
+  type ScopeModeType,
+  OperatorStatus,
+  type OperatorStatusType,
+  WalletProvider,
+  type WalletProviderType,
+  OperatorConfig,
+  type OperatorConfigType,
+  OperatorRecord,
+  type OperatorRecordType,
+} from "./operator.js";
+
 // Seal
 export {
   InferenceMode,
