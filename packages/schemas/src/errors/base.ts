@@ -1,7 +1,7 @@
 import type { ErrorCategory } from "./category.js";
 import type { ValidationError, SealError } from "./validation.js";
 import type { NotFoundError } from "./not-found.js";
-import type { PermissionError, GrantDeniedError } from "./permission.js";
+import type { PermissionError } from "./permission.js";
 import type { AuthError, CredentialExpiredError } from "./auth.js";
 import type { InternalError } from "./internal.js";
 import type { TimeoutError } from "./timeout.js";
@@ -24,7 +24,6 @@ export type AnySignetError =
   | ValidationError
   | NotFoundError
   | PermissionError
-  | GrantDeniedError
   | AuthError
   | CredentialExpiredError
   | InternalError

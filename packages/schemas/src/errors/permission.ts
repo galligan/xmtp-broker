@@ -21,28 +21,3 @@ export class PermissionError extends Error implements SignetError {
     return new PermissionError(message, context ?? null);
   }
 }
-
-/** Raised when a grant does not allow the requested operation. */
-export class GrantDeniedError extends Error implements SignetError {
-  readonly _tag = "GrantDeniedError" as const;
-  readonly code = 1210;
-  readonly category = "permission" as const;
-
-  constructor(
-    message: string,
-    readonly context: {
-      operation: string;
-      grantType: string;
-    } & Record<string, unknown>,
-  ) {
-    super(message);
-    this.name = "GrantDeniedError";
-  }
-
-  static create(operation: string, grantType: string): GrantDeniedError {
-    return new GrantDeniedError(
-      `Operation '${operation}' denied: missing ${grantType} grant`,
-      { operation, grantType },
-    );
-  }
-}

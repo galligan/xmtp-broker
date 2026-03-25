@@ -3,7 +3,6 @@ import {
   AuthError,
   CancelledError,
   CredentialExpiredError,
-  GrantDeniedError,
   InternalError,
   NetworkError,
   NotFoundError,
@@ -84,18 +83,6 @@ function toSignetErrorFromActionError(error: ActionError): SignetError {
         ...context,
       });
     case "PermissionError":
-      return new PermissionError(error.message, context ?? null);
-    case "GrantDeniedError":
-      if (
-        typeof context?.["operation"] === "string" &&
-        typeof context?.["grantType"] === "string"
-      ) {
-        return new GrantDeniedError(error.message, {
-          operation: context["operation"],
-          grantType: context["grantType"],
-          ...context,
-        });
-      }
       return new PermissionError(error.message, context ?? null);
     case "AuthError":
       return new AuthError(error.message, context ?? null);

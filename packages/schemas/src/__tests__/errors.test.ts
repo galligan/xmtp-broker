@@ -7,7 +7,6 @@ import {
   SealError,
   NotFoundError,
   PermissionError,
-  GrantDeniedError,
   AuthError,
   CredentialExpiredError,
   InternalError,
@@ -130,13 +129,13 @@ describe("SealError", () => {
 
 describe("NotFoundError", () => {
   it("creates with correct properties", () => {
-    const err = NotFoundError.create("Session", "sess-42");
+    const err = NotFoundError.create("Credential", "cred-42");
     expect(err._tag).toBe("NotFoundError");
     expect(err.code).toBe(1100);
     expect(err.category).toBe("not_found");
-    expect(err.context.resourceType).toBe("Session");
-    expect(err.context.resourceId).toBe("sess-42");
-    expect(err.message).toBe("Session 'sess-42' not found");
+    expect(err.context.resourceType).toBe("Credential");
+    expect(err.context.resourceId).toBe("cred-42");
+    expect(err.message).toBe("Credential 'cred-42' not found");
   });
 });
 
@@ -152,20 +151,6 @@ describe("PermissionError", () => {
   it("creates with provided context", () => {
     const err = PermissionError.create("Denied", { scope: "admin" });
     expect(err.context).toEqual({ scope: "admin" });
-  });
-});
-
-describe("GrantDeniedError", () => {
-  it("creates with correct properties", () => {
-    const err = GrantDeniedError.create("send", "messaging");
-    expect(err._tag).toBe("GrantDeniedError");
-    expect(err.code).toBe(1210);
-    expect(err.category).toBe("permission");
-    expect(err.context.operation).toBe("send");
-    expect(err.context.grantType).toBe("messaging");
-    expect(err.message).toBe(
-      "Operation 'send' denied: missing messaging grant",
-    );
   });
 });
 
@@ -254,13 +239,15 @@ describe("NetworkError", () => {
 
 describe("matchError", () => {
   it("dispatches to correct handler by _tag", () => {
-    const err: AnySignetError = GrantDeniedError.create("send", "messaging");
+    const err: AnySignetError = PermissionError.create("denied", {
+      operation: "send",
+    });
     const result = matchError(err, {
       ValidationError: () => "validation",
       SealError: () => "seal",
       NotFoundError: () => "not_found",
-      PermissionError: () => "permission",
-      GrantDeniedError: (e) => `denied:${e.context.operation}`,
+      PermissionError: (e) =>
+        `denied:${String((e.context ?? {})["operation"] ?? "unknown")}`,
       AuthError: () => "auth",
       CredentialExpiredError: () => "credential_expired",
       InternalError: () => "internal",
@@ -277,7 +264,6 @@ describe("matchError", () => {
       SealError.create("a", "r"),
       NotFoundError.create("T", "id"),
       PermissionError.create("msg"),
-      GrantDeniedError.create("op", "gt"),
       AuthError.create("msg"),
       CredentialExpiredError.create("cred_s"),
       InternalError.create("msg"),
@@ -292,7 +278,6 @@ describe("matchError", () => {
         SealError: () => "SealError",
         NotFoundError: () => "NotFoundError",
         PermissionError: () => "PermissionError",
-        GrantDeniedError: () => "GrantDeniedError",
         AuthError: () => "AuthError",
         CredentialExpiredError: () => "CredentialExpiredError",
         InternalError: () => "InternalError",
