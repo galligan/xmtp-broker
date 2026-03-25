@@ -44,7 +44,7 @@ describe("KeyManagerConfigSchema", () => {
     expect(config.dataDir).toBe("/tmp/keys");
     expect(config.rootKeyPolicy).toBe("biometric");
     expect(config.operationalKeyPolicy).toBe("open");
-    expect(config.sessionKeyTtlSeconds).toBe(3600);
+    expect(config.rotationIntervalSeconds).toBe(86400);
   });
 
   test("accepts overridden values", () => {
@@ -52,11 +52,11 @@ describe("KeyManagerConfigSchema", () => {
       dataDir: "/tmp/keys",
       rootKeyPolicy: "open",
       operationalKeyPolicy: "passcode",
-      sessionKeyTtlSeconds: 7200,
+      rotationIntervalSeconds: 7200,
     });
     expect(config.rootKeyPolicy).toBe("open");
     expect(config.operationalKeyPolicy).toBe("passcode");
-    expect(config.sessionKeyTtlSeconds).toBe(7200);
+    expect(config.rotationIntervalSeconds).toBe(7200);
   });
 
   test("rejects missing dataDir", () => {
@@ -64,10 +64,10 @@ describe("KeyManagerConfigSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  test("rejects non-positive sessionKeyTtlSeconds", () => {
+  test("rejects negative rotationIntervalSeconds", () => {
     const result = KeyManagerConfigSchema.safeParse({
       dataDir: "/tmp",
-      sessionKeyTtlSeconds: 0,
+      rotationIntervalSeconds: -1,
     });
     expect(result.success).toBe(false);
   });

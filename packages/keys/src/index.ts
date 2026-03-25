@@ -10,10 +10,14 @@ export type {
   KeyManagerConfig,
 } from "./config.js";
 
-// Types
-export type { RootKeyHandle, OperationalKey, SessionKey } from "./types.js";
+// Types for the key-manager adapter surface used by runtime adapters/tests.
+export type { RootKeyHandle, OperationalKey, CredentialKey } from "./types.js";
 
-// Key backend interface
+// KeyManager adapter surface used by runtime wiring and tests.
+export { createKeyManager } from "./key-manager-compat.js";
+export type { KeyManager, AdminKeyManager } from "./key-manager-compat.js";
+
+// Key backend interface (v1)
 export type {
   KeyBackend,
   WalletProvider,
@@ -22,6 +26,9 @@ export type {
   SigningResult,
   ApiKeyInfo,
 } from "./key-backend.js";
+
+// Key backend implementation (v1)
+export { createInternalKeyBackend } from "./key-manager.js";
 
 // Platform detection
 export {
@@ -47,10 +54,6 @@ export type {
   SeKeyInfoResponse,
 } from "./se-protocol.js";
 
-// Key manager
-export { createKeyManager } from "./key-manager.js";
-export type { KeyManager } from "./key-manager.js";
-
 // Vault
 export { createVault } from "./vault.js";
 export type { Vault, WalletFileInfo, AccountEntry } from "./vault.js";
@@ -73,24 +76,6 @@ export type {
   BiometricPrompter,
 } from "./biometric-gate.js";
 
-// Operational key manager
-export { createOperationalKeyManager } from "./operational-key.js";
-export type { OperationalKeyManager } from "./operational-key.js";
-
-// Session key manager
-export { createSessionKeyManager } from "./session-key.js";
-export type { SessionKeyManager } from "./session-key.js";
-
-// Admin key manager
-export { createAdminKeyManager } from "./admin-key.js";
-export type {
-  AdminKeyManager,
-  AdminKeyRecord,
-  AdminAuthContext,
-  AdminAuthMethod,
-  AdminJwtOptions,
-} from "./admin-key.js";
-
 // JWT utilities
 export {
   AdminJwtConfigSchema,
@@ -99,10 +84,6 @@ export {
   base64urlDecode,
 } from "./jwt.js";
 export type { AdminJwtConfig, AdminJwtPayload } from "./jwt.js";
-
-// Root key
-export { initializeRootKey, signWithRootKey } from "./root-key.js";
-export type { RootKeyResult } from "./root-key.js";
 
 // Derivation (BIP-39/BIP-44)
 export {

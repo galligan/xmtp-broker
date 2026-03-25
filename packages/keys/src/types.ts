@@ -20,10 +20,10 @@ export interface OperationalKey {
   readonly rotatedAt: string | null;
 }
 
-/** Ephemeral session key, in-memory only. */
-export interface SessionKey {
+/** Ephemeral credential-bound key, in-memory only. */
+export interface CredentialKey {
   readonly keyId: string;
-  readonly sessionId: string;
+  readonly credentialId: string;
   readonly fingerprint: string;
   readonly expiresAt: string;
   readonly createdAt: string;

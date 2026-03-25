@@ -156,32 +156,32 @@ describe("key-hierarchy", () => {
     expect(dbKeyResult.value.byteLength).toBe(32);
   });
 
-  test("session key -- issue, sign, revoke", async () => {
+  test("credential key -- issue, sign, revoke", async () => {
     const km = await setup();
     await km.initialize();
 
-    const skResult = await km.issueSessionKey("session-1", 300);
-    expect(skResult.isOk()).toBe(true);
-    if (!skResult.isOk()) return;
+    const keyResult = await km.issueCredentialKey("cred-1", 300);
+    expect(keyResult.isOk()).toBe(true);
+    if (!keyResult.isOk()) return;
 
-    const sessionKey = skResult.value;
-    expect(sessionKey.sessionId).toBe("session-1");
-    expect(sessionKey.fingerprint).toBeTruthy();
+    const credentialKey = keyResult.value;
+    expect(credentialKey.credentialId).toBe("cred-1");
+    expect(credentialKey.fingerprint).toBeTruthy();
 
-    // Sign with session key
-    const sigResult = await km.signWithSessionKey(
-      sessionKey.keyId,
-      new TextEncoder().encode("session data"),
+    // Sign with credential key
+    const sigResult = await km.signWithCredentialKey(
+      credentialKey.keyId,
+      new TextEncoder().encode("credential data"),
     );
     expect(sigResult.isOk()).toBe(true);
 
     // Revoke
-    const revokeResult = km.revokeSessionKey(sessionKey.keyId);
+    const revokeResult = km.revokeCredentialKey(credentialKey.keyId);
     expect(revokeResult.isOk()).toBe(true);
 
     // Sign after revoke fails
-    const failResult = await km.signWithSessionKey(
-      sessionKey.keyId,
+    const failResult = await km.signWithCredentialKey(
+      credentialKey.keyId,
       new TextEncoder().encode("after revoke"),
     );
     expect(failResult.isErr()).toBe(true);

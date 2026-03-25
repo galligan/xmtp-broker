@@ -6,7 +6,6 @@ export type KeyTrustTier = "unverified" | "source-verified";
 
 /** Alias retained for branches that still import the older name. */
 export type TrustTier = KeyTrustTier;
-
 /** Cached platform detection result. */
 let cachedPlatform: PlatformCapability | null = null;
 
