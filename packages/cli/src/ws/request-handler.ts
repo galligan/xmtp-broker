@@ -289,14 +289,14 @@ export function createWsRequestHandler(
             true,
           );
           if (projection.action === "emit") {
-              deps.broadcast(credential.credentialId, {
-                type: "message.revealed",
-                messageId: msg.messageId,
-                groupId: msg.groupId,
-                contentType: msg.contentType,
-                content: projection.event.content,
-                revealId: access.revealId,
-              });
+            deps.broadcast(credential.credentialId, {
+              type: "message.revealed",
+              messageId: msg.messageId,
+              groupId: msg.groupId,
+              contentType: msg.contentType,
+              content: projection.event.content,
+              revealId: grant.revealId,
+            });
           }
         }
       }
