@@ -1,24 +1,24 @@
 /**
- * Grant validation security boundary tests.
+ * Permission validation security boundary tests.
  *
- * Proves that the policy grant validators correctly deny access
+ * Proves that the policy permission validators correctly deny access
  * when scopes are missing, chats are out of scope, or specific
  * permission categories are not granted.
  */
 
 import { describe, test, expect } from "bun:test";
 import { Result } from "better-result";
-import { validateSendMessage } from "../grant/validate-send.js";
-import { validateSendReaction } from "../grant/validate-reaction.js";
-import { validateEgress } from "../grant/validate-egress.js";
-import { validateGroupManagement } from "../grant/validate-group-management.js";
+import { validateSendMessage } from "../permissions/validate-send.js";
+import { validateSendReaction } from "../permissions/validate-reaction.js";
+import { validateEgress } from "../permissions/validate-egress.js";
+import { validateGroupManagement } from "../permissions/validate-group-management.js";
 import { createEmptyScopes, createChatIds } from "./fixtures.js";
 
 // ---------------------------------------------------------------------------
-// Grant Validation Boundaries
+// Permission Validation Boundaries
 // ---------------------------------------------------------------------------
 
-describe("grant validation boundaries", () => {
+describe("permission validation boundaries", () => {
   test("send denied without scope", () => {
     const result = validateSendMessage(
       { groupId: "conv_1" },
@@ -44,7 +44,7 @@ describe("grant validation boundaries", () => {
   });
 
   test("chat out of scope denied", () => {
-    // Grant send scope but for conv_1 only -- access conv_2
+    // Allow send scope but for conv_1 only -- access conv_2
     const scopes = new Set(["send"]);
     const result = validateSendMessage(
       { groupId: "conv_2" },
