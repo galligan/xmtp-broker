@@ -13,6 +13,10 @@ export type {
 // Types for the key-manager adapter surface used by runtime adapters/tests.
 export type { RootKeyHandle, OperationalKey, CredentialKey } from "./types.js";
 
+// KeyManager adapter surface used by runtime wiring and tests.
+export { createKeyManager } from "./key-manager-compat.js";
+export type { KeyManager, AdminKeyManager } from "./key-manager-compat.js";
+
 // Key backend interface (v1)
 export type {
   KeyBackend,

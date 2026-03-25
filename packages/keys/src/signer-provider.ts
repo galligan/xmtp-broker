@@ -2,6 +2,14 @@ import { Result } from "better-result";
 import type { SignetError } from "@xmtp/signet-schemas";
 import type { SignerProvider } from "@xmtp/signet-contracts";
 import type { KeyBackend } from "./key-backend.js";
+import {
+  createSignerProviderCompat,
+  type KeyManager,
+} from "./key-manager-compat.js";
+
+function isKeyManager(value: KeyBackend | KeyManager): value is KeyManager {
+  return "signWithOperationalKey" in value;
+}
 
 /**
  * Create a SignerProvider backed by a KeyBackend for a specific wallet
@@ -14,11 +22,31 @@ import type { KeyBackend } from "./key-backend.js";
  * @param walletId - Wallet containing the signing key
  * @param accountIndex - BIP-44 account index within the wallet
  */
+/** Create a SignerProvider bound to a compat KeyManager identity. */
+export function createSignerProvider(
+  keyManager: KeyManager,
+  identityId: string,
+): SignerProvider;
+/** Create a SignerProvider bound to a KeyBackend wallet account. */
 export function createSignerProvider(
   backend: KeyBackend,
   walletId: string,
   accountIndex: number,
+): SignerProvider;
+/** Resolve either compat or KeyBackend inputs into a SignerProvider. */
+export function createSignerProvider(
+  backendOrManager: KeyBackend | KeyManager,
+  walletOrIdentityId: string,
+  accountIndex?: number,
 ): SignerProvider {
+  if (isKeyManager(backendOrManager)) {
+    return createSignerProviderCompat(backendOrManager, walletOrIdentityId);
+  }
+  if (accountIndex === undefined) {
+    throw new Error("accountIndex is required when using a KeyBackend");
+  }
+  const backend = backendOrManager;
+  const walletId = walletOrIdentityId;
   return {
     async sign(data: Uint8Array): Promise<Result<Uint8Array, SignetError>> {
       const result = await backend.sign(walletId, accountIndex, data);

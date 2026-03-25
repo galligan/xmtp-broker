@@ -11,6 +11,14 @@ import type {
   SignedRevocationEnvelope,
 } from "@xmtp/signet-contracts";
 import type { KeyBackend } from "./key-backend.js";
+import {
+  createSealStamperCompat,
+  type KeyManager,
+} from "./key-manager-compat.js";
+
+function isKeyManager(value: KeyBackend | KeyManager): value is KeyManager {
+  return "signWithOperationalKey" in value;
+}
 
 /**
  * Create a SealStamper backed by a KeyBackend.
@@ -22,11 +30,31 @@ import type { KeyBackend } from "./key-backend.js";
  * @param walletId - Wallet containing the signing key
  * @param accountIndex - BIP-44 account index (Ed25519) within the wallet
  */
+/** Create a SealStamper bound to a compat KeyManager identity. */
+export function createSealStamper(
+  keyManager: KeyManager,
+  identityId: string,
+): SealStamper;
+/** Create a SealStamper bound to a KeyBackend wallet account. */
 export function createSealStamper(
   backend: KeyBackend,
   walletId: string,
   accountIndex: number,
+): SealStamper;
+/** Resolve either compat or KeyBackend inputs into a SealStamper. */
+export function createSealStamper(
+  backendOrManager: KeyBackend | KeyManager,
+  walletOrIdentityId: string,
+  accountIndex?: number,
 ): SealStamper {
+  if (isKeyManager(backendOrManager)) {
+    return createSealStamperCompat(backendOrManager, walletOrIdentityId);
+  }
+  if (accountIndex === undefined) {
+    throw new Error("accountIndex is required when using a KeyBackend");
+  }
+  const backend = backendOrManager;
+  const walletId = walletOrIdentityId;
   return {
     async sign(
       payload: SealPayloadType,
