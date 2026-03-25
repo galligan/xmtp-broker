@@ -18,6 +18,12 @@ import type {
 import type { CoreState, GroupInfo } from "./core-types.js";
 import type { CredentialRecord } from "./credential-types.js";
 
+/** Optional provenance supplied when issuing a credential. */
+export interface CredentialIssueOptions {
+  /** Actor that issued the credential. Defaults to `"owner"` when omitted. */
+  readonly issuedBy?: CredentialIssuerType;
+}
+
 /** Top-level signet lifecycle: initialize, shutdown, state transitions. */
 export interface SignetCore {
   readonly state: CoreState;
@@ -46,14 +52,10 @@ export interface CredentialManager {
   ): Promise<Result<readonly CredentialRecord[], SignetError>>;
 
   /** Look up a credential by its ID. */
-  lookup(
-    credentialId: string,
-  ): Promise<Result<CredentialRecord, SignetError>>;
+  lookup(credentialId: string): Promise<Result<CredentialRecord, SignetError>>;
 
   /** Resolve a bearer token to its credential record. */
-  lookupByToken(
-    token: string,
-  ): Promise<Result<CredentialRecord, SignetError>>;
+  lookupByToken(token: string): Promise<Result<CredentialRecord, SignetError>>;
 
   /** Revoke a credential with the given reason. */
   revoke(
