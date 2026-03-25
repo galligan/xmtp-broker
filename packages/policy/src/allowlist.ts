@@ -4,7 +4,7 @@ import type { SignetContentTypeConfig } from "./types.js";
 
 /**
  * Computes the effective allowlist as the intersection of
- * baseline, signet-level, and agent view-level allowlists.
+ * baseline, signet-level, and credential-level allowlists.
  *
  * effectiveAllowlist = baseline intersection signet intersection credential
  *

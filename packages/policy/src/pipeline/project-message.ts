@@ -8,7 +8,7 @@ import { projectContent } from "./content-projector.js";
 const DROP: ProjectionResult = { action: "drop" } as const;
 
 /**
- * Projects a raw message through the view filter, content type filter,
+ * Projects a raw message through the scope filter, content type filter,
  * visibility logic, and content projection to produce a derived event or drop.
  *
  * Pure function. No side effects.
