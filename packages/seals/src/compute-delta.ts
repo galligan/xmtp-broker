@@ -50,6 +50,20 @@ export function computePayloadDelta(
     }
   }
 
+  // Scopes that stay listed in allow but toggle deny state still change the
+  // effective permission because deny wins over allow.
+  for (const scope of nextDeny) {
+    if (!prevDeny.has(scope) && prevAllow.has(scope) && nextAllow.has(scope)) {
+      changed.push({ scope, from: "allow", to: "deny" });
+    }
+  }
+
+  for (const scope of prevDeny) {
+    if (!nextDeny.has(scope) && prevAllow.has(scope) && nextAllow.has(scope)) {
+      changed.push({ scope, from: "deny", to: "allow" });
+    }
+  }
+
   // Scopes newly denied that weren't in previous allow
   // (were not mentioned, now explicitly denied)
   for (const scope of nextDeny) {

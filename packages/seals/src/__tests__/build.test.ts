@@ -146,4 +146,52 @@ describe("buildSeal", () => {
     if (Result.isError(second)) return;
     expect(second.value.chain.delta.added).toContain("react");
   });
+
+  test("tracks deny toggles when a scope remains listed in allow", () => {
+    const first = buildSeal(
+      validInput({
+        permissions: { allow: ["send"], deny: [] },
+      }),
+    );
+    expect(Result.isOk(first)).toBe(true);
+    if (Result.isError(first)) return;
+
+    const second = buildSeal(
+      validInput({
+        permissions: { allow: ["send"], deny: ["send"] },
+      }),
+      first.value.chain.current,
+    );
+    expect(Result.isOk(second)).toBe(true);
+    if (Result.isError(second)) return;
+    expect(second.value.chain.delta.changed).toContainEqual({
+      scope: "send",
+      from: "allow",
+      to: "deny",
+    });
+  });
+
+  test("tracks deny removal when a scope remains listed in allow", () => {
+    const first = buildSeal(
+      validInput({
+        permissions: { allow: ["send"], deny: ["send"] },
+      }),
+    );
+    expect(Result.isOk(first)).toBe(true);
+    if (Result.isError(first)) return;
+
+    const second = buildSeal(
+      validInput({
+        permissions: { allow: ["send"], deny: [] },
+      }),
+      first.value.chain.current,
+    );
+    expect(Result.isOk(second)).toBe(true);
+    if (Result.isError(second)) return;
+    expect(second.value.chain.delta.changed).toContainEqual({
+      scope: "send",
+      from: "deny",
+      to: "allow",
+    });
+  });
 });
