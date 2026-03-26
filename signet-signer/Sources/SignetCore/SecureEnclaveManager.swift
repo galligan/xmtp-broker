@@ -6,9 +6,15 @@ public class SecureEnclaveManager {
 
     public init() {}
 
+    /// Purpose of the SE key — determines CryptoKit key type.
+    public enum KeyPurpose: String, Codable {
+        case signing = "signing"
+        case keyAgreement = "key-agreement"
+    }
+
     // MARK: - Key Creation
 
-    public func createKey(policy: KeyPolicy) throws -> (dataRepresentation: Data, publicKey: Data) {
+    public func createKey(policy: KeyPolicy, purpose: KeyPurpose = .signing) throws -> (dataRepresentation: Data, publicKey: Data) {
         guard SecureEnclave.isAvailable else {
             throw SignetError.seUnavailable
         }
@@ -35,20 +41,33 @@ public class SecureEnclaveManager {
             )
         }
 
-        let privateKey: SecureEnclave.P256.Signing.PrivateKey
-        do {
-            privateKey = try SecureEnclave.P256.Signing.PrivateKey(accessControl: accessControl)
-        } catch {
-            if isAuthCancelled(error) {
-                throw SignetError.authCancelled
+        switch purpose {
+        case .signing:
+            let privateKey: SecureEnclave.P256.Signing.PrivateKey
+            do {
+                privateKey = try SecureEnclave.P256.Signing.PrivateKey(accessControl: accessControl)
+            } catch {
+                if isAuthCancelled(error) {
+                    throw SignetError.authCancelled
+                }
+                throw SignetError.creationFailed("SE key generation failed: \(error.localizedDescription)")
             }
-            throw SignetError.creationFailed("SE key generation failed: \(error.localizedDescription)")
+            return (dataRepresentation: privateKey.dataRepresentation,
+                    publicKey: Data(privateKey.publicKey.x963Representation))
+
+        case .keyAgreement:
+            let privateKey: SecureEnclave.P256.KeyAgreement.PrivateKey
+            do {
+                privateKey = try SecureEnclave.P256.KeyAgreement.PrivateKey(accessControl: accessControl)
+            } catch {
+                if isAuthCancelled(error) {
+                    throw SignetError.authCancelled
+                }
+                throw SignetError.creationFailed("SE key-agreement generation failed: \(error.localizedDescription)")
+            }
+            return (dataRepresentation: privateKey.dataRepresentation,
+                    publicKey: Data(privateKey.publicKey.x963Representation))
         }
-
-        let dataRep = privateKey.dataRepresentation
-        let publicKeyBytes = Data(privateKey.publicKey.x963Representation)
-
-        return (dataRepresentation: dataRep, publicKey: publicKeyBytes)
     }
 
     // MARK: - Key Lookup
@@ -95,6 +114,71 @@ public class SecureEnclaveManager {
                 throw SignetError.authCancelled
             }
             throw SignetError.signingFailed(error.localizedDescription)
+        }
+    }
+
+    // MARK: - ECIES Decryption (Key Agreement)
+
+    /// Decrypt data using ECIES: SE ECDH + HKDF-SHA256 + AES-GCM.
+    ///
+    /// The SE performs the ECDH step (this is where biometric fires).
+    /// Then HKDF derives the AES key, and AES-GCM decrypts.
+    public func decrypt(
+        dataRepresentation: Data,
+        ephemeralPublicKeyData: Data,
+        nonce: Data,
+        ciphertext: Data,
+        tag: Data
+    ) throws -> Data {
+        // Load the key-agreement private key from SE
+        let privateKey: SecureEnclave.P256.KeyAgreement.PrivateKey
+        do {
+            privateKey = try SecureEnclave.P256.KeyAgreement.PrivateKey(dataRepresentation: dataRepresentation)
+        } catch {
+            if isAuthCancelled(error) {
+                throw SignetError.authCancelled
+            }
+            throw SignetError.keyMissing("failed to load SE key-agreement key: \(error.localizedDescription)")
+        }
+
+        // Import the ephemeral public key
+        let ephemeralPublicKey: P256.KeyAgreement.PublicKey
+        do {
+            ephemeralPublicKey = try P256.KeyAgreement.PublicKey(x963Representation: ephemeralPublicKeyData)
+        } catch {
+            throw SignetError.decryptionFailed("invalid ephemeral public key: \(error.localizedDescription)")
+        }
+
+        // ECDH — this triggers biometric if the key has biometric policy
+        let sharedSecret: SharedSecret
+        do {
+            sharedSecret = try privateKey.sharedSecretFromKeyAgreement(with: ephemeralPublicKey)
+        } catch {
+            if isAuthCancelled(error) {
+                throw SignetError.authCancelled
+            }
+            throw SignetError.decryptionFailed("ECDH failed: \(error.localizedDescription)")
+        }
+
+        // HKDF-SHA256 to derive AES-256 key
+        let symmetricKey = sharedSecret.hkdfDerivedSymmetricKey(
+            using: SHA256.self,
+            salt: Data("signet-vault-ecies".utf8),
+            sharedInfo: Data(),
+            outputByteCount: 32
+        )
+
+        // AES-GCM decrypt
+        do {
+            let sealedBox = try AES.GCM.SealedBox(
+                nonce: AES.GCM.Nonce(data: nonce),
+                ciphertext: ciphertext,
+                tag: tag
+            )
+            let plaintext = try AES.GCM.open(sealedBox, using: symmetricKey)
+            return plaintext
+        } catch {
+            throw SignetError.decryptionFailed("AES-GCM decryption failed: \(error.localizedDescription)")
         }
     }
 

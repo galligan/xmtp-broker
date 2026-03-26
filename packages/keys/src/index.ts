@@ -44,6 +44,8 @@ export {
   findSignerBinary,
   seCreate,
   seSign,
+  seEncrypt,
+  seDecrypt,
   seInfo,
   seDelete,
 } from "./se-bridge.js";
@@ -51,7 +53,9 @@ export type {
   SeCreateResponse,
   SeSignResponse,
   SeSystemInfoResponse,
+  SeDecryptResponse,
   SeKeyInfoResponse,
+  SealedBox,
 } from "./se-protocol.js";
 
 // Vault
@@ -64,13 +68,13 @@ export { createSignerProvider } from "./signer-provider.js";
 // Seal stamper
 export { createSealStamper } from "./seal-stamper.js";
 
-// Passphrase providers (SE-backed and software fallback)
+// Vault secret providers (SE-backed ECIES and software fallback)
 export {
-  createSePassphraseProvider,
-  createSoftwarePassphraseProvider,
-  resolvePassphraseProvider,
-} from "./passphrase-provider.js";
-export type { PassphraseProvider } from "./passphrase-provider.js";
+  createSeVaultSecretProvider,
+  createSoftwareVaultSecretProvider,
+  resolveVaultSecretProvider,
+} from "./vault-secret-provider.js";
+export type { VaultSecretProvider } from "./vault-secret-provider.js";
 
 // SE-backed biometric gate prompter
 export {

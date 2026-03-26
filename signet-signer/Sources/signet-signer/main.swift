@@ -12,6 +12,7 @@ struct SignetSigner: ParsableCommand {
         subcommands: [
             CreateCommand.self,
             SignCommand.self,
+            DecryptCommand.self,
             InfoCommand.self,
             DeleteCommand.self,
         ]

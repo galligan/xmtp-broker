@@ -97,8 +97,9 @@ export function createSeGatePrompter(
  * Resolve the appropriate biometric prompter for the current platform.
  *
  * On macOS with SE: returns an SE-backed prompter that triggers Touch ID.
- * Otherwise: returns a no-op prompter that always succeeds (biometric
- * gating is not available, config toggles have no effect).
+ * Otherwise: returns a fail-closed prompter that rejects gated operations
+ * with an error. Prevents configured biometric enforcement from being
+ * silently bypassed on unsupported platforms.
  *
  * @param dataDir - Root data directory for gate key reference
  */
@@ -112,10 +113,18 @@ export function resolveGatePrompter(dataDir: string): BiometricPrompter {
     }
   }
 
-  // No-op prompter for non-SE platforms — gated operations pass through
+  // Fail-closed prompter for non-SE platforms — gated operations are
+  // rejected because biometric enforcement cannot be provided.
+  // If the deployment doesn't need biometric gating, all gate config
+  // toggles should be set to false (the default).
   return async (
-    _operation: GatedOperation,
+    operation: GatedOperation,
   ): Promise<Result<void, SignetError>> => {
-    return Result.ok(undefined);
+    return Result.err(
+      InternalError.create(
+        `Biometric gate unavailable for ${operation}: Secure Enclave not detected. ` +
+          `Disable biometric gating in config or run on an SE-capable platform.`,
+      ),
+    );
   };
 }

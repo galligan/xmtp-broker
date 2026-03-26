@@ -9,7 +9,11 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createSeGatePrompter } from "../se-gate-prompter.js";
+import {
+  createSeGatePrompter,
+  resolveGatePrompter,
+} from "../se-gate-prompter.js";
+import { resetPlatformCache } from "../platform.js";
 
 describe("SeGatePrompter (mock signer)", () => {
   let tmpDir: string;
@@ -111,5 +115,26 @@ exit 0
     // Second call reuses it (doesn't call create again)
     const r2 = await prompter("egressExpansion");
     expect(Result.isOk(r2)).toBe(true);
+  });
+});
+
+describe("resolveGatePrompter (fail-closed)", () => {
+  test("rejects gated operations on non-SE platforms", async () => {
+    const prev = process.env["SIGNET_SIGNER_PATH"];
+    process.env["SIGNET_SIGNER_PATH"] = "/definitely/missing";
+    resetPlatformCache();
+
+    const prompter = resolveGatePrompter("/tmp/whatever");
+    const result = await prompter("rootKeyCreation");
+
+    // Restore
+    if (prev === undefined) delete process.env["SIGNET_SIGNER_PATH"];
+    else process.env["SIGNET_SIGNER_PATH"] = prev;
+    resetPlatformCache();
+
+    expect(Result.isError(result)).toBe(true);
+    if (Result.isOk(result)) throw new Error("expected error");
+    expect(result.error._tag).toBe("InternalError");
+    expect(result.error.message).toContain("Biometric gate unavailable");
   });
 });

@@ -2,10 +2,12 @@ import ArgumentParser
 import Foundation
 import SignetCore
 
+extension SecureEnclaveManager.KeyPurpose: ExpressibleByArgument {}
+
 struct CreateCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "create",
-        abstract: "Generate a new P-256 signing key in the Secure Enclave"
+        abstract: "Generate a new P-256 key in the Secure Enclave"
     )
 
     @OptionGroup var globals: GlobalOptions
@@ -15,6 +17,9 @@ struct CreateCommand: ParsableCommand {
 
     @Option(name: .long, help: "Access control policy: open, passcode, or biometric")
     var policy: KeyPolicy
+
+    @Option(name: .long, help: "Key purpose: signing or key-agreement")
+    var purpose: SecureEnclaveManager.KeyPurpose = .signing
 
     mutating func run() throws {
         let manager = SecureEnclaveManager()
@@ -26,7 +31,7 @@ struct CreateCommand: ParsableCommand {
 
         let result: (dataRepresentation: Data, publicKey: Data)
         do {
-            result = try manager.createKey(policy: policy)
+            result = try manager.createKey(policy: policy, purpose: purpose)
         } catch let error as SignetError {
             if case .authCancelled = error {
                 writeStderr(error.description)
@@ -36,8 +41,6 @@ struct CreateCommand: ParsableCommand {
             throw ExitCode(1)
         }
 
-        // Label is advisory — CryptoKit SE keys don't carry Keychain labels
-        // without entitlements. The keyRef (dataRepresentation) is the real handle.
         let output = CreateResponse(
             keyRef: result.dataRepresentation.base64EncodedString(),
             publicKey: SignatureFormatter.formatHex(result.publicKey),
