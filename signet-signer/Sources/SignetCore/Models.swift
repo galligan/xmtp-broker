@@ -15,6 +15,7 @@ public enum SignetError: Error, CustomStringConvertible {
     case keyMissing(String)
     case signingFailed(String)
     case invalidHex(String)
+    case decryptionFailed(String)
     case authCancelled
 
     public var description: String {
@@ -29,6 +30,8 @@ public enum SignetError: Error, CustomStringConvertible {
             return "signing failed: \(msg)"
         case .invalidHex(let msg):
             return "invalid hex: \(msg)"
+        case .decryptionFailed(let msg):
+            return "decryption failed: \(msg)"
         case .authCancelled:
             return "authentication cancelled by user"
         }
@@ -41,6 +44,7 @@ public enum SignetError: Error, CustomStringConvertible {
         case .keyMissing: return 1
         case .signingFailed: return 1
         case .invalidHex: return 1
+        case .decryptionFailed: return 1
         case .authCancelled: return 2
         }
     }
@@ -79,6 +83,14 @@ public struct SystemInfoResponse: Codable {
         self.available = available
         self.chip = chip
         self.macOS = macOS
+    }
+}
+
+public struct DecryptResponse: Codable {
+    public let plaintext: String
+
+    public init(plaintext: String) {
+        self.plaintext = plaintext
     }
 }
 

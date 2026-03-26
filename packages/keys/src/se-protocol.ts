@@ -61,6 +61,41 @@ export const SeKeyInfoResponseSchema: z.ZodObject<{
   exists: z.boolean(),
 });
 
+/** Shape of the `signet-signer decrypt` response. */
+export const SeDecryptResponseSchema: z.ZodObject<{
+  plaintext: z.ZodString;
+}> = z.object({
+  plaintext: z.string().describe("Hex-encoded decrypted plaintext"),
+});
+
+/** Parsed `signet-signer decrypt` response payload. */
+export type SeDecryptResponse = {
+  plaintext: string;
+};
+
+/** ECIES sealed box — encrypted with an ephemeral ECDH + AES-GCM. */
+export const SealedBoxSchema: z.ZodObject<{
+  ephemeralPublicKey: z.ZodString;
+  nonce: z.ZodString;
+  ciphertext: z.ZodString;
+  tag: z.ZodString;
+}> = z.object({
+  ephemeralPublicKey: z
+    .string()
+    .describe("Hex-encoded ephemeral P-256 public key (uncompressed)"),
+  nonce: z.string().describe("Hex-encoded AES-GCM nonce (12 bytes)"),
+  ciphertext: z.string().describe("Hex-encoded ciphertext"),
+  tag: z.string().describe("Hex-encoded AES-GCM authentication tag (16 bytes)"),
+});
+
+/** Parsed sealed box. */
+export type SealedBox = {
+  ephemeralPublicKey: string;
+  nonce: string;
+  ciphertext: string;
+  tag: string;
+};
+
 /** Parsed `signet-signer info --key-ref` response payload. */
 export type SeKeyInfoResponse = {
   exists: boolean;

@@ -2,14 +2,21 @@ import { Result } from "better-result";
 import { InternalError } from "@xmtp/signet-schemas";
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { p256 } from "@noble/curves/nist.js";
+import { hkdf } from "@noble/hashes/hkdf";
+import { sha256 } from "@noble/hashes/sha256";
+import { gcm } from "@noble/ciphers/aes.js";
 import type { KeyPolicy } from "./config.js";
 import {
   SeCreateResponseSchema,
   SeSignResponseSchema,
   SeSystemInfoResponseSchema,
+  SeDecryptResponseSchema,
   type SeCreateResponse,
   type SeSignResponse,
   type SeSystemInfoResponse,
+  type SeDecryptResponse,
+  type SealedBox,
 } from "./se-protocol.js";
 
 /**
@@ -175,12 +182,15 @@ export async function seCreate(
   label: string,
   policy: KeyPolicy,
   signerPath: string,
+  purpose: "signing" | "key-agreement" = "signing",
 ): Promise<Result<SeCreateResponse, InternalError>> {
-  return runSigner(
-    signerPath,
-    ["create", "--label", label, "--policy", policy, "--format", "json"],
-    SeCreateResponseSchema,
-  );
+  const args = ["create", "--label", label, "--policy", policy] as string[];
+  if (purpose !== "signing") {
+    args.push("--purpose", purpose);
+  }
+  args.push("--format", "json");
+
+  return runSigner(signerPath, args, SeCreateResponseSchema);
 }
 
 /** Sign data with a Secure Enclave key. */
@@ -209,6 +219,95 @@ export async function seInfo(
     ["info", "--system", "--format", "json"],
     SeSystemInfoResponseSchema,
   );
+}
+
+/** Decrypt a sealed box using the SE key-agreement key (ECIES). */
+export async function seDecrypt(
+  keyRef: string,
+  sealedBox: SealedBox,
+  signerPath: string,
+): Promise<Result<SeDecryptResponse, InternalError>> {
+  return runSigner(
+    signerPath,
+    [
+      "decrypt",
+      "--key-ref",
+      keyRef,
+      "--ephemeral-pub",
+      sealedBox.ephemeralPublicKey,
+      "--nonce",
+      sealedBox.nonce,
+      "--ciphertext",
+      sealedBox.ciphertext,
+      "--tag",
+      sealedBox.tag,
+      "--format",
+      "json",
+    ],
+    SeDecryptResponseSchema,
+  );
+}
+
+/**
+ * Encrypt plaintext using ECIES with a P-256 public key.
+ *
+ * Pure TypeScript — no SE or subprocess needed. Uses @noble/curves for
+ * ECDH, @noble/hashes for HKDF, and @noble/ciphers for AES-GCM.
+ *
+ * The SE public key is the recipient. An ephemeral key pair is generated
+ * for each encryption. The result is a sealed box that can only be
+ * decrypted by the SE private key holder.
+ */
+export function seEncrypt(
+  publicKeyHex: string,
+  plaintext: Uint8Array,
+): SealedBox {
+  // Parse SE public key
+  const sePubBytes = hexToBytes(publicKeyHex);
+
+  // Generate ephemeral key pair
+  const ephPriv = p256.utils.randomSecretKey();
+  const ephPub = p256.getPublicKey(ephPriv, false); // uncompressed
+
+  // ECDH: shared secret = ephemeral_private * se_public
+  const sharedPoint = p256.getSharedSecret(ephPriv, sePubBytes, false);
+  // Use x-coordinate only (32 bytes starting at byte 1 of uncompressed point)
+  const sharedX = sharedPoint.slice(1, 33);
+
+  // HKDF-SHA256 to derive AES-256 key — must match Swift side
+  const salt = new TextEncoder().encode("signet-vault-ecies");
+  const aesKey = hkdf(sha256, sharedX, salt, "", 32);
+
+  // AES-GCM encrypt
+  const nonce = crypto.getRandomValues(new Uint8Array(12));
+  const cipher = gcm(aesKey, nonce);
+  const encrypted = cipher.encrypt(plaintext);
+
+  // noble/ciphers AES-GCM appends the 16-byte tag to the ciphertext
+  const ct = encrypted.slice(0, encrypted.length - 16);
+  const tag = encrypted.slice(encrypted.length - 16);
+
+  return {
+    ephemeralPublicKey: bytesToHexLocal(ephPub),
+    nonce: bytesToHexLocal(nonce),
+    ciphertext: bytesToHexLocal(ct),
+    tag: bytesToHexLocal(tag),
+  };
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const clean = hex.startsWith("0x") ? hex.slice(2) : hex;
+  const bytes = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < clean.length; i += 2) {
+    bytes[i / 2] = parseInt(clean.substring(i, i + 2), 16);
+  }
+  return bytes;
+}
+
+function bytesToHexLocal(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 /** Delete a Secure Enclave key (best-effort). */

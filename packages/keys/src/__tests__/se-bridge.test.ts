@@ -1,6 +1,12 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { Result } from "better-result";
-import { writeFileSync, chmodSync, mkdtempSync, rmSync } from "node:fs";
+import {
+  writeFileSync,
+  readFileSync,
+  chmodSync,
+  mkdtempSync,
+  rmSync,
+} from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -100,6 +106,65 @@ describe("se-bridge", () => {
       expect(Result.isError(result)).toBe(true);
       if (Result.isOk(result)) throw new Error("expected error");
       expect(result.error.message).toContain("validation failed");
+    });
+
+    test("omits the purpose flag for the default signing flow", async () => {
+      const argsPath = join(tmpDir, "create-default-args.txt");
+      const signer = join(tmpDir, "args-default-signer");
+      writeFileSync(
+        signer,
+        `#!/usr/bin/env bash
+printf '%s\n' "$@" > "${argsPath}"
+echo '{"keyRef":"dGVzdA==","publicKey":"04abcdef","policy":"open"}'
+`,
+      );
+      chmodSync(signer, 0o755);
+
+      const result = await seCreate("test-key", "open", signer);
+
+      expect(Result.isOk(result)).toBe(true);
+      expect(readFileSync(argsPath, "utf8").trim().split("\n")).toEqual([
+        "create",
+        "--label",
+        "test-key",
+        "--policy",
+        "open",
+        "--format",
+        "json",
+      ]);
+    });
+
+    test("includes the purpose flag for key-agreement creation", async () => {
+      const argsPath = join(tmpDir, "create-key-agreement-args.txt");
+      const signer = join(tmpDir, "args-key-agreement-signer");
+      writeFileSync(
+        signer,
+        `#!/usr/bin/env bash
+printf '%s\n' "$@" > "${argsPath}"
+echo '{"keyRef":"dGVzdA==","publicKey":"04abcdef","policy":"open"}'
+`,
+      );
+      chmodSync(signer, 0o755);
+
+      const result = await seCreate(
+        "test-key",
+        "open",
+        signer,
+        "key-agreement",
+      );
+
+      expect(Result.isOk(result)).toBe(true);
+      expect(readFileSync(argsPath, "utf8").trim().split("\n")).toEqual([
+        "create",
+        "--label",
+        "test-key",
+        "--policy",
+        "open",
+        "--purpose",
+        "key-agreement",
+        "--format",
+        "json",
+      ]);
     });
   });
 
