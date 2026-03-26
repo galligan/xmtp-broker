@@ -263,10 +263,14 @@ export function createSeVaultSecretProvider(
 /**
  * Create a vault secret provider backed by a file on disk.
  *
- * On first run: generates a random 32-byte secret and writes it to
- * `dataDir/vault-passphrase` with 0o600 permissions.
+ * Compatibility behavior:
  *
- * On subsequent runs: reads the secret from disk.
+ * - If the current runtime's raw `vault.key` file exists, reads and returns it.
+ * - Otherwise, if `vault-passphrase` exists, reads and returns it.
+ * - Otherwise, generates a random 32-byte secret and writes it to
+ *   `dataDir/vault-passphrase` with 0o600 permissions.
+ *
+ * On subsequent runs: reads the existing secret from disk.
  *
  * Fallback for platforms without Secure Enclave support.
  *
@@ -283,6 +287,7 @@ export function createSoftwareVaultSecretProvider(
     async getSecret(): Promise<Result<string, InternalError>> {
       if (cached !== null) return Result.ok(cached);
 
+      const keyPath = join(dataDir, "vault.key");
       const secretPath = join(dataDir, "vault-passphrase");
 
       try {
@@ -291,7 +296,21 @@ export function createSoftwareVaultSecretProvider(
           chmodSync(dataDir, 0o700);
         }
 
-        if (existsSync(secretPath)) {
+        if (existsSync(keyPath)) {
+          const raw = new Uint8Array(await Bun.file(keyPath).arrayBuffer());
+          if (raw.byteLength !== 32) {
+            return Result.err(
+              InternalError.create("Vault key is malformed", {
+                source: "software-vault",
+                expectedBytes: 32,
+                actualBytes: raw.byteLength,
+              }),
+            );
+          }
+
+          cached = bytesToHex(raw);
+          raw.fill(0);
+        } else if (existsSync(secretPath)) {
           const normalizedSecret = normalizeVaultSecret(
             await Bun.file(secretPath).text(),
             "software-vault",
@@ -335,11 +354,12 @@ export function resolveVaultSecretProvider(
   dataDir: string,
   policy: KeyPolicy = "open",
 ): VaultSecretProvider {
-  // If a legacy software vault-passphrase file exists, always use the
-  // software provider — even on SE-capable machines. Switching providers
-  // would create a new SE-backed secret and strand the existing vault data.
-  const legacyPath = join(dataDir, "vault-passphrase");
-  if (existsSync(legacyPath)) {
+  // If an existing software vault secret exists (`vault.key` from the current
+  // runtime or `vault-passphrase` from the provider path), always use the
+  // software provider. Switching providers would strand the existing vault.
+  const softwareKeyPath = join(dataDir, "vault.key");
+  const softwarePassphrasePath = join(dataDir, "vault-passphrase");
+  if (existsSync(softwareKeyPath) || existsSync(softwarePassphrasePath)) {
     return createSoftwareVaultSecretProvider(dataDir);
   }
 

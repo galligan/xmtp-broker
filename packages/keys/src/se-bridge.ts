@@ -184,21 +184,13 @@ export async function seCreate(
   signerPath: string,
   purpose: "signing" | "key-agreement" = "signing",
 ): Promise<Result<SeCreateResponse, InternalError>> {
-  return runSigner(
-    signerPath,
-    [
-      "create",
-      "--label",
-      label,
-      "--policy",
-      policy,
-      "--purpose",
-      purpose,
-      "--format",
-      "json",
-    ],
-    SeCreateResponseSchema,
-  );
+  const args = ["create", "--label", label, "--policy", policy] as string[];
+  if (purpose !== "signing") {
+    args.push("--purpose", purpose);
+  }
+  args.push("--format", "json");
+
+  return runSigner(signerPath, args, SeCreateResponseSchema);
 }
 
 /** Sign data with a Secure Enclave key. */

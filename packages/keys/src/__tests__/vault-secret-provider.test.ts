@@ -84,6 +84,23 @@ describe("SoftwareVaultSecretProvider", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  test("reads the current raw vault.key software format", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "signet-vs-sw-keyfile-"));
+    const raw = Uint8Array.from({ length: 32 }, (_, index) => index);
+    const expected = Array.from(raw)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    writeFileSync(join(dir, "vault.key"), raw);
+
+    const provider = createSoftwareVaultSecretProvider(dir);
+    const result = await provider.getSecret();
+
+    expect(Result.isOk(result)).toBe(true);
+    if (Result.isError(result)) throw new Error("expected ok");
+    expect(result.value).toBe(expected);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   test("reports software kind", () => {
     const provider = createSoftwareVaultSecretProvider(tmpDir);
     expect(provider.kind).toBe("software");
@@ -306,6 +323,25 @@ describe("resolveVaultSecretProvider", () => {
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) throw new Error("expected ok");
     expect(result.value).toBe(legacySecret);
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("prefers existing software vault.key installs during resolution", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "signet-vs-current-sw-"));
+    const raw = Uint8Array.from({ length: 32 }, (_, index) => 255 - index);
+    const expected = Array.from(raw)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    writeFileSync(join(dir, "vault.key"), raw);
+
+    const provider = resolveVaultSecretProvider(dir);
+    const result = await provider.getSecret();
+
+    expect(provider.kind).toBe("software");
+    expect(Result.isOk(result)).toBe(true);
+    if (Result.isError(result)) throw new Error("expected ok");
+    expect(result.value).toBe(expected);
 
     rmSync(dir, { recursive: true, force: true });
   });
