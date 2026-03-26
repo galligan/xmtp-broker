@@ -116,6 +116,39 @@ exit 0
     const r2 = await prompter("egressExpansion");
     expect(Result.isOk(r2)).toBe(true);
   });
+
+  test("serializes concurrent first-use gate key creation", async () => {
+    const mockSigner = join(tmpDir, "mock-signer-concurrent");
+    const createLog = join(tmpDir, "gate-create.log");
+    writeFileSync(
+      mockSigner,
+      `#!/usr/bin/env bash
+case "$1" in
+  "create")
+    echo create >> "${createLog}"
+    sleep 0.1
+    echo '{"keyRef":"Y29uY3VycmVudA==","publicKey":"04aabbccdd","policy":"biometric"}'
+    ;;
+  "sign") echo '{"signature":"3045022100abcdef"}' ;;
+  *) echo '{}' ;;
+esac
+exit 0
+`,
+    );
+    chmodSync(mockSigner, 0o755);
+
+    const dataDir = join(tmpDir, "gate-concurrent");
+    const prompter = createSeGatePrompter(dataDir, mockSigner);
+
+    const [r1, r2] = await Promise.all([
+      prompter("scopeExpansion"),
+      prompter("agentCreation"),
+    ]);
+
+    expect(Result.isOk(r1)).toBe(true);
+    expect(Result.isOk(r2)).toBe(true);
+    expect(await Bun.file(createLog).text()).toBe("create\n");
+  });
 });
 
 describe("resolveGatePrompter (fail-closed)", () => {

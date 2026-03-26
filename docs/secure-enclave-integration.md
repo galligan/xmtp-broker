@@ -1,18 +1,22 @@
 # Secure Enclave Integration
 
-This document describes how xmtp-signet uses the Secure Enclave to protect
-the vault encryption secret and gate privileged operations. For the broader
-key hierarchy and threat model, see [security.md](security.md).
+This document describes the Secure Enclave integration primitives added to
+`@xmtp/signet-keys` and the intended runtime model for protecting the vault
+encryption secret and gating privileged operations. The keys package now
+contains the Secure Enclave-backed providers and bridge logic; wiring the
+daemon/runtime boot path to consume those providers remains a separate
+follow-on change. For the broader key hierarchy and threat model, see
+[security.md](security.md).
 
 ## Overview
 
-The Secure Enclave (SE) integration has two independent roles:
+The Secure Enclave (SE) integration is split into two independent primitives:
 
-1. **Vault secret protection** — the 32-byte secret that encrypts the vault
+1. **Vault secret protection primitive** — the 32-byte secret that encrypts the vault
    is itself encrypted by an SE key. The secret never exists on disk in
    plaintext. Decrypting it requires the SE hardware.
 
-2. **Biometric gate for privileged operations** — a separate SE key with
+2. **Biometric gate primitive for privileged operations** — a separate SE key with
    biometric policy gates operations like scope expansion, egress changes,
    and key rotation. Touch ID fires on each gated operation.
 
@@ -20,8 +24,8 @@ Two SE keys, two purposes:
 
 | Key | Purpose | SE key type | Policy | Created when |
 |-----|---------|-------------|--------|-------------|
-| Vault key | Encrypt/decrypt vault secret | P256.KeyAgreement | Configurable (open/passcode/biometric) | First `xs identity init` |
-| Gate key | Authorize privileged operations | P256.KeyAgreement | Always biometric | First gated operation |
+| Vault key | Encrypt/decrypt vault secret | P256.KeyAgreement | Configurable (open/passcode/biometric) | First vault secret resolution |
+| Gate key | Authorize privileged operations | P256.Signing | Always biometric | First gated operation |
 
 ## Vault Secret Protection
 
@@ -57,9 +61,9 @@ agreement capability.
 4. Store sealed box to disk:
    { ephemeralPublicKey, nonce, ciphertext, tag }
 
-5. Zeroize vault secret from memory after vault initialization
+5. Zeroize the temporary byte buffer after sealed-box creation
 
-6. Pass vault secret to createVault() / createInternalKeyBackend()
+6. Return the vault secret to the caller
 ```
 
 The vault secret itself is never written to disk. Only the sealed box is
@@ -77,7 +81,7 @@ persisted — it's useless without the SE private key.
    b. HKDF-SHA256(shared_secret, salt, info) → AES-256 key
    c. AES-GCM decrypt(ciphertext, aes_key) → vault secret
 
-4. Pass vault secret to createVault() / createInternalKeyBackend()
+4. Return the vault secret to the caller
 ```
 
 #### Why ECIES, not sign-and-derive?
@@ -136,7 +140,7 @@ agent_creation = false
 When a gated operation fires:
 
 1. Load the gate key reference (created on first gated operation)
-2. SE does ECDH with a fresh ephemeral key — Touch ID prompt fires
+2. SE signs an operation-specific challenge — Touch ID prompt fires
 3. If confirmed: operation proceeds
 4. If cancelled: `CancelledError` returned, operation blocked
 

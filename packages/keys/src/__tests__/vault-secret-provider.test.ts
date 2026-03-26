@@ -11,6 +11,7 @@ import {
   writeFileSync,
   chmodSync,
   mkdtempSync,
+  mkdirSync,
   rmSync,
   existsSync,
 } from "node:fs";
@@ -70,6 +71,19 @@ describe("SoftwareVaultSecretProvider", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  test("normalizes legacy secret files with surrounding whitespace", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "signet-vs-sw-whitespace-"));
+    writeFileSync(join(dir, "vault-passphrase"), `  ${"AB".repeat(32)}\n`);
+
+    const provider = createSoftwareVaultSecretProvider(dir);
+    const result = await provider.getSecret();
+
+    expect(Result.isOk(result)).toBe(true);
+    if (Result.isError(result)) throw new Error("expected ok");
+    expect(result.value).toBe("ab".repeat(32));
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   test("reports software kind", () => {
     const provider = createSoftwareVaultSecretProvider(tmpDir);
     expect(provider.kind).toBe("software");
@@ -119,6 +133,8 @@ describe("seEncrypt (pure TypeScript ECIES)", () => {
 describe("SeVaultSecretProvider (mock signer)", () => {
   let tmpDir: string;
   let mockSigner: string;
+  const realPubKey =
+    "04ceb1ebde14307e32544178a94d440d7cbde3fd3d8f57bf2c55c7b866345b4c29665cb65049a5b58c1602b8a09b3562a9229012c12db99f8da7b42245abf34a1b";
 
   beforeAll(() => {
     tmpDir = mkdtempSync(join(tmpdir(), "signet-vs-se-"));
@@ -126,9 +142,6 @@ describe("SeVaultSecretProvider (mock signer)", () => {
     // Mock signer: create returns a key ref + real P-256 public key,
     // decrypt returns a fixed plaintext (simulating SE ECDH + decrypt)
     const fixedSecret = "aa".repeat(32); // 32 bytes of 0xaa
-    // Real P-256 uncompressed public key (65 bytes = 130 hex chars starting with 04)
-    const realPubKey =
-      "04ceb1ebde14307e32544178a94d440d7cbde3fd3d8f57bf2c55c7b866345b4c29665cb65049a5b58c1602b8a09b3562a9229012c12db99f8da7b42245abf34a1b";
     const script = `#!/usr/bin/env bash
 case "$1" in
   "create") echo '{"keyRef":"dGVzdC12YXVsdC1rZXk=","publicKey":"${realPubKey}","policy":"open"}' ;;
@@ -179,6 +192,35 @@ exit 0
     expect(r2.value).toBe("aa".repeat(32));
   });
 
+  test("rejects malformed decrypted vault secrets", async () => {
+    const badSigner = join(tmpDir, "bad-decrypt-signer");
+    writeFileSync(
+      badSigner,
+      `#!/usr/bin/env bash
+case "$1" in
+  "create") echo '{"keyRef":"dGVzdC12YXVsdC1rZXk=","publicKey":"${realPubKey}","policy":"open"}' ;;
+  "decrypt") echo '{"plaintext":"not-a-valid-secret"}' ;;
+  *) echo '{}' ;;
+esac
+exit 0
+`,
+    );
+    chmodSync(badSigner, 0o755);
+
+    const dataDir = join(tmpDir, "data-bad-decrypt");
+    const provider = createSeVaultSecretProvider(dataDir, badSigner);
+
+    const first = await provider.getSecret();
+    expect(Result.isOk(first)).toBe(true);
+
+    const restarted = createSeVaultSecretProvider(dataDir, badSigner);
+    const second = await restarted.getSecret();
+
+    expect(Result.isError(second)).toBe(true);
+    if (Result.isOk(second)) throw new Error("expected error");
+    expect(second.error.message).toContain("malformed");
+  });
+
   test("reports secure-enclave kind", () => {
     const dataDir = join(tmpDir, "data3");
     const provider = createSeVaultSecretProvider(dataDir, mockSigner);
@@ -214,6 +256,20 @@ exit 0
       throw new Error("expected ok");
     }
     expect(r1.value).toBe(r2.value);
+  });
+
+  test("fails loudly when SE metadata is incomplete", async () => {
+    const dataDir = join(tmpDir, "data-partial");
+    const provider = createSeVaultSecretProvider(dataDir, mockSigner);
+
+    mkdirSync(dataDir, { recursive: true });
+    writeFileSync(join(dataDir, "vault-sealed-box.json"), "{}");
+
+    const result = await provider.getSecret();
+
+    expect(Result.isError(result)).toBe(true);
+    if (Result.isOk(result)) throw new Error("expected error");
+    expect(result.error.message).toContain("incomplete");
   });
 });
 
@@ -266,6 +322,20 @@ describe("resolveVaultSecretProvider", () => {
     expect(Result.isError(result)).toBe(true);
     if (Result.isOk(result)) throw new Error("expected error");
     expect(result.error.message).toContain("Secure Enclave");
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("returns an error when SE metadata is incomplete during provider resolution", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "signet-vs-partial-se-"));
+    writeFileSync(join(dir, "se-vault-keyref"), "dGVzdA==");
+
+    const provider = resolveVaultSecretProvider(dir);
+    const result = await provider.getSecret();
+
+    expect(Result.isError(result)).toBe(true);
+    if (Result.isOk(result)) throw new Error("expected error");
+    expect(result.error.message).toContain("incomplete");
 
     rmSync(dir, { recursive: true, force: true });
   });

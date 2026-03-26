@@ -2,7 +2,7 @@ import { Result } from "better-result";
 import { CancelledError, InternalError } from "@xmtp/signet-schemas";
 import type { SignetError } from "@xmtp/signet-schemas";
 import { join } from "node:path";
-import { existsSync, chmodSync } from "node:fs";
+import { existsSync, chmodSync, mkdirSync } from "node:fs";
 import { sha256 } from "@noble/hashes/sha256";
 import { seCreate, seSign, findSignerBinary } from "./se-bridge.js";
 import { detectPlatform } from "./platform.js";
@@ -31,6 +31,7 @@ export function createSeGatePrompter(
   signerPath: string,
 ): BiometricPrompter {
   const gateKeyRefPath = join(dataDir, "se-gate-keyref");
+  let inflightKeyRef: Promise<Result<string, SignetError>> | null = null;
 
   /** Ensure the biometric SE key exists and return its reference. */
   async function ensureGateKey(): Promise<Result<string, SignetError>> {
@@ -38,24 +39,51 @@ export function createSeGatePrompter(
       return Result.ok(await Bun.file(gateKeyRefPath).text());
     }
 
-    // First privileged operation: create the biometric SE key
-    const createResult = await seCreate(
-      "signet-gate-biometric",
-      "biometric",
-      signerPath,
-    );
-    if (Result.isError(createResult)) {
-      return Result.err(
-        InternalError.create("Failed to create SE biometric gate key", {
-          cause: createResult.error.message,
-        }),
-      );
+    if (inflightKeyRef !== null) {
+      return inflightKeyRef;
     }
 
-    const keyRef = createResult.value.keyRef;
-    await Bun.write(gateKeyRefPath, keyRef);
-    chmodSync(gateKeyRefPath, 0o600);
-    return Result.ok(keyRef);
+    inflightKeyRef = (async (): Promise<Result<string, SignetError>> => {
+      try {
+        if (!existsSync(dataDir)) {
+          mkdirSync(dataDir, { recursive: true });
+          chmodSync(dataDir, 0o700);
+        }
+
+        if (existsSync(gateKeyRefPath)) {
+          return Result.ok(await Bun.file(gateKeyRefPath).text());
+        }
+
+        // First privileged operation: create the biometric SE key
+        const createResult = await seCreate(
+          "signet-gate-biometric",
+          "biometric",
+          signerPath,
+        );
+        if (Result.isError(createResult)) {
+          return Result.err(
+            InternalError.create("Failed to create SE biometric gate key", {
+              cause: createResult.error.message,
+            }),
+          );
+        }
+
+        const keyRef = createResult.value.keyRef;
+        await Bun.write(gateKeyRefPath, keyRef);
+        chmodSync(gateKeyRefPath, 0o600);
+        return Result.ok(keyRef);
+      } catch (cause) {
+        return Result.err(
+          InternalError.create("SE biometric gate prompter failed", {
+            cause: String(cause),
+          }),
+        );
+      } finally {
+        inflightKeyRef = null;
+      }
+    })();
+
+    return inflightKeyRef;
   }
 
   return async (

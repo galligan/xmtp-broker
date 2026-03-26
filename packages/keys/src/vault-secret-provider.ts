@@ -33,6 +33,90 @@ function bytesToHex(bytes: Uint8Array): string {
     .join("");
 }
 
+function normalizeVaultSecret(
+  value: string,
+  source: string,
+): Result<string, InternalError> {
+  const normalized = value.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(normalized)) {
+    return Result.err(
+      InternalError.create("Vault secret is malformed", {
+        source,
+      }),
+    );
+  }
+  return Result.ok(normalized);
+}
+
+function createErrorVaultSecretProvider(
+  message: string,
+  context?: Record<string, unknown>,
+): VaultSecretProvider {
+  return {
+    kind: "software" as const,
+    async getSecret() {
+      return Result.err(InternalError.create(message, context));
+    },
+  };
+}
+
+function describeSeVaultArtifacts(dataDir: string): {
+  readonly keyRefPath: string;
+  readonly sealedBoxPath: string;
+  readonly publicKeyPath: string;
+  readonly hasKeyRef: boolean;
+  readonly hasSealedBox: boolean;
+  readonly hasPublicKey: boolean;
+} {
+  const keyRefPath = join(dataDir, "se-vault-keyref");
+  const sealedBoxPath = join(dataDir, "vault-sealed-box.json");
+  const publicKeyPath = join(dataDir, "se-vault-pubkey");
+
+  return {
+    keyRefPath,
+    sealedBoxPath,
+    publicKeyPath,
+    hasKeyRef: existsSync(keyRefPath),
+    hasSealedBox: existsSync(sealedBoxPath),
+    hasPublicKey: existsSync(publicKeyPath),
+  };
+}
+
+function validateSeVaultArtifacts(
+  artifacts: ReturnType<typeof describeSeVaultArtifacts>,
+): Result<"existing" | "fresh", InternalError> {
+  const { hasKeyRef, hasSealedBox, hasPublicKey } = artifacts;
+  const hasAnyArtifact = hasKeyRef || hasSealedBox || hasPublicKey;
+  if (!hasAnyArtifact) {
+    return Result.ok("fresh");
+  }
+
+  if (hasKeyRef && hasSealedBox) {
+    return Result.ok("existing");
+  }
+
+  const present: string[] = [];
+  const missing: string[] = [];
+
+  if (hasKeyRef) present.push("se-vault-keyref");
+  else missing.push("se-vault-keyref");
+
+  if (hasSealedBox) present.push("vault-sealed-box.json");
+  else missing.push("vault-sealed-box.json");
+
+  if (hasPublicKey) present.push("se-vault-pubkey");
+
+  return Result.err(
+    InternalError.create(
+      "Vault Secure Enclave metadata is incomplete. Refusing to reinitialize automatically.",
+      {
+        present,
+        missing,
+      },
+    ),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Secure Enclave provider (ECIES)
 // ---------------------------------------------------------------------------
@@ -61,9 +145,8 @@ export function createSeVaultSecretProvider(
   let cached: string | null = null;
   let inflight: Promise<Result<string, InternalError>> | null = null;
 
-  const keyRefPath = join(dataDir, "se-vault-keyref");
-  const sealedBoxPath = join(dataDir, "vault-sealed-box.json");
-  const publicKeyPath = join(dataDir, "se-vault-pubkey");
+  const { keyRefPath, sealedBoxPath, publicKeyPath } =
+    describeSeVaultArtifacts(dataDir);
 
   async function resolveSecret(): Promise<Result<string, InternalError>> {
     try {
@@ -73,7 +156,14 @@ export function createSeVaultSecretProvider(
         chmodSync(dataDir, 0o700);
       }
 
-      if (existsSync(keyRefPath) && existsSync(sealedBoxPath)) {
+      const artifactState = validateSeVaultArtifacts(
+        describeSeVaultArtifacts(dataDir),
+      );
+      if (Result.isError(artifactState)) {
+        return Result.err(artifactState.error);
+      }
+
+      if (artifactState.value === "existing") {
         // --- Subsequent run: decrypt ---
         const keyRef = await Bun.file(keyRefPath).text();
         const sealedBoxJson = await Bun.file(sealedBoxPath).text();
@@ -88,7 +178,15 @@ export function createSeVaultSecretProvider(
           );
         }
 
-        cached = decryptResult.value.plaintext;
+        const normalizedSecret = normalizeVaultSecret(
+          decryptResult.value.plaintext,
+          "secure-enclave",
+        );
+        if (Result.isError(normalizedSecret)) {
+          return Result.err(normalizedSecret.error);
+        }
+
+        cached = normalizedSecret.value;
         return Result.ok(cached);
       }
 
@@ -194,7 +292,14 @@ export function createSoftwareVaultSecretProvider(
         }
 
         if (existsSync(secretPath)) {
-          cached = await Bun.file(secretPath).text();
+          const normalizedSecret = normalizeVaultSecret(
+            await Bun.file(secretPath).text(),
+            "software-vault",
+          );
+          if (Result.isError(normalizedSecret)) {
+            return Result.err(normalizedSecret.error);
+          }
+          cached = normalizedSecret.value;
         } else {
           const bytes = crypto.getRandomValues(new Uint8Array(32));
           cached = bytesToHex(bytes);
@@ -238,26 +343,32 @@ export function resolveVaultSecretProvider(
     return createSoftwareVaultSecretProvider(dataDir);
   }
 
-  // If an SE sealed box already exists, use the SE provider regardless
-  // of current platform detection (the vault was created with SE).
-  const sealedBoxPath = join(dataDir, "vault-sealed-box.json");
-  if (existsSync(sealedBoxPath)) {
+  const artifacts = describeSeVaultArtifacts(dataDir);
+  const artifactState = validateSeVaultArtifacts(artifacts);
+  if (Result.isError(artifactState)) {
+    return createErrorVaultSecretProvider(
+      artifactState.error.message,
+      artifactState.error.context ?? undefined,
+    );
+  }
+
+  // If a complete SE artifact set already exists, use the SE provider
+  // regardless of current platform detection (the vault was created with SE).
+  if (artifactState.value === "existing") {
     const signerPath = findSignerBinary();
     if (signerPath) {
       return createSeVaultSecretProvider(dataDir, signerPath, policy);
     }
-    // SE sealed box exists but no signer binary — can't decrypt
-    return {
-      kind: "software" as const,
-      async getSecret() {
-        return Result.err(
-          InternalError.create(
-            "Vault was created with Secure Enclave but signet-signer binary not found. " +
-              "Cannot decrypt vault secret.",
-          ),
-        );
+    return createErrorVaultSecretProvider(
+      "Vault was created with Secure Enclave but signet-signer binary not found. Cannot decrypt vault secret.",
+      {
+        present: [
+          artifacts.hasKeyRef ? "se-vault-keyref" : null,
+          artifacts.hasSealedBox ? "vault-sealed-box.json" : null,
+          artifacts.hasPublicKey ? "se-vault-pubkey" : null,
+        ].filter(Boolean),
       },
-    };
+    );
   }
 
   // Fresh data dir — choose based on platform
