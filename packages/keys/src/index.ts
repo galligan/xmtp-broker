@@ -64,6 +64,20 @@ export { createSignerProvider } from "./signer-provider.js";
 // Seal stamper
 export { createSealStamper } from "./seal-stamper.js";
 
+// Passphrase providers (SE-backed and software fallback)
+export {
+  createSePassphraseProvider,
+  createSoftwarePassphraseProvider,
+  resolvePassphraseProvider,
+} from "./passphrase-provider.js";
+export type { PassphraseProvider } from "./passphrase-provider.js";
+
+// SE-backed biometric gate prompter
+export {
+  createSeGatePrompter,
+  resolveGatePrompter,
+} from "./se-gate-prompter.js";
+
 // Biometric gate
 export {
   createBiometricGate,
