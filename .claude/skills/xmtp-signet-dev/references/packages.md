@@ -134,7 +134,7 @@ Credential projection pipeline and scope enforcement.
 - Schemas: `CheckVerdict`, `VerificationCheck`, `VerificationRequestSchema`, `VerificationStatementSchema`, `VerifierSelfAttestationSchema`
 - Config: `VerifierConfigSchema`, `DEFAULT_STATEMENT_TTL_SECONDS`
 - Content types: `VERIFICATION_REQUEST_CONTENT_TYPE_ID`, `VERIFICATION_STATEMENT_CONTENT_TYPE_ID`
-- Checks: source available, build provenance, release signing, attestation signature, attestation chain, schema compliance
+- Checks: source available, build provenance, release signing, seal signature, seal chain, schema compliance
 - Service: `createVerifierService`
 - Utilities: `createRateLimiter`, `canonicalizeStatement`
 

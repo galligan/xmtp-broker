@@ -53,10 +53,10 @@ composition.
 
 ## Data flow
 
-### Harness → Broker (request)
+### Harness → Signet (request)
 
 ```
-Harness                          Broker
+Harness                          Signet
   │                                │
   ├─ WebSocket frame ────────────► │
   │                                ├─ Parse frame (Zod at boundary)
@@ -67,10 +67,10 @@ Harness                          Broker
   │  ◄──────────── Response frame ─┤
 ```
 
-### XMTP → Broker → Harness (event)
+### XMTP → Signet → Harness (event)
 
 ```
-XMTP Network                     Broker                          Harness
+XMTP Network                     Signet                          Harness
   │                                │                                │
   ├─ Raw message ────────────────► │                                │
   │                                ├─ Decode message (core)         │

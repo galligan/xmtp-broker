@@ -13,10 +13,7 @@ import {
 import { detectPlatform, platformToTrustTier } from "./platform.js";
 import type { TrustTier } from "./platform.js";
 import type { RootKeyHandle, OperationalKey, CredentialKey } from "./types.js";
-import {
-  verifyJwt as verifyAdminJwt,
-  type AdminJwtPayload,
-} from "./jwt.js";
+import { verifyJwt as verifyAdminJwt, type AdminJwtPayload } from "./jwt.js";
 import {
   exportPrivateKey,
   exportPublicKey,

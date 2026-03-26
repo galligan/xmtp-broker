@@ -276,7 +276,11 @@ describe("HarnessRequest discriminated union", () => {
         actionId: "a1",
         confirmed: true,
       },
-      { type: "heartbeat", requestId: "r7", credentialId: "cred_1234abcdfeedbabe" },
+      {
+        type: "heartbeat",
+        requestId: "r7",
+        credentialId: "cred_1234abcdfeedbabe",
+      },
     ];
 
     for (const req of requests) {

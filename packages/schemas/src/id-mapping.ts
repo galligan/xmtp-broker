@@ -33,31 +33,33 @@ export type IdMappingType = {
  * A bidirectional mapping between an XMTP network ID (`xmtp_` prefix)
  * and a local signet resource ID (e.g. `msg_`, `conv_`, `inbox_`).
  */
-export const IdMapping: z.ZodType<IdMappingType> = z.object({
-  /** The XMTP network-assigned identifier. */
-  networkId: NetworkId,
-  /** The local signet resource identifier. */
-  localId: z.string(),
-  /** Which resource type this mapping represents. */
-  resourceType: IdMappingResourceType,
-  /** ISO 8601 timestamp when the mapping was created. */
-  createdAt: z.string().datetime(),
-}).superRefine((value, ctx) => {
-  const schemaByType = {
-    message: MessageId,
-    conversation: ConversationId,
-    inbox: InboxId,
-  } as const;
+export const IdMapping: z.ZodType<IdMappingType> = z
+  .object({
+    /** The XMTP network-assigned identifier. */
+    networkId: NetworkId,
+    /** The local signet resource identifier. */
+    localId: z.string(),
+    /** Which resource type this mapping represents. */
+    resourceType: IdMappingResourceType,
+    /** ISO 8601 timestamp when the mapping was created. */
+    createdAt: z.string().datetime(),
+  })
+  .superRefine((value, ctx) => {
+    const schemaByType = {
+      message: MessageId,
+      conversation: ConversationId,
+      inbox: InboxId,
+    } as const;
 
-  const localIdSchema = schemaByType[value.resourceType];
-  if (!localIdSchema.safeParse(value.localId).success) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["localId"],
-      message: `localId must be a valid ${value.resourceType} resource ID`,
-    });
-  }
-});
+    const localIdSchema = schemaByType[value.resourceType];
+    if (!localIdSchema.safeParse(value.localId).success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["localId"],
+        message: `localId must be a valid ${value.resourceType} resource ID`,
+      });
+    }
+  });
 
 /**
  * Runtime contract for a bidirectional ID mapping store.

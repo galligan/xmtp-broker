@@ -59,7 +59,8 @@ describe("IdMapping", () => {
 
   it("rejects non-network networkId", () => {
     expect(
-      IdMapping.safeParse({ ...valid, networkId: "msg_abc12345feedbabe" }).success,
+      IdMapping.safeParse({ ...valid, networkId: "msg_abc12345feedbabe" })
+        .success,
     ).toBe(false);
   });
 
@@ -103,9 +104,9 @@ describe("IdMapping", () => {
 
   it("rejects missing fields", () => {
     expect(IdMapping.safeParse({}).success).toBe(false);
-    expect(IdMapping.safeParse({ networkId: "xmtp_abc12345feedbabe" }).success).toBe(
-      false,
-    );
+    expect(
+      IdMapping.safeParse({ networkId: "xmtp_abc12345feedbabe" }).success,
+    ).toBe(false);
   });
 });
 

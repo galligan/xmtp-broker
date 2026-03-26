@@ -125,7 +125,10 @@ describe("credential-lifecycle", () => {
     expect(created.isOk()).toBe(true);
     if (!created.isOk()) return;
 
-    const revoke = manager.revokeCredential("cred_1234abcdfeedbabe", "owner-initiated");
+    const revoke = manager.revokeCredential(
+      "cred_1234abcdfeedbabe",
+      "owner-initiated",
+    );
     expect(revoke.isOk()).toBe(true);
     if (!revoke.isOk()) return;
     expect(revoke.value.status).toBe("revoked");

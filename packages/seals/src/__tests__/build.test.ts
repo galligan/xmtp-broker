@@ -44,10 +44,14 @@ describe("buildSeal", () => {
   });
 
   test("maps credentialId from input", () => {
-    const result = buildSeal(validInput({ credentialId: "cred_feed1234feedbabe" }));
+    const result = buildSeal(
+      validInput({ credentialId: "cred_feed1234feedbabe" }),
+    );
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    expect(result.value.chain.current.credentialId).toBe("cred_feed1234feedbabe");
+    expect(result.value.chain.current.credentialId).toBe(
+      "cred_feed1234feedbabe",
+    );
   });
 
   test("maps operatorId from input", () => {

@@ -22,7 +22,7 @@ Current baseline types:
 - `readReceipt` — Read receipt signals
 - `groupUpdated` — Group metadata changes
 
-### 2. Broker-level configuration
+### 2. Signet-level configuration
 
 The signet operator can expand or restrict beyond the baseline across all
 agents the signet manages. For example, a signet might:

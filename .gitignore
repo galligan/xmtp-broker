@@ -12,3 +12,9 @@ dist/
 
 # Tracer bullet test artifacts
 .test/
+
+# Scratch workspace
+.scratch/
+
+# Session trail notes (local only)
+.trail/
