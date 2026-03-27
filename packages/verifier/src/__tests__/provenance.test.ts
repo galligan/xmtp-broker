@@ -46,46 +46,34 @@ describe("deriveProvenanceMap", () => {
     expect(Object.keys(map)).toHaveLength(0);
   });
 
-  it("maps passing build_provenance to buildProvenance field", () => {
+  it("ignores build_provenance until a build provenance claim is surfaced on seals", () => {
     const statement = makeStatement({
       checks: [makeCheck("build_provenance", "pass")],
     });
 
     const map = deriveProvenanceMap(statement);
-    expect(map["buildProvenance"]).toEqual({
-      source: "verified",
-      attestedBy: "verifier-inbox-001",
-      attestedAt: "2025-01-15T00:00:00.000Z",
-      expiresAt: "2025-01-16T00:00:00.000Z",
-    });
+    expect(map["buildProvenance"]).toBeUndefined();
+    expect(map["trustTier"]).toBeDefined();
   });
 
-  it("maps passing source_available to sourceRepo field", () => {
+  it("ignores source_available because it only establishes reachability", () => {
     const statement = makeStatement({
       checks: [makeCheck("source_available", "pass")],
     });
 
     const map = deriveProvenanceMap(statement);
-    expect(map["sourceRepo"]).toEqual({
-      source: "verified",
-      attestedBy: "verifier-inbox-001",
-      attestedAt: "2025-01-15T00:00:00.000Z",
-      expiresAt: "2025-01-16T00:00:00.000Z",
-    });
+    expect(map["sourceRepo"]).toBeUndefined();
+    expect(map["trustTier"]).toBeDefined();
   });
 
-  it("maps passing release_signing to releaseSigning field", () => {
+  it("ignores release_signing because it is not yet surfaced as a seal claim", () => {
     const statement = makeStatement({
       checks: [makeCheck("release_signing", "pass")],
     });
 
     const map = deriveProvenanceMap(statement);
-    expect(map["releaseSigning"]).toEqual({
-      source: "verified",
-      attestedBy: "verifier-inbox-001",
-      attestedAt: "2025-01-15T00:00:00.000Z",
-      expiresAt: "2025-01-16T00:00:00.000Z",
-    });
+    expect(map["releaseSigning"]).toBeUndefined();
+    expect(map["trustTier"]).toBeDefined();
   });
 
   it("includes trustTier when verifiedTier is above unverified", () => {
@@ -141,12 +129,7 @@ describe("deriveProvenanceMap", () => {
     });
 
     const map = deriveProvenanceMap(statement);
-    expect(Object.keys(map).sort()).toEqual([
-      "buildProvenance",
-      "releaseSigning",
-      "sourceRepo",
-      "trustTier",
-    ]);
+    expect(Object.keys(map).sort()).toEqual(["trustTier"]);
 
     // All should have the same verifier attribution
     for (const key of Object.keys(map)) {
@@ -166,7 +149,7 @@ describe("deriveProvenanceMap", () => {
     });
 
     const map = deriveProvenanceMap(statement);
-    expect(map["buildProvenance"]).toBeDefined();
+    expect(map["buildProvenance"]).toBeUndefined();
     expect(map["sourceRepo"]).toBeUndefined();
     expect(map["releaseSigning"]).toBeUndefined();
     expect(map["trustTier"]).toBeDefined();

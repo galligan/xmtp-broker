@@ -10,7 +10,10 @@ import { ScopeMode } from "./operator.js";
 import { ScopeSet, PermissionScope } from "./permission-scopes.js";
 import type { PermissionScopeType, ScopeSetType } from "./permission-scopes.js";
 import type { ScopeModeType } from "./operator.js";
-import { ProvenanceMap } from "./claim-provenance.js";
+import {
+  ProvenanceMap,
+  OPERATOR_DISCLOSURE_PROVENANCE_KEYS,
+} from "./claim-provenance.js";
 import type { ProvenanceMapType } from "./claim-provenance.js";
 
 // -- Types (declared first for isolatedDeclarations) -----------------------
@@ -36,6 +39,13 @@ export type OperatorDisclosuresType = {
   hostingMode?: "self-hosted" | "cloud" | "tee" | undefined;
 };
 
+/** Trust tier surfaced on a seal when the signet has external verification evidence. */
+export type TrustTierType =
+  | "unverified"
+  | "source-verified"
+  | "reproducibly-verified"
+  | "runtime-attested";
+
 /** Core payload of a capability seal. */
 export type SealPayloadType = {
   sealId: string;
@@ -46,6 +56,8 @@ export type SealPayloadType = {
   permissions: ScopeSetType;
   adminAccess?: { operatorId: string; expiresAt: string } | undefined;
   issuedAt: string;
+  /** Signet-managed trust tier for this operator/runtime. */
+  trustTier?: TrustTierType | undefined;
   /** Operator-declared claims about the runtime environment. */
   operatorDisclosures?: OperatorDisclosuresType | undefined;
   /** Provenance metadata for disclosed and externally-verified claims. */
@@ -112,6 +124,19 @@ export const HostingMode: z.ZodEnum<["self-hosted", "cloud", "tee"]> = z.enum([
   "tee",
 ]);
 
+/** Trust tier surfaced on a seal when available. */
+export const TrustTier: z.ZodEnum<
+  ["unverified", "source-verified", "reproducibly-verified", "runtime-attested"]
+> = z.enum([
+  "unverified",
+  "source-verified",
+  "reproducibly-verified",
+  "runtime-attested",
+]);
+
+type OperatorDisclosureClaimKey =
+  (typeof OPERATOR_DISCLOSURE_PROVENANCE_KEYS)[number];
+
 /**
  * Operator-declared claims about the runtime environment.
  * All fields are optional — operators disclose what they choose to.
@@ -160,16 +185,47 @@ export const SealPayload: z.ZodType<SealPayloadType> = z
       .optional(),
     /** When this seal was issued. */
     issuedAt: z.string().datetime(),
+    /** Signet-managed trust tier for this operator/runtime. */
+    trustTier: TrustTier.optional(),
     /** Operator-declared claims about the runtime environment. */
     operatorDisclosures: OperatorDisclosures.optional(),
     /**
      * Provenance metadata for disclosed and externally-verified claims.
      * Derived fields (sealId, permissions, etc.) have no entries —
      * their provenance is structural. Only operatorDisclosures fields
-     * and externally-verified fields (trustTier, buildProvenance)
+     * and the externally-verified trustTier claim
      * get entries.
      */
     provenanceMap: ProvenanceMap.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.provenanceMap === undefined) return;
+
+    for (const key of OPERATOR_DISCLOSURE_PROVENANCE_KEYS) {
+      const disclosureKey = key as OperatorDisclosureClaimKey;
+      if (
+        value.provenanceMap[disclosureKey] !== undefined &&
+        value.operatorDisclosures?.[disclosureKey] === undefined
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["provenanceMap", disclosureKey],
+          message: `Provenance for ${disclosureKey} requires a corresponding operator disclosure`,
+        });
+      }
+    }
+
+    if (
+      value.provenanceMap.trustTier !== undefined &&
+      value.trustTier === undefined
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["provenanceMap", "trustTier"],
+        message:
+          "Provenance for trustTier requires a corresponding trustTier value",
+      });
+    }
   })
   .describe("Core payload of a capability seal");
 

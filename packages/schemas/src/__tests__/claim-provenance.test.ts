@@ -94,4 +94,22 @@ describe("ProvenanceMap", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("rejects unsupported claim keys", () => {
+    const result = ProvenanceMap.safeParse({
+      permissions: { source: "verified" },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects external keys that are not part of the seal transparency model", () => {
+    const result = ProvenanceMap.safeParse({
+      sourceRepo: {
+        source: "verified",
+        attestedBy: "verifier_c3d4e5f678901234",
+        attestedAt: "2026-03-26T11:00:00Z",
+      },
+    });
+    expect(result.success).toBe(false);
+  });
 });

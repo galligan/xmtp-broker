@@ -341,6 +341,7 @@ describe("SealManager", () => {
       overrides.set(
         "cred_abcd1234feedbabe:conv_abcd1234feedbabe",
         validInput({
+          trustTier: "source-verified",
           operatorDisclosures: {
             inferenceMode: "cloud",
           },
@@ -360,6 +361,7 @@ describe("SealManager", () => {
       overrides.set(
         "cred_abcd1234feedbabe:conv_abcd1234feedbabe",
         validInput({
+          trustTier: "source-verified",
           operatorDisclosures: {
             inferenceMode: "cloud",
           },
@@ -368,6 +370,55 @@ describe("SealManager", () => {
               source: "observed",
               attestedBy: "inspector_a1b2c3d4e5f67890",
               attestedAt: "2026-03-27T00:00:00Z",
+            },
+          },
+        }),
+      );
+
+      const second = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
+      expect(Result.isOk(second)).toBe(true);
+      if (Result.isError(first) || Result.isError(second)) return;
+      expect(second.value.chain.current.sealId).not.toBe(
+        first.value.chain.current.sealId,
+      );
+      expect(publisher.published.length).toBe(2);
+    });
+
+    test("creates new seal when trust tier changes", async () => {
+      const overrides = new Map<string, SealInput>();
+      overrides.set(
+        "cred_abcd1234feedbabe:conv_abcd1234feedbabe",
+        validInput({
+          trustTier: "source-verified",
+          provenanceMap: {
+            trustTier: {
+              source: "verified",
+              attestedBy: "verifier_a1b2c3d4e5f67890",
+              attestedAt: "2026-03-27T00:00:00Z",
+            },
+          },
+        }),
+      );
+
+      const { manager, publisher } = createTestManager(overrides);
+      const first = await manager.issue(
+        "cred_abcd1234feedbabe",
+        "conv_abcd1234feedbabe",
+      );
+      expect(Result.isOk(first)).toBe(true);
+
+      overrides.set(
+        "cred_abcd1234feedbabe:conv_abcd1234feedbabe",
+        validInput({
+          trustTier: "runtime-attested",
+          provenanceMap: {
+            trustTier: {
+              source: "verified",
+              attestedBy: "verifier_a1b2c3d4e5f67890",
+              attestedAt: "2026-03-27T01:00:00Z",
             },
           },
         }),

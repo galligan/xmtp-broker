@@ -94,6 +94,8 @@ export {
   InferenceMode,
   ContentEgressScope,
   HostingMode,
+  TrustTier,
+  type TrustTierType,
   OperatorDisclosures,
   type OperatorDisclosuresType,
   SealPayload,

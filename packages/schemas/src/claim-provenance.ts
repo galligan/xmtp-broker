@@ -2,6 +2,32 @@ import { z } from "zod";
 
 // -- Types (declared first for isolatedDeclarations) -----------------------
 
+/** Claim keys backed directly by operator-disclosed seal fields. */
+export const OPERATOR_DISCLOSURE_PROVENANCE_KEYS = [
+  "inferenceMode",
+  "inferenceProviders",
+  "contentEgressScope",
+  "retentionAtProvider",
+  "hostingMode",
+] as const;
+
+/** Claim keys backed by signet-managed external verification evidence. */
+export const EXTERNAL_PROVENANCE_KEYS = ["trustTier"] as const;
+
+/** Every provenance key currently supported by the seal transparency model. */
+export const SUPPORTED_PROVENANCE_KEYS = [
+  "inferenceMode",
+  "inferenceProviders",
+  "contentEgressScope",
+  "retentionAtProvider",
+  "hostingMode",
+  "trustTier",
+] as const;
+
+/** Union of supported provenance claim keys. */
+export type SupportedProvenanceKeyType =
+  (typeof SUPPORTED_PROVENANCE_KEYS)[number];
+
 /**
  * How a seal claim's value was established.
  *
@@ -26,8 +52,10 @@ export type ClaimProvenanceRecordType = {
   expiresAt?: string | undefined;
 };
 
-/** Map from disclosure field names to their provenance records. */
-export type ProvenanceMapType = Record<string, ClaimProvenanceRecordType>;
+/** Map from supported seal claim names to their provenance records. */
+export type ProvenanceMapType = Partial<
+  Record<SupportedProvenanceKeyType, ClaimProvenanceRecordType>
+>;
 
 // -- Schemas ---------------------------------------------------------------
 
@@ -55,9 +83,22 @@ export const ClaimProvenanceRecord: z.ZodType<ClaimProvenanceRecordType> = z
   })
   .describe("Provenance metadata for a seal claim");
 
-/** Map from disclosure field names to their provenance records. */
+/** Map from supported seal claim names to their provenance records. */
 export const ProvenanceMap: z.ZodType<ProvenanceMapType> = z
   .record(z.string(), ClaimProvenanceRecord)
+  .superRefine((value, ctx) => {
+    for (const key of Object.keys(value)) {
+      if (
+        !SUPPORTED_PROVENANCE_KEYS.includes(key as SupportedProvenanceKeyType)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `Unsupported provenance key: ${key}`,
+        });
+      }
+    }
+  })
   .describe(
-    "Maps disclosure field names to provenance records indicating how each claim was established",
+    "Maps supported seal claim names to provenance records indicating how each claim was established",
   );

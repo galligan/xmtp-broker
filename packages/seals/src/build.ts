@@ -5,6 +5,7 @@ import type {
   SealDeltaType,
   ScopeSetType,
   ScopeModeType,
+  TrustTierType,
   OperatorDisclosuresType,
   ProvenanceMapType,
 } from "@xmtp/signet-schemas";
@@ -26,6 +27,8 @@ export interface SealInput {
   readonly scopeMode: ScopeModeType;
   readonly permissions: ScopeSetType;
   readonly adminAccess?: { operatorId: string; expiresAt: string } | undefined;
+  /** Signet-managed trust tier for this operator/runtime. */
+  readonly trustTier?: TrustTierType | undefined;
   /** Operator-declared claims about the runtime environment. */
   readonly operatorDisclosures?: OperatorDisclosuresType | undefined;
   /** Provenance metadata for disclosed and externally-verified claims. */
@@ -60,6 +63,7 @@ export function buildSeal(
     },
     adminAccess: input.adminAccess ? { ...input.adminAccess } : undefined,
     issuedAt: now.toISOString(),
+    trustTier: input.trustTier,
     operatorDisclosures: input.operatorDisclosures
       ? {
           ...input.operatorDisclosures,

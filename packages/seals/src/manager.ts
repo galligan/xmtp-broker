@@ -315,6 +315,7 @@ function hasInputChanges(previous: SealInput, next: SealInput): boolean {
     previous.scopeMode !== next.scopeMode ||
     stableSerialize(previous.adminAccess) !==
       stableSerialize(next.adminAccess) ||
+    previous.trustTier !== next.trustTier ||
     stableSerialize(previous.operatorDisclosures) !==
       stableSerialize(next.operatorDisclosures) ||
     stableSerialize(previous.provenanceMap) !==

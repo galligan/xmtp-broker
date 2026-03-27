@@ -112,6 +112,7 @@ describe("SealPayload", () => {
   it("accepts payload with provenanceMap", () => {
     const withProvenance = {
       ...valid,
+      trustTier: "source-verified",
       operatorDisclosures: { inferenceMode: "cloud" },
       provenanceMap: {
         inferenceMode: { source: "declared" },
@@ -123,6 +124,40 @@ describe("SealPayload", () => {
       },
     };
     expect(SealPayload.safeParse(withProvenance).success).toBe(true);
+  });
+
+  it("rejects payload with trustTier provenance but no trustTier value", () => {
+    const result = SealPayload.safeParse({
+      ...valid,
+      provenanceMap: {
+        trustTier: {
+          source: "verified",
+          attestedBy: "verifier_a1b2c3d4e5f67890",
+          attestedAt: "2024-01-01T00:00:00Z",
+        },
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects payload with provenance for undisclosed operator claim", () => {
+    const result = SealPayload.safeParse({
+      ...valid,
+      provenanceMap: {
+        inferenceMode: { source: "declared" },
+      },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects payload with unsupported provenance key", () => {
+    const result = SealPayload.safeParse({
+      ...valid,
+      provenanceMap: {
+        permissions: { source: "verified" },
+      },
+    });
+    expect(result.success).toBe(false);
   });
 
   it("accepts payload without operatorDisclosures or provenanceMap", () => {
