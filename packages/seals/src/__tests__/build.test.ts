@@ -112,6 +112,13 @@ describe("buildSeal", () => {
     );
   });
 
+  test("maps trustTier from input", () => {
+    const result = buildSeal(validInput({ trustTier: "runtime-attested" }));
+    expect(Result.isOk(result)).toBe(true);
+    if (Result.isError(result)) return;
+    expect(result.value.chain.current.trustTier).toBe("runtime-attested");
+  });
+
   test("produces serialized bytes of the seal chain", () => {
     const result = buildSeal(validInput());
     expect(Result.isOk(result)).toBe(true);
