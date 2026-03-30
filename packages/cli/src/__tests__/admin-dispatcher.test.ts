@@ -28,7 +28,6 @@ function makeHandlerContext(
 function makeSpec(
   id: string,
   opts?: {
-    rpcMethod?: string;
     command?: string;
     handler?: ActionSpec<unknown, unknown, SignetError>["handler"];
     input?: z.ZodType<unknown>;
@@ -40,7 +39,6 @@ function makeSpec(
     input: opts?.input ?? z.object({}).passthrough(),
     cli: {
       command: opts?.command ?? id.replace(/\./g, ":"),
-      rpcMethod: opts?.rpcMethod,
     },
   };
 }
@@ -50,10 +48,9 @@ function makeSpec(
 // ---------------------------------------------------------------------------
 
 describe("AdminDispatcher", () => {
-  test("dispatches to correct handler via explicit rpcMethod", async () => {
+  test("dispatches to the handler via the canonical action id", async () => {
     const registry = createActionRegistry();
     const spec = makeSpec("credential.list", {
-      rpcMethod: "credential.list",
       command: "credential:list",
       handler: async () => Result.ok({ credentials: [] }),
     });
@@ -69,11 +66,10 @@ describe("AdminDispatcher", () => {
     }
   });
 
-  test("derives rpcMethod from command by replacing : with .", async () => {
+  test("does not let a CLI command override change the RPC method", async () => {
     const registry = createActionRegistry();
-    // No explicit rpcMethod -- should derive "credential.revoke" from "credential:revoke"
     const spec = makeSpec("credential.revoke", {
-      command: "credential:revoke",
+      command: "credential:rm",
       handler: async () => Result.ok({ revoked: true }),
     });
     registry.register(spec);
@@ -103,7 +99,6 @@ describe("AdminDispatcher", () => {
   test("returns validation error when input fails schema", async () => {
     const registry = createActionRegistry();
     const spec = makeSpec("credential.issue", {
-      rpcMethod: "credential.issue",
       command: "session:issue",
       input: z.object({
         agentId: z.string().min(1),
@@ -125,7 +120,6 @@ describe("AdminDispatcher", () => {
   test("wraps handler error in ActionResult", async () => {
     const registry = createActionRegistry();
     const spec = makeSpec("key.rotate", {
-      rpcMethod: "key.rotate",
       command: "key:rotate",
       handler: async () =>
         Result.err(ValidationError.create("keyId", "Key not found")),
@@ -145,7 +139,6 @@ describe("AdminDispatcher", () => {
   test("hasMethod returns true for registered method", () => {
     const registry = createActionRegistry();
     const spec = makeSpec("credential.list", {
-      rpcMethod: "credential.list",
       command: "session:list",
     });
     registry.register(spec);
@@ -163,7 +156,6 @@ describe("AdminDispatcher", () => {
   test("handler that throws returns InternalError", async () => {
     const registry = createActionRegistry();
     const spec = makeSpec("boom.action", {
-      rpcMethod: "boom.action",
       command: "boom:action",
       handler: async () => {
         throw new Error("unexpected kaboom");

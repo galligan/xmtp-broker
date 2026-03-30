@@ -77,7 +77,6 @@ function makeStubSignerProvider(): SignerProvider {
 function makeTestSpec(
   id: string,
   handler: ActionSpec<unknown, unknown, SignetError>["handler"],
-  rpcMethod?: string,
 ): ActionSpec<unknown, unknown, SignetError> {
   return {
     id,
@@ -85,7 +84,6 @@ function makeTestSpec(
     input: z.object({}).passthrough(),
     cli: {
       command: id.replace(/\./g, ":"),
-      rpcMethod,
     },
   };
 }
@@ -139,14 +137,11 @@ describe("AdminSocket round-trip", () => {
   test("client connects, authenticates, sends request, gets response", async () => {
     const socketPath = testSocketPath();
     const registry = createActionRegistry();
-    const spec = makeTestSpec(
-      "signet.status",
-      async () =>
-        Result.ok({
-          state: "running",
-          uptime: 123,
-        }),
-      "signet.status",
+    const spec = makeTestSpec("signet.status", async () =>
+      Result.ok({
+        state: "running",
+        uptime: 123,
+      }),
     );
     registry.register(spec);
     const dispatcher = createAdminDispatcher(registry);

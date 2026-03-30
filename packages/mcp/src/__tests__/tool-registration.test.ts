@@ -17,13 +17,14 @@ describe("actionSpecToMcpTool", () => {
     expect(tool).toBeDefined();
     expect(tool.name).toBe("signet/message/send");
     expect(tool.description).toBe("Send a message to a conversation");
+    expect(tool.annotations?.title).toBe("Send a message to a conversation");
   });
 
-  test("uses toolName from McpSurface", () => {
+  test("uses an authored toolName override when present", () => {
     const spec = createListSpec();
     const tool = actionSpecToMcpTool(spec);
 
-    expect(tool.name).toBe("signet/message/list");
+    expect(tool.name).toBe("signet/message/messages");
   });
 
   test("converts input schema via zodToJsonSchema", () => {
@@ -43,20 +44,20 @@ describe("actionSpecToMcpTool", () => {
     expect(required).toContain("content");
   });
 
-  test("sets readOnlyHint from McpSurface.readOnly", () => {
+  test("derives readOnlyHint from intent", () => {
     const readOnlySpec = createReadOnlySpec();
     const tool = actionSpecToMcpTool(readOnlySpec);
 
     expect(tool.annotations?.readOnlyHint).toBe(true);
-    expect(tool.annotations?.destructiveHint).toBe(false);
+    expect(tool.annotations?.destructiveHint).toBeUndefined();
   });
 
-  test("sets destructiveHint from McpSurface.destructive", () => {
+  test("derives destructiveHint from intent", () => {
     const spec = createDestructiveSpec();
     const tool = actionSpecToMcpTool(spec);
 
     expect(tool.annotations?.destructiveHint).toBe(true);
-    expect(tool.annotations?.readOnlyHint).toBe(false);
+    expect(tool.annotations?.readOnlyHint).toBeUndefined();
   });
 
   test("returns undefined for spec without mcp metadata", () => {

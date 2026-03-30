@@ -24,21 +24,18 @@ export function createSignetActions(
   const createStatusSpec = (
     id: string,
     command: string,
-    rpcMethod: string,
   ): ActionSpec<Record<string, never>, DaemonStatus, SignetError> => ({
     id,
     input: z.object({}),
     handler: async () => Result.ok(await deps.status()),
     cli: {
       command,
-      rpcMethod,
     },
   });
 
   const createStopSpec = (
     id: string,
     command: string,
-    rpcMethod: string,
   ): ActionSpec<
     { force?: boolean | undefined },
     { stopped: true },
@@ -57,17 +54,12 @@ export function createSignetActions(
     },
     cli: {
       command,
-      rpcMethod,
     },
   });
 
   const specs: ActionSpec<unknown, unknown, SignetError>[] = [
-    widenActionSpec(
-      createStatusSpec("signet.status", "signet:status", "signet.status"),
-    ),
-    widenActionSpec(
-      createStopSpec("signet.stop", "signet:stop", "signet.stop"),
-    ),
+    widenActionSpec(createStatusSpec("signet.status", "signet:status")),
+    widenActionSpec(createStopSpec("signet.stop", "signet:stop")),
   ];
 
   if (deps.rotateKeys) {
@@ -82,7 +74,6 @@ export function createSignetActions(
       handler: async () => rotate(),
       cli: {
         command: "keys:rotate",
-        rpcMethod: "keys.rotate",
       },
     };
     specs.push(widenActionSpec(rotateSpec));
