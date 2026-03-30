@@ -22,10 +22,6 @@ export interface HttpActionRoute {
   readonly spec: ActionSpec<unknown, unknown, SignetError>;
 }
 
-export interface BuildHttpActionRoutesOptions {
-  readonly basePath?: string;
-}
-
 const isHttpExposed = (
   spec: ActionSpec<unknown, unknown, SignetError>,
 ): boolean => spec.http !== undefined && spec.http.expose !== false;
@@ -38,7 +34,6 @@ const isHttpExposed = (
  */
 export function buildHttpActionRoutes(
   registry: ActionRegistry,
-  options: BuildHttpActionRoutesOptions = {},
 ): Result<readonly HttpActionRoute[], ValidationError> {
   const validation = registry.validate();
   if (validation.isErr()) {
@@ -56,7 +51,7 @@ export function buildHttpActionRoutes(
           auth: spec.http!.auth,
           inputSource: deriveHttpInputSource(method),
           method,
-          path: deriveHttpPath(spec, options.basePath),
+          path: deriveHttpPath(spec),
           spec,
         } satisfies HttpActionRoute;
       }),
