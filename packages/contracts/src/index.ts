@@ -27,8 +27,11 @@ export type {
 // Action types
 export type {
   ActionSpec,
+  ActionIntent,
+  ActionExample,
   CliSurface,
   McpSurface,
+  HttpSurface,
   CliOption,
 } from "./action-spec.js";
 
