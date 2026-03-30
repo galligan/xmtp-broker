@@ -187,4 +187,22 @@ describe("validateActionSpecs", () => {
       );
     }
   });
+
+  it("allows explicit false boolean MCP hints when the derived hint is omitted", () => {
+    const result = validateActionSpecs([
+      createTestSpec("credential.issue", {
+        description: "Issue a credential",
+        intent: "write",
+        mcp: {
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: false,
+            idempotentHint: false,
+          },
+        } as McpSurface,
+      }),
+    ]);
+
+    expect(result.isOk()).toBe(true);
+  });
 });

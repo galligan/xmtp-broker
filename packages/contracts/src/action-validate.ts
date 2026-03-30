@@ -24,6 +24,12 @@ const STANDARD_MCP_ANNOTATION_KEYS = [
   "title",
 ] as const;
 
+const STANDARD_BOOLEAN_MCP_ANNOTATION_KEYS = [
+  "readOnlyHint",
+  "destructiveHint",
+  "idempotentHint",
+] as const;
+
 const isHttpExposed = (spec: AnyActionSpec): boolean =>
   spec.http !== undefined && spec.http.expose !== false;
 
@@ -165,6 +171,16 @@ const validateMcpAnnotations = (
 
       const authoredValue = authoredAnnotations[key];
       const derivedValue = derivedAnnotations[key];
+
+      if (
+        STANDARD_BOOLEAN_MCP_ANNOTATION_KEYS.includes(
+          key as (typeof STANDARD_BOOLEAN_MCP_ANNOTATION_KEYS)[number],
+        ) &&
+        authoredValue === false &&
+        derivedValue === undefined
+      ) {
+        continue;
+      }
 
       if (authoredValue !== derivedValue) {
         issues.push({
