@@ -35,7 +35,7 @@ export interface ActionRegistry {
    * List ActionSpecs that have a specific surface.
    * Convenience for transport adapters.
    */
-  listForSurface(surface: "cli" | "mcp"): readonly AnyActionSpec[];
+  listForSurface(surface: "cli" | "mcp" | "http"): readonly AnyActionSpec[];
 
   /** Number of registered actions. */
   readonly size: number;

@@ -3,26 +3,33 @@ import { Ok } from "better-result";
 import { z } from "zod";
 import type { SignetError } from "@xmtp/signet-schemas";
 import { createActionRegistry } from "../action-registry.js";
-import type { ActionSpec, CliSurface, McpSurface } from "../action-spec.js";
+import type {
+  ActionSpec,
+  CliSurface,
+  HttpSurface,
+  McpSurface,
+} from "../action-spec.js";
 import type { HandlerContext } from "../handler-types.js";
 
 /** Minimal CLI surface for testing. */
 const testCliSurface: CliSurface = {
   command: "test:run",
-  description: "A test command",
 };
 
 /** Minimal MCP surface for testing. */
 const testMcpSurface: McpSurface = {
   toolName: "signet/test/run",
-  description: "A test tool",
-  readOnly: true,
+};
+
+/** Minimal HTTP surface for testing. */
+const testHttpSurface: HttpSurface = {
+  auth: "credential",
 };
 
 /** Create a minimal ActionSpec for testing. */
 function createTestSpec(
   id: string,
-  surfaces?: { cli?: CliSurface; mcp?: McpSurface },
+  surfaces?: { cli?: CliSurface; mcp?: McpSurface; http?: HttpSurface },
 ): ActionSpec<unknown, unknown, SignetError> {
   return {
     id,
@@ -124,6 +131,28 @@ describe("ActionRegistry", () => {
 
     expect(registry.listForSurface("cli")).toContain(both);
     expect(registry.listForSurface("mcp")).toContain(both);
+  });
+
+  it("filters by http surface", () => {
+    const registry = createActionRegistry();
+    const httpOnly = createTestSpec("credential.list", {
+      http: testHttpSurface,
+    });
+    const mcpOnly = createTestSpec("message.list", {
+      mcp: testMcpSurface,
+    });
+    const both = createTestSpec("credential.info", {
+      cli: testCliSurface,
+      http: testHttpSurface,
+    });
+    registry.register(httpOnly);
+    registry.register(mcpOnly);
+    registry.register(both);
+
+    const httpSpecs = registry.listForSurface("http");
+    expect(httpSpecs).toHaveLength(2);
+    expect(httpSpecs).toContain(httpOnly);
+    expect(httpSpecs).toContain(both);
   });
 
   it("reflects count via size", () => {
