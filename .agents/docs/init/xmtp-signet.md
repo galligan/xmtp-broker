@@ -8,6 +8,14 @@
 
 This document proposes an **agent signet** architecture for XMTP-based applications and agents.
 
+> [!IMPORTANT]
+> This PRD preserves the earlier broker/view/grant framing that informed the
+> project direction. The current repository implementation has cut over to the
+> v1 credential/policy/seal model plus a contract-driven action surface. Use
+> `README.md`, `docs/architecture.md`, `docs/development.md`, and
+> `.agents/plans/v1/v1-architecture.md` for implementation guidance; treat this
+> PRD primarily as design history and motivation.
+
 The core idea is simple:
 
 - A **signet** is the real XMTP client.

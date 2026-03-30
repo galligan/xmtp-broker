@@ -49,7 +49,8 @@ Stable types and contracts that other packages build on.
   `CredentialManager`, `ScopeGuard`, `SealManager`
 - `HandlerContext` with `requestId`, `signal`, optional `adminAuth`,
   `operatorId`, and `credentialId`
-- Action specs, action registry, and wire-format contracts
+- Authored action specs, derivation helpers, registry validation, surface maps,
+  and wire-format contracts
 - Credential types including `CredentialRecord`, `CredentialIssuer`, and
   update/reauthorization semantics
 - Shared runtime types: reveal snapshots, daemon status surfaces, replay state
@@ -142,14 +143,15 @@ Transport packages are thin adapters over the handler contract.
 **`@xmtp/signet-mcp`**
 
 - MCP surface for credential-scoped tool access
-- Tool registration from action specs in the action registry
+- Tool registration from action specs in the action registry, including
+  derived MCP tool names and safety annotations
 - Read and reveal workflows for LLM-driven harnesses
 - Credential context threading through MCP tool calls
 
 **`@xmtp/signet-cli`**
 
 - `xs` binary and composition root
-- Daemon lifecycle, admin socket, and HTTP admin API
+- Daemon lifecycle, admin socket, and contract-driven HTTP admin/action routes
 - Direct v1 command groups: `credential`, `seal`, `policy`, `conversation`,
   `message`, `identity`, `admin`, `keys`, `config`
 - Admin fingerprint preservation through HTTP credential routes
@@ -306,25 +308,39 @@ mechanics.
 
 ## Action registry
 
-The action registry is the define-once, expose-everywhere pattern for signet
-operations.
+The action registry is the authored-contract layer for signet operations. Each
+`ActionSpec` defines the behavior once, then the registry derives the
+transport-specific shapes that should stay mechanically consistent.
 
 Each `ActionSpec` includes:
 
-- a unique action identifier (e.g., `cred.issue`)
-- a Zod input schema
-- a transport-agnostic handler
-- optional CLI and MCP metadata
+- a unique action identifier (for example `credential.issue`)
+- a Zod input schema and transport-agnostic handler
+- optional output schema and named examples for docs/tests
+- authored semantics such as `description`, `intent`, and `idempotent`
+- optional CLI, MCP, and HTTP overrides when the default projection is not
+  enough
 
-Transports consume the same registry:
+Derived surfaces currently include:
 
-- **CLI** builds command handlers from action specs
-- **MCP** builds tool definitions with typed parameters
-- **WebSocket** routes request names to handlers
-- **HTTP** exposes actions as POST endpoints
+- **CLI** command names plus the canonical admin RPC method
+- **MCP** tool names plus standard safety annotations
+- **HTTP** method, path, and input source (`GET` + query for reads, `POST` +
+  body otherwise, unless overridden)
 
-This keeps behavior centralized while letting each surface present the same
-operation in its native form.
+Registry validation fails early on:
+
+- duplicate action IDs
+- conflicting HTTP routes
+- reserved HTTP paths
+- contradictory authored MCP annotations
+
+The contracts package also emits a deterministic action surface map and stable
+hash so drift is visible in tests and reviews.
+
+WebSocket still shares the same handler/runtime model, but it remains the
+primary sequenced harness transport rather than a mechanically generated action
+surface.
 
 ## Projection pipeline
 

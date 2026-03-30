@@ -26,15 +26,15 @@ Dependencies flow downward only. No package may import from a higher tier.
 **Foundation** — Stable types and contracts. Changes here ripple everywhere, so
 they change slowly and deliberately. `schemas` defines all Zod schemas and
 inferred types (including action result and pagination schemas). `contracts`
-defines service interfaces, provider interfaces, the `ActionSpec`/`ActionRegistry`
-system, `HandlerContext`, and `ActionResult` envelope.
+defines service interfaces, provider interfaces, the `ActionSpec` /
+`ActionRegistry` system, derivation and validation helpers, surface maps,
+`HandlerContext`, and the `ActionResult` envelope.
 
 **Runtime** — Core signet functionality. Each package has a focused
 responsibility. `core` is the only package that touches the XMTP SDK (now wired
-via `createSdkClientFactory`). `policy` handles all filtering and grant
-enforcement. `keys` manages the cryptographic hierarchy plus admin keys and JWT.
-scope enforcement. `keys` manages the cryptographic hierarchy plus admin keys
-and JWT. `sessions` tracks credential authorization state. `seals` manages the
+via `createSdkClientFactory`). `policy` handles filtering and scope
+enforcement. `keys` manages the cryptographic hierarchy plus admin keys and
+JWT. `sessions` tracks credential authorization state. `seals` manages the
 lifecycle of group-visible permission declarations. `verifier` provides the
 6-check trust verification service.
 
@@ -42,8 +42,8 @@ lifecycle of group-visible permission declarations. `verifier` provides the
 with replay sequencing and backpressure tracking. `mcp`
 converts ActionSpecs to MCP tools with credential-scoped auth. `cli` is the
 composition root with 8 command groups, daemon lifecycle, admin Unix socket
-(JSON-RPC 2.0), and direct mode fallback. `http` handles non-streaming
-admin/credential/health routes via `Bun.serve()`.
+(JSON-RPC 2.0), contract-driven HTTP admin/action routes, and direct mode
+fallback.
 
 **Client** — `sdk` (`@xmtp/signet-sdk`) is the harness-facing SDK. WebSocket client with typed
 events, Result-based requests, automatic reconnection, exponential backoff.
@@ -94,10 +94,12 @@ HTTP, or CLI. This means adding a new transport requires zero changes to
 existing handlers — just a new adapter that maps protocol frames to handler
 calls and Result values back to protocol responses.
 
-**Define-once actions.** `ActionSpec` bundles handler, input schema, and
-per-surface metadata (CLI flags, MCP tool name). The `ActionRegistry` collects
-specs; each transport reads the registry to generate its native representation.
-One spec = all transports.
+**Authored contracts with derived surfaces.** `ActionSpec` bundles handler,
+input schema, optional output/examples, and authored semantics such as
+`description`, `intent`, and `idempotent`. The `ActionRegistry` collects specs;
+CLI/admin RPC, MCP, and HTTP derive their native shapes from those authored
+contracts. Validation catches route/annotation conflicts early, and the
+surface-map hash makes drift visible in tests and review.
 
 **Projection as pipeline.** Message filtering is a composable pipeline of
 independent stages (chat scope → content-type → visibility → content projection).

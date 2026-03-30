@@ -197,8 +197,11 @@ All domain logic uses the handler contract. To add a new operation:
    types as Zod schemas with inferred TypeScript types.
 
 2. **Register the action** in `packages/contracts/src/` — create an
-   `ActionSpec` with a unique ID, the input schema, and optional CLI/MCP
-   metadata.
+   `ActionSpec` with a unique ID, the input schema, and the authored contract
+   semantics that the transports should derive from: `description`, `intent`,
+   and `idempotent` when relevant. Add `output`, `examples`, or CLI/MCP/HTTP
+   overrides only when the defaults are not enough. HTTP-exposed actions must
+   declare `http.auth`.
 
 3. **Implement the handler** in the appropriate runtime package — the function
    receives pre-validated input and `HandlerContext`, returns
@@ -207,8 +210,10 @@ All domain logic uses the handler contract. To add a new operation:
 4. **Write the test first** — TDD is non-negotiable. Create the test in the
    package's `src/__tests__/` directory.
 
-5. **Transport adapters pick it up automatically** — CLI, WebSocket, MCP, and
-   HTTP all consume the action registry. No per-transport wiring needed.
+5. **Registry-derived surfaces pick it up automatically** — CLI, admin
+   JSON-RPC, MCP, and HTTP project from the shared action registry. WebSocket
+   still uses the same handlers, but only needs extra wiring when the request
+   or event protocol changes.
 
 ```typescript
 // Handler signature

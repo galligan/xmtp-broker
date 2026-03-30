@@ -63,7 +63,7 @@ package for behavior
 -> `seals` or `verifier`
 
 **"I'm exposing or adapting an action on a transport"**
--> define or update the action spec, then wire CLI or MCP metadata where needed
+-> define or update the action spec, author semantics first, then add CLI/MCP/HTTP overrides only where needed
 
 **"I'm working on the actual XMTP integration"**
 -> `core`
@@ -101,11 +101,14 @@ Rules:
 
 1. Define input/output schemas in `schemas`
 2. Register an `ActionSpec` in `contracts` with action ID, input schema, and
-   optional CLI/MCP metadata
+   authored semantics (`description`, `intent`, `idempotent`). Add output
+   schemas, examples, or CLI/MCP/HTTP overrides only when the defaults are not
+   enough. HTTP-exposed actions must declare `http.auth`.
 3. Implement the handler in the appropriate runtime package
 4. Write the test first (TDD is non-negotiable)
-5. Transport adapters pick it up via the action registry — no per-transport
-   wiring needed
+5. CLI, admin JSON-RPC, MCP, and HTTP derive their surface from the action
+   registry. WebSocket only needs extra wiring if the request/event protocol
+   itself changes
 
 ## Result types
 
@@ -245,23 +248,33 @@ The seal manager (`packages/seals/`) handles:
 
 ## Action registry
 
-The action registry is the define-once, expose-everywhere pattern.
+The action registry is the authored-contract layer for signet actions.
 
 Each action spec contains:
 
 - an action id
 - a Zod input schema
 - a handler
-- optional CLI metadata
-- optional MCP metadata
+- optional output schema and examples
+- authored semantics such as `description`, `intent`, and `idempotent`
+- optional CLI, MCP, and HTTP overrides
 
-CLI, MCP, and WebSocket consume the same action definitions.
+The registry derives:
+
+- CLI commands plus the canonical admin RPC method
+- MCP tool names plus standard safety annotations
+- HTTP method/path/input source for exposed actions
+
+Registry validation catches duplicate action IDs, reserved/conflicting HTTP
+routes, and contradictory authored MCP annotations. WebSocket still shares the
+same handlers, but it is not a mechanically generated action surface.
 
 ## Transport notes
 
 - `ws` is the primary harness-facing transport with sequenced frames and replay
 - `mcp` exposes the scoped tool surface with credential context
-- `cli` is the composition root and also owns the HTTP admin API
+- `cli` is the composition root and also owns the contract-driven HTTP
+  admin/action surface
 - `xs cred ...` is the public credential lifecycle surface
 - `xs seal ...` is the public seal inspection and verification surface
 - `xs policy ...` is the public policy management surface

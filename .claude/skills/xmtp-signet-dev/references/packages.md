@@ -37,13 +37,16 @@ Service interfaces, action system, and wire format schemas that define boundarie
 - Policy types: `PolicyDelta`
 - Seal types: `SignedRevocationEnvelope`, `MessageProvenanceMetadata`
 - Handler types: `HandlerContext` (with `requestId`, `signal`, optional `adminAuth`, `operatorId`, `credentialId`), `Handler`, `AdminAuthContext`
-- Action system: `ActionSpec`, `CliSurface`, `McpSurface`, `CliOption`, `ActionRegistry`, `createActionRegistry`, `ActionResult`, `toActionResult`
+- Action system: `ActionSpec`, `ActionSurface`, `ActionIntent`, `ActionExample`, `CliSurface`, `McpSurface`, `HttpSurface`, `CliOption`, `ActionRegistry`, `createActionRegistry`
+- Action derivation + validation: `deriveCliCommand`, `deriveRpcMethod`, `deriveMcpToolName`, `deriveMcpAnnotations`, `deriveHttpMethod`, `deriveHttpPath`, `deriveHttpInputSource`, `validateActionSpecs`
+- Surface inventory: `generateActionSurfaceMap`, `hashActionSurfaceMap`
+- Result envelope: `ActionResult`, `toActionResult`
 - Service interfaces: `SignetCore`, `CredentialManager`, `OperatorManager`, `PolicyManager`, `ScopeGuard`, `SealManager`
 - Provider interfaces: `SignerProvider`, `SealStamper`, `SealPublisher`, `RevealStateStore`
 
 **Dependencies:** `@xmtp/signet-schemas`
 
-**Extending:** When a new service needs to be consumed across packages, define its interface here. Runtime packages implement these contracts. New signet operations should be defined as `ActionSpec` and registered with `createActionRegistry`.
+**Extending:** When a new service needs to be consumed across packages, define its interface here. Runtime packages implement these contracts. New signet operations should be authored as `ActionSpec` contracts first: start with `description`, `intent`, and `idempotent`, then add CLI/MCP/HTTP overrides only where the defaults are insufficient. HTTP-exposed actions must declare `http.auth`.
 
 ## Runtime Tier
 
@@ -163,7 +166,8 @@ WebSocket transport built on `Bun.serve()`.
 
 ### @xmtp/signet-mcp
 
-MCP transport. Converts ActionSpecs to MCP tools with credential-scoped auth.
+MCP transport. Converts ActionSpecs into derived MCP tools with
+credential-scoped auth and shared safety annotations.
 
 **Exports:**
 - Config: `McpServerConfigSchema`, `McpServerConfig`
@@ -178,7 +182,8 @@ MCP transport. Converts ActionSpecs to MCP tools with credential-scoped auth.
 
 ### @xmtp/signet-cli
 
-Composition root. CLI entry point, daemon lifecycle, admin socket, config loading.
+Composition root. CLI entry point, daemon lifecycle, admin socket, config
+loading, and the contract-driven HTTP action/admin surface.
 
 **Exports:**
 - CLI entry: `program` (Commander instance with 8 command groups)
