@@ -85,7 +85,7 @@ export function deriveMcpToolName(
 /** Derive the full MCP annotation set for an action. */
 export function deriveMcpAnnotations(spec: ActionLike): McpAnnotations {
   return {
-    ...(spec.mcp?.annotations ?? {}),
+    ...spec.mcp?.annotations,
     ...deriveStandardMcpAnnotations(spec),
   };
 }
