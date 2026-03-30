@@ -5,7 +5,7 @@ Last updated: 2026-03-23
 
 ## Overview
 
-The signet is the real XMTP client. Agent harnesses connect through a controlled interface with scoped credentials and grants. This document defines the v1 identity model, access/encryption model, seal protocol, permission scopes, and the action registry that all transport surfaces (CLI, HTTP, WebSocket, MCP) are derived from.
+The signet is the real XMTP client. Agent harnesses connect through a controlled interface with scoped credentials, policies, and seals. This document defines the v1 identity model, access/encryption model, seal protocol, permission scopes, and the action registry that drives the CLI, admin socket, MCP, and HTTP action surfaces while WebSocket remains the primary sequenced harness transport.
 
 ## Identity Model
 
@@ -319,23 +319,36 @@ xs cred info a7                          # "Ambiguous: did you mean a7f3... or a
 
 ## Action Registry
 
-The action registry is the foundation. Every operation is a registered action with a typed input schema, handler, and result type. Transport surfaces (CLI, HTTP, WS, MCP) are thin adapters over the same actions.
+The action registry is the foundation. Every operation is a registered action
+with a typed input schema, handler, and result type. The authored contract
+captures the semantics once; CLI, admin socket, MCP, and HTTP then derive
+their native shapes from that shared definition.
 
 ```
 Action:
-  id: "cred.issue"
-  input: { operatorId, chatId, allow, deny, ttl }
-  handler: (input, context) → Result<Credential, SignetError>
+  id: "credential.issue"
+  description: "Issue a credential"
+  intent: "write"
+  input: { operatorId, chatIds, scopes, ttlSeconds }
+  handler: (input, context) → Result<IssuedCredential, SignetError>
+  http: { auth: "admin" }
 ```
 
 The same action is callable via:
-- **CLI**: `xs cred issue --op alice-bot --chat conv_1 --allow send,react`
-- **HTTP**: `POST /v1/actions/cred.issue { operatorId, chatId, allow, deny }`
-- **Admin socket**: JSON-RPC `{ method: "cred.issue", params: { ... } }`
-- **MCP**: Tool call with typed parameters
-- **WebSocket**: Harness request frame
+- **CLI**: `xs credential issue --operator op_alice --credential @credential.json`
+- **HTTP**: `POST /v1/actions/credential/issue { ... }`
+- **Admin socket**: JSON-RPC `{ method: "credential.issue", params: { ... } }`
+- **MCP**: `signet/credential/issue` with typed parameters and derived safety
+  annotations
 
-All transport adapters share the same input validation (Zod schemas), permission checks, and audit logging.
+Registry validation catches duplicate IDs, reserved or conflicting HTTP routes,
+and contradictory authored MCP annotations before the daemon starts. The
+contracts layer also emits a deterministic action surface map so HTTP/MCP/CLI
+drift stays visible in review.
+
+WebSocket shares the same handler/runtime model, but it is not a mechanically
+derived action surface in the same sense. It remains the primary sequenced
+event and request channel for harnesses.
 
 ## CLI Surface
 

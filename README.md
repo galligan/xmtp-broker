@@ -64,21 +64,21 @@ event model, and connection lifecycle details.
 
 ## Packages
 
-| Package                    | Layer      | Purpose                                                                           |
-| -------------------------- | ---------- | --------------------------------------------------------------------------------- |
-| `@xmtp/signet-schemas`     | Foundation | Zod schemas, inferred types, resource IDs, permission scopes, error taxonomy      |
-| `@xmtp/signet-contracts`   | Foundation | Service interfaces, handler contract, action registry, wire formats               |
-| `@xmtp/signet-core`        | Runtime    | XMTP client lifecycle, identity store, conversation and message streaming         |
-| `@xmtp/signet-keys`        | Runtime    | Key backend, encrypted vault, admin auth, BIP-39/44 derivation, key rotation      |
-| `@xmtp/signet-sessions`    | Runtime    | Credential lifecycle, reveal state, pending actions, materiality checks           |
-| `@xmtp/signet-seals`       | Runtime    | Seal issuance, chaining, signing, revocation, auto-republish with retry           |
-| `@xmtp/signet-policy`      | Runtime    | Scope resolution, projection pipeline, reveal enforcement, content type filtering |
-| `@xmtp/signet-verifier`    | Runtime    | Multi-check verification pipeline for signet trust                                |
-| `@xmtp/signet-ws`          | Transport  | WebSocket transport with sequenced frames, replay, and reconnection               |
-| `@xmtp/signet-mcp`         | Transport  | MCP transport for credential-scoped tool access                                   |
-| `@xmtp/signet-sdk`         | Client     | TypeScript harness SDK with typed events and Result-based requests                |
-| `@xmtp/signet-cli`         | Transport  | `xs` CLI, daemon lifecycle, admin socket, HTTP admin API                          |
-| `@xmtp/signet-integration` | Test       | Cross-package integration tests and fixtures                                      |
+| Package                    | Layer      | Purpose                                                                                                        |
+| -------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
+| `@xmtp/signet-schemas`     | Foundation | Zod schemas, inferred types, resource IDs, permission scopes, error taxonomy                                   |
+| `@xmtp/signet-contracts`   | Foundation | Service interfaces, handler contract, authored action specs, derivation/validation, surface maps, wire formats |
+| `@xmtp/signet-core`        | Runtime    | XMTP client lifecycle, identity store, conversation and message streaming                                      |
+| `@xmtp/signet-keys`        | Runtime    | Key backend, encrypted vault, admin auth, BIP-39/44 derivation, key rotation                                   |
+| `@xmtp/signet-sessions`    | Runtime    | Credential lifecycle, reveal state, pending actions, materiality checks                                        |
+| `@xmtp/signet-seals`       | Runtime    | Seal issuance, chaining, signing, revocation, auto-republish with retry                                        |
+| `@xmtp/signet-policy`      | Runtime    | Scope resolution, projection pipeline, reveal enforcement, content type filtering                              |
+| `@xmtp/signet-verifier`    | Runtime    | Multi-check verification pipeline for signet trust                                                             |
+| `@xmtp/signet-ws`          | Transport  | WebSocket transport with sequenced frames, replay, and reconnection                                            |
+| `@xmtp/signet-mcp`         | Transport  | MCP transport for credential-scoped tool access                                                                |
+| `@xmtp/signet-sdk`         | Client     | TypeScript harness SDK with typed events and Result-based requests                                             |
+| `@xmtp/signet-cli`         | Transport  | `xs` CLI, daemon lifecycle, admin socket, contract-driven HTTP admin/action surface                            |
+| `@xmtp/signet-integration` | Test       | Cross-package integration tests and fixtures                                                                   |
 
 ## Quick start
 
