@@ -159,14 +159,12 @@ export function createSendSpec(
 ): ActionSpec<unknown, unknown> {
   return {
     id: "message.send",
+    description: "Send a message to a conversation",
+    intent: "write",
     handler: handlerOverride ?? (async () => Result.ok({ messageId: "msg_1" })),
     input: MessageSendInputSchema,
     output: MessageSendOutputSchema,
-    mcp: {
-      toolName: "signet/message/send",
-      description: "Send a message to a conversation",
-      readOnly: false,
-    },
+    mcp: {},
   };
 }
 
@@ -175,6 +173,8 @@ export function createListSpec(
 ): ActionSpec<unknown, unknown> {
   return {
     id: "message.list",
+    description: "List messages in a conversation",
+    intent: "read",
     handler:
       handlerOverride ??
       (async () =>
@@ -184,9 +184,7 @@ export function createListSpec(
     input: MessageListInputSchema,
     output: MessageListOutputSchema,
     mcp: {
-      toolName: "signet/message/list",
-      description: "List messages in a conversation",
-      readOnly: true,
+      toolName: "signet/message/messages",
     },
   };
 }
@@ -194,27 +192,22 @@ export function createListSpec(
 export function createReadOnlySpec(): ActionSpec<unknown, unknown> {
   return {
     id: "conversation.list",
+    description: "List conversations",
+    intent: "read",
     handler: async () => Result.ok({ conversations: [] }),
     input: z.object({}),
-    mcp: {
-      toolName: "signet/conversation/list",
-      description: "List conversations",
-      readOnly: true,
-    },
+    mcp: {},
   };
 }
 
 export function createDestructiveSpec(): ActionSpec<unknown, unknown> {
   return {
     id: "conversation.delete",
+    description: "Delete a conversation",
+    intent: "destroy",
     handler: async () => Result.ok(undefined),
     input: z.object({ conversationId: z.string() }),
-    mcp: {
-      toolName: "signet/conversation/delete",
-      description: "Delete a conversation",
-      readOnly: false,
-      destructive: true,
-    },
+    mcp: {},
   };
 }
 

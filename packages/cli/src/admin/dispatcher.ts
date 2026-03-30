@@ -4,7 +4,7 @@ import type {
   ActionSpec,
   HandlerContext,
 } from "@xmtp/signet-contracts";
-import { toActionResult } from "@xmtp/signet-contracts";
+import { deriveRpcMethod, toActionResult } from "@xmtp/signet-contracts";
 import type { SignetError, ActionResultMeta } from "@xmtp/signet-schemas";
 import {
   InternalError,
@@ -20,7 +20,7 @@ import { Result } from "better-result";
 /**
  * Dispatches JSON-RPC method calls to ActionSpec handlers via the
  * shared ActionRegistry. Maps RPC method names to ActionSpecs using
- * CliSurface.rpcMethod (or derives from CliSurface.command).
+ * the canonical action ID-derived RPC method.
  */
 export interface AdminDispatcher {
   /** Route a JSON-RPC method call to the matching ActionSpec handler. */
@@ -40,7 +40,6 @@ export interface AdminDispatcher {
 
 /**
  * Build a lookup map from RPC method name to ActionSpec.
- * If rpcMethod is not set, derive it from command by replacing : with .
  */
 function buildMethodMap(
   registry: ActionRegistry,
@@ -51,8 +50,7 @@ function buildMethodMap(
     const cli = spec.cli;
     if (cli === undefined) continue;
 
-    const rpcMethod = cli.rpcMethod ?? cli.command.replace(/:/g, ".");
-    map.set(rpcMethod, spec);
+    map.set(deriveRpcMethod(spec), spec);
   }
 
   return map;

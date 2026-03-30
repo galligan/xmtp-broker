@@ -11,7 +11,7 @@ import type {
   SignerProvider,
   CredentialRecord,
 } from "@xmtp/signet-contracts";
-import { toActionResult } from "@xmtp/signet-contracts";
+import { deriveMcpToolName, toActionResult } from "@xmtp/signet-contracts";
 import type { McpContentResponse } from "./output-formatter.js";
 import { formatActionResult } from "./output-formatter.js";
 import { createHandlerContext } from "./context-factory.js";
@@ -96,7 +96,7 @@ function findSpecByToolName(
   registry: ActionRegistry,
 ): ActionSpec<unknown, unknown, SignetError> | undefined {
   const mcpSpecs = registry.listForSurface("mcp");
-  return mcpSpecs.find((spec) => spec.mcp?.toolName === toolName);
+  return mcpSpecs.find((spec) => deriveMcpToolName(spec) === toolName);
 }
 
 function formatNotFound(

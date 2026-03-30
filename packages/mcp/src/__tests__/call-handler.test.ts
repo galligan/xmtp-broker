@@ -69,7 +69,7 @@ describe("handleCallTool", () => {
 
     const result = await handleCallTool(
       {
-        name: "signet/message/list",
+        name: "signet/message/messages",
         arguments: { conversationId: "conv_1" },
       },
       registry,

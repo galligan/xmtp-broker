@@ -1,5 +1,9 @@
 import { zodToJsonSchema } from "zod-to-json-schema";
-import type { ActionSpec } from "@xmtp/signet-contracts";
+import {
+  deriveMcpAnnotations,
+  deriveMcpToolName,
+  type ActionSpec,
+} from "@xmtp/signet-contracts";
 import type { SignetError } from "@xmtp/signet-schemas";
 
 /**
@@ -13,6 +17,9 @@ export interface McpToolRegistration {
   readonly annotations?: {
     readonly readOnlyHint?: boolean;
     readonly destructiveHint?: boolean;
+    readonly idempotentHint?: boolean;
+    readonly title?: string;
+    readonly [key: string]: unknown;
   };
 }
 
@@ -33,12 +40,9 @@ export function actionSpecToMcpTool(
   });
 
   return {
-    name: spec.mcp.toolName,
-    description: spec.mcp.description,
+    name: deriveMcpToolName(spec),
+    description: spec.description ?? spec.id,
     inputSchema: jsonSchema as Record<string, unknown>,
-    annotations: {
-      readOnlyHint: spec.mcp.readOnly,
-      destructiveHint: spec.mcp.destructive ?? false,
-    },
+    annotations: deriveMcpAnnotations(spec),
   };
 }
