@@ -21,7 +21,6 @@ export interface HttpActionRoute {
   readonly path: string;
   readonly spec: ActionSpec<unknown, unknown, SignetError>;
 }
-
 const isHttpExposed = (
   spec: ActionSpec<unknown, unknown, SignetError>,
 ): boolean => spec.http !== undefined && spec.http.expose !== false;
