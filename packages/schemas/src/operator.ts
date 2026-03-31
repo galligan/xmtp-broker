@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { OperatorId } from "./resource-id.js";
+import { InboxId, OperatorId } from "./resource-id.js";
 
 // -- Enums ------------------------------------------------------------------
 
@@ -97,6 +97,7 @@ export const OperatorConfig: z.ZodObject<{
   scopeMode: typeof ScopeMode;
   provider: z.ZodDefault<typeof WalletProvider>;
   walletId: z.ZodOptional<z.ZodString>;
+  inboxIds: z.ZodOptional<z.ZodArray<z.ZodType<string>>>;
   operatorDisclosures: z.ZodOptional<typeof OperatorDisclosures>;
 }> = z.object({
   /** Human-readable name for the operator. */
@@ -109,6 +110,8 @@ export const OperatorConfig: z.ZodObject<{
   provider: WalletProvider.default("internal"),
   /** Reference to the backing wallet. */
   walletId: z.string().optional(),
+  /** Local inbox identities currently linked to this operator. */
+  inboxIds: z.array(InboxId).optional(),
   /** Self-reported runtime transparency claims for seal disclosure. */
   operatorDisclosures: OperatorDisclosures.optional(),
 });

@@ -95,6 +95,9 @@ export interface SignetRuntimeDeps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createConversationActions?: () => ActionSpec<any, any, SignetError>[];
 
+  /** Optional factory for inbox action specs, wired in production by start.ts. */
+  createInboxActions?: () => ActionSpec<unknown, unknown, SignetError>[];
+
   /** Optional factory for message action specs, wired in production by start.ts. */
   createMessageActions?: () => ActionSpec<unknown, unknown, SignetError>[];
 
@@ -291,6 +294,12 @@ export async function createSignetRuntime(
   }
 
   if (operatorManager) {
+    if (deps.createInboxActions) {
+      for (const spec of deps.createInboxActions()) {
+        registry.register(spec);
+      }
+    }
+
     for (const spec of createKeyActions({ keyManager, operatorManager })) {
       registry.register(spec);
     }

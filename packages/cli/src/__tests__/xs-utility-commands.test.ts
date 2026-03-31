@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Command } from "commander";
 
 /**
- * Tests for the policy, seal, wallet, key, and utility command structures.
+ * Tests for the inbox, policy, seal, wallet, key, and utility command structures.
  *
  * Verifies the Commander.js command tree matches the v1 spec:
  * options, arguments, and descriptions are all wired correctly.
@@ -17,6 +17,84 @@ function findSub(parent: Command, name: string): Command | undefined {
 function optionFlags(cmd: Command): string[] {
   return cmd.options.map((o) => o.long ?? o.short ?? "");
 }
+
+// ---------------------------------------------------------------------------
+// Inbox commands
+// ---------------------------------------------------------------------------
+
+describe("inbox commands", () => {
+  async function load() {
+    const { createInboxCommands } = await import("../commands/xs-inbox.js");
+    return createInboxCommands();
+  }
+
+  test("top-level command is named inbox", async () => {
+    const cmd = await load();
+    expect(cmd.name()).toBe("inbox");
+  });
+
+  test("create subcommand supports --label, --op, and --json", async () => {
+    const cmd = await load();
+    const create = findSub(cmd, "create");
+    expect(create).toBeDefined();
+    const flags = optionFlags(create!);
+    expect(flags).toContain("--label");
+    expect(flags).toContain("--op");
+    expect(flags).toContain("--json");
+  });
+
+  test("info subcommand accepts an id argument and info filtering flags", async () => {
+    const cmd = await load();
+    const info = findSub(cmd, "info");
+    expect(info).toBeDefined();
+    const args = info!.registeredArguments;
+    expect(args.length).toBeGreaterThanOrEqual(1);
+    expect(args[0]?.name()).toBe("id");
+    const flags = optionFlags(info!);
+    expect(flags).toContain("--network");
+    expect(flags).toContain("--only");
+    expect(flags).toContain("--json");
+  });
+
+  test("rm subcommand accepts an id argument and --force", async () => {
+    const cmd = await load();
+    const rm = findSub(cmd, "rm");
+    expect(rm).toBeDefined();
+    const args = rm!.registeredArguments;
+    expect(args.length).toBeGreaterThanOrEqual(1);
+    expect(args[0]?.name()).toBe("id");
+    const flags = optionFlags(rm!);
+    expect(flags).toContain("--force");
+    expect(flags).toContain("--json");
+  });
+
+  test("link and unlink subcommands have the expected arguments", async () => {
+    const cmd = await load();
+    const link = findSub(cmd, "link");
+    const unlink = findSub(cmd, "unlink");
+    expect(link).toBeDefined();
+    expect(unlink).toBeDefined();
+    expect(link!.registeredArguments[0]?.name()).toBe("id");
+    expect(optionFlags(link!)).toContain("--op");
+    expect(unlink!.registeredArguments[0]?.name()).toBe("id");
+  });
+
+  test("has exactly 6 subcommands", async () => {
+    const cmd = await load();
+    expect(cmd.commands.length).toBe(6);
+    const names = cmd.commands.map((c) => c.name());
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "create",
+        "list",
+        "info",
+        "rm",
+        "link",
+        "unlink",
+      ]),
+    );
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Policy commands

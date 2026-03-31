@@ -86,6 +86,19 @@ describe("v1 subcommand groups", () => {
     expect(subs).toContain("update");
   });
 
+  test("inbox group has create, list, info, rm, link, unlink subcommands", () => {
+    const program = createXsProgram();
+    const inbox = program.commands.find((c) => c.name() === "inbox");
+    expect(inbox).toBeDefined();
+    const subs = inbox!.commands.map((c) => c.name());
+    expect(subs).toContain("create");
+    expect(subs).toContain("list");
+    expect(subs).toContain("info");
+    expect(subs).toContain("rm");
+    expect(subs).toContain("link");
+    expect(subs).toContain("unlink");
+  });
+
   test("chat group has create, list, info subcommands", () => {
     const program = createXsProgram();
     const chat = program.commands.find((c) => c.name() === "chat");

@@ -17,6 +17,7 @@ import { createPolicyCommands } from "./commands/xs-policy.js";
 import { createSealCommands } from "./commands/xs-seal.js";
 import { createWalletCommands } from "./commands/xs-wallet.js";
 import { createKeyCommands } from "./commands/xs-key.js";
+import { createInboxCommands } from "./commands/xs-inbox.js";
 import { createUtilityCommands } from "./commands/xs-utility.js";
 
 /** Placeholder action for stub commands not yet implemented. */
@@ -47,7 +48,7 @@ function requireCommand(
  *
  * The returned program has the v1 command taxonomy:
  * - Top-level: init, status, reset, logs, lookup, search
- * - Groups: daemon, operator, cred, chat, msg, policy, seal, wallet, key, consent
+ * - Groups: daemon, operator, cred, inbox, chat, msg, policy, seal, wallet, key, consent
  */
 export function createXsProgram(): Command {
   const program = new Command()
@@ -86,6 +87,10 @@ export function createXsProgram(): Command {
   // --- cred ---
 
   program.addCommand(createCredentialCommands());
+
+  // --- inbox ---
+
+  program.addCommand(createInboxCommands());
 
   // --- chat ---
 

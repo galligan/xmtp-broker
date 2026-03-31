@@ -230,6 +230,43 @@ describe("SignetCoreImpl", () => {
     });
   });
 
+  describe("dynamic inbox lifecycle", () => {
+    test("registerManagedIdentity hydrates a live client while running", async () => {
+      await core.start();
+
+      const result = await core.registerManagedIdentity({ label: "support" });
+      expect(result.isOk()).toBe(true);
+      if (!result.isOk()) return;
+
+      expect(result.value.identityId).toMatch(/^inbox_[a-f0-9]{16}$/);
+      expect(result.value.inboxId).toBeTruthy();
+
+      const managed = core.getManagedClient(result.value.identityId);
+      expect(managed).toBeDefined();
+      expect(managed?.inboxId).toBe(result.value.inboxId);
+
+      const stored = await core.identityStore.getById(result.value.identityId);
+      expect(stored?.inboxId).toBe(result.value.inboxId);
+    });
+
+    test("detachManagedIdentity removes the live client from the registry", async () => {
+      await core.start();
+      const registered = await core.registerManagedIdentity({
+        label: "support",
+      });
+      expect(registered.isOk()).toBe(true);
+      if (!registered.isOk()) return;
+
+      const detached = await core.detachManagedIdentity(
+        registered.value.identityId,
+      );
+      expect(detached.isOk()).toBe(true);
+      expect(
+        core.getManagedClient(registered.value.identityId),
+      ).toBeUndefined();
+    });
+  });
+
   describe("heartbeat", () => {
     test("emits heartbeat events at configured interval", async () => {
       core = createCore({ heartbeatIntervalMs: 50 });

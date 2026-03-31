@@ -27,8 +27,10 @@ import {
   SignetCoreConfigSchema,
   createSdkClientFactory,
   createConversationActions,
+  createInboxActions as createInboxActionSpecs,
   createMessageActions,
   createSqliteIdMappingStore,
+  type InboxActionDeps,
   type SignetState,
   type SignerProviderFactory,
 } from "@xmtp/signet-core";
@@ -527,6 +529,65 @@ export function createProductionDeps(): SignetRuntimeDeps {
       const pm = createPolicyManagerImpl();
       policyManagerRef = pm;
       return pm;
+    },
+
+    createInboxActions() {
+      if (coreImplRef === null) {
+        throw new Error("SignetCoreImpl not initialized before inbox actions");
+      }
+
+      if (!idMappingStoreRef) {
+        const dbPath =
+          coreImplRef.config.dataDir === ":memory:"
+            ? ":memory:"
+            : `${coreImplRef.config.dataDir}/id-mappings.db`;
+        idMappingStoreRef = createSqliteIdMappingStore(new Database(dbPath));
+      }
+
+      const core = coreImplRef;
+      const inboxActionDeps: InboxActionDeps = {
+        identityStore: core.identityStore,
+        idMappings: idMappingStoreRef,
+        registerInbox: (input) => core.registerManagedIdentity(input),
+        cleanupInbox: async (identity, execute) => {
+          const actions: string[] = [];
+          if (core.getManagedClient(identity.id)) {
+            actions.push("stop client");
+          }
+
+          let dbBase: string | null = null;
+          if (core.config.dataDir !== ":memory:") {
+            dbBase = `${core.config.dataDir}/db/${core.config.env}/${identity.id}.db3`;
+            actions.push("delete db");
+          }
+
+          if (!execute) {
+            return Result.ok(actions);
+          }
+
+          const detached = await core.detachManagedIdentity(identity.id);
+          if (Result.isError(detached)) {
+            return detached;
+          }
+
+          if (dbBase !== null) {
+            await rm(dbBase, { force: true });
+            await rm(`${dbBase}-shm`, { force: true });
+            await rm(`${dbBase}-wal`, { force: true });
+          }
+
+          return Result.ok(actions);
+        },
+      };
+
+      if (operatorManagerRef) {
+        return createInboxActionSpecs({
+          ...inboxActionDeps,
+          operatorManager: operatorManagerRef,
+        });
+      }
+
+      return createInboxActionSpecs(inboxActionDeps);
     },
 
     createConversationActions() {

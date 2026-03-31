@@ -6,6 +6,7 @@ import { InternalError } from "@xmtp/signet-schemas";
 import { createKeyActions, createWalletActions } from "@xmtp/signet-keys";
 import {
   createConversationActions,
+  createInboxActions,
   createMessageActions,
 } from "@xmtp/signet-core";
 import {
@@ -95,6 +96,15 @@ describe("action surface map", () => {
       identityStore: {} as never,
       getManagedClient: () => undefined,
       getGroupInfo: async () => Result.err(InternalError.create("unused")),
+    })) {
+      registry.register(spec);
+    }
+
+    for (const spec of createInboxActions({
+      identityStore: {} as never,
+      registerInbox: async () => Result.err(InternalError.create("unused")),
+      cleanupInbox: async () => Result.ok([]),
+      operatorManager: createOperatorManager(),
     })) {
       registry.register(spec);
     }
@@ -206,7 +216,7 @@ describe("action surface map", () => {
 
     expect(surfaceMap.entries.length).toBeGreaterThan(0);
     expect(hash).toBe(
-      "cf4b6058bc5b752880b54613b599cd825591f7142f79e466b1c8f6423fcd1fca",
+      "063482dd089cc4896ecb5cc400d2367dd64abeebf8c5b855b8f8dd9255c24df8",
     );
   });
 });

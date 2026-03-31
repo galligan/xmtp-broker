@@ -91,6 +91,20 @@ describe("OperatorConfig", () => {
     }
   });
 
+  it("accepts config with linked inbox ids", () => {
+    const result = OperatorConfig.safeParse({
+      ...validConfig,
+      inboxIds: ["inbox_abcd1234feedbabe", "inbox_beef5678feedbabe"],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.inboxIds).toEqual([
+        "inbox_abcd1234feedbabe",
+        "inbox_beef5678feedbabe",
+      ]);
+    }
+  });
+
   it("accepts config with operator disclosures", () => {
     const result = OperatorConfig.safeParse({
       ...validConfig,
