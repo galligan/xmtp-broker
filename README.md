@@ -99,23 +99,32 @@ bun run check
 
 ```bash
 # Create a local XMTP identity and key hierarchy
-xs identity init --env dev --label owner
+xs init --env dev --label owner
 
 # Start the daemon
-xs start
+xs daemon start
 
 # Inspect live state
 xs status --json
 
-# Create an operator and issue a credential
-xs cred issue --op alice-bot --chat conv_9e2d \
+# Create an operator
+xs operator create --label alice-bot --role operator --scope per-chat
+
+# Issue a credential scoped to a conversation
+xs cred issue --op alice-bot --chat conv_9e2d1a4b8c3f7e60 \
   --policy support-bot --allow send,reply --deny invite
 
 # Inspect that credential
 xs cred info cred_b2c1
 
 # Create a conversation
-xs conversation create
+xs chat create --name "Design Team"
+
+# Send a message
+xs msg send "Hello from the signet" --to conv_9e2d1a4b8c3f7e60
+
+# Create a reusable policy
+xs policy create --label chatty --allow send,reply
 ```
 
 `xs cred ...` is the canonical v1 lifecycle surface. Credential metadata
@@ -126,18 +135,19 @@ package layout.
 
 ## CLI commands
 
-| Group                     | Commands                                                            |
-| ------------------------- | ------------------------------------------------------------------- |
-| `start`, `stop`, `status` | Daemon lifecycle                                                    |
-| `config`                  | `show`, `validate`                                                  |
-| `identity`                | `init`, `list`, `info`, `rotate-keys`, `export-public`              |
-| `cred`                    | `issue`, `list`, `info`, `revoke`                                   |
-| `seal`                    | `inspect`, `verify`, `history`                                      |
-| `message`                 | `send`, `list`, `stream`                                            |
-| `conversation`            | `create`, `list`, `info`, `add-member`, `invite`, `join`, `members` |
-| `admin`                   | `token`, `verify-keys`, `export-state`, `audit-log`                 |
-| `keys`                    | `rotate`                                                            |
-| `policy`                  | `create`, `list`, `info`, `update`                                  |
+| Group                 | Commands                                                                    |
+| --------------------- | --------------------------------------------------------------------------- |
+| top-level             | `init`, `status`, `reset`, `logs`, `lookup`, `search`, `consent`            |
+| `daemon`              | `start`, `stop`, `status`                                                   |
+| `operator`            | `create`, `list`, `info`, `rename`, `rm`                                    |
+| `cred`                | `issue`, `list`, `info`, `revoke`, `update`                                 |
+| `chat`                | `create`, `list`, `info`, `update`, `sync`, `join`, `invite`, `leave`, `rm` |
+| `chat ... member`     | `list`, `add`, `rm`, `promote`, `demote`                                    |
+| `msg`                 | `send`, `reply`, `react`, `read`, `list`, `info`                            |
+| `policy`              | `create`, `list`, `info`, `update`, `rm`                                    |
+| `seal` _(deferred)_   | `list`, `info`, `verify`, `history`                                         |
+| `wallet` _(deferred)_ | `list`, `info`, `provider set`, `provider list`                             |
+| `key` _(deferred)_    | `init`, `rotate`, `list`, `info`                                            |
 
 ## What's working
 

@@ -101,9 +101,9 @@ After bootstrap, the local CLI is available as `xs`:
 
 ```bash
 xs --help
-xs start
+xs daemon start
 xs status --json
-xs cred issue --op alice-bot --chat conv_1 --allow send,reply
+xs cred issue --op alice-bot --chat conv_9e2d1a4b8c3f7e60 --allow send,reply
 xs cred info cred_b2c1
 ```
 
@@ -277,7 +277,7 @@ For searching repo-local documentation:
 ```bash
 # Repo-local docs and plans
 qmd query "your query" -c xmtp-signet
-qmd query "your query" -c xmtp-signet-plans
+qmd query "your query" -c xmtp-signet-notes
 ```
 
 ### XMTP SDK docs

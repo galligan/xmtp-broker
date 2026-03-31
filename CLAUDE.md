@@ -21,7 +21,7 @@ Current center of gravity:
 - permission system: allow/deny scope sets with deny-wins resolution
 - key runtime: local encrypted vault, admin auth, operational rotation,
   OWS-inspired direction
-- CLI: `xs` with direct v1 command groups such as `credential`
+- CLI: `xs` with direct v1 command groups (`operator`, `cred`, `chat`, `msg`, `policy`)
 
 ## Project structure
 
@@ -53,17 +53,17 @@ cd packages/<pkg> && bun test
 
 # CLI
 xs --help
-xs start
+xs daemon start
 xs status --json
-xs credential issue --operator op_a7f3 --credential @credential.json
-xs credential inspect cred_b2c1
+xs cred issue --op op_a7f3 --chat conv_9e2d1a4b8c3f7e60 --allow send,reply
+xs cred info cred_b2c1
 
 # XMTP docs lookup
 blz query -s xmtp "your query" --limit 5 --text
 
 # Repo-local docs lookup
 qmd query "your query" -c xmtp-signet
-qmd query "your query" -c xmtp-signet-plans
+qmd query "your query" -c xmtp-signet-notes
 qmd query "your query" -c xmtp-signet-claude
 ```
 
@@ -181,18 +181,27 @@ Short IDs are accepted where they resolve uniquely.
 
 ### CLI surface
 
-The current `xs` command groups are:
+Top-level commands: `init`, `status`, `reset`, `logs`, `lookup`, `search`,
+`consent`.
 
-- `start`, `stop`, `status`
-- `identity`
-- `credential`
-- `seal`
-- `message`
-- `conversation`
-- `admin`
-- `keys`
+The `xs` command groups are:
 
-`xs credential ...` is the canonical lifecycle surface for issuing, inspecting,
+- `daemon` — `start`, `stop`, `status`
+- `operator` — `create`, `list`, `info`, `rename`, `rm`
+- `cred` — `issue`, `list`, `info`, `revoke`, `update`
+- `chat` — `create`, `list`, `info`, `update`, `sync`, `join`, `invite`,
+  `leave`, `rm`, plus `members` subgroup (`list`, `add`, `rm`, `promote`,
+  `demote`)
+- `msg` — `send`, `reply`, `react`, `read`, `list`, `info`
+- `policy` — `create`, `list`, `info`, `update`, `rm`
+- `seal` _(deferred)_ — `list`, `info`, `verify`, `history`
+- `wallet` _(deferred)_ — `list`, `info`, `provider set/list`
+- `key` _(deferred)_ — `init`, `rotate`, `list`, `info`
+
+Deferred groups (`seal`, `wallet`, `key`) have command structure and help text
+but are not yet daemon-backed. Their actions exit with a deferral message.
+
+`xs cred ...` is the canonical lifecycle surface for issuing, inspecting,
 listing, and revoking v1 credentials.
 
 ## Error taxonomy
