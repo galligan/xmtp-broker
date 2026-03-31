@@ -46,6 +46,7 @@ export function createMockGroup(
     id: string;
     name: string;
     description: string;
+    imageUrl: string;
     isActive: boolean;
     createdAtNs: bigint;
     members: SdkGroupMemberShape[];
@@ -54,6 +55,7 @@ export function createMockGroup(
   const id = overrides?.id ?? "group-1";
   const name = overrides?.name ?? "Test Group";
   const description = overrides?.description ?? "A test group";
+  const imageUrl = overrides?.imageUrl;
   const isActive = overrides?.isActive ?? true;
   const createdAtNs = overrides?.createdAtNs ?? BigInt(Date.now()) * 1_000_000n;
   const membersList: SdkGroupMemberShape[] = overrides?.members ?? [
@@ -69,6 +71,7 @@ export function createMockGroup(
     id,
     name,
     description,
+    imageUrl,
     isActive,
     createdAtNs,
     createdAt: new Date(Number(createdAtNs / 1_000_000n)),
@@ -78,6 +81,14 @@ export function createMockGroup(
     send: async (_encoded: unknown) => `msg-${Date.now()}`,
     addMembers: async (_inboxIds: string[]) => {},
     removeMembers: async (_inboxIds: string[]) => {},
+    updateName: async (_name: string) => {},
+    updateDescription: async (_description: string) => {},
+    updateImageUrl: async (_imageUrl: string) => {},
+    leaveGroup: async () => {},
+    addAdmin: async (_inboxId: string) => {},
+    removeAdmin: async (_inboxId: string) => {},
+    addSuperAdmin: async (_inboxId: string) => {},
+    removeSuperAdmin: async (_inboxId: string) => {},
     messages: async () => [],
     stream: async () => createMockAsyncStreamProxy<SdkDecodedMessageShape>([]),
     metadata: async () => ({

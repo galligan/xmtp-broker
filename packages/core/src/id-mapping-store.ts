@@ -25,6 +25,8 @@ const GET_BY_NETWORK = `SELECT local_id FROM id_mappings WHERE network_id = ?1`;
 const GET_BY_LOCAL = `SELECT network_id FROM id_mappings WHERE local_id = ?1`;
 const RESOLVE_BY_NETWORK = `SELECT network_id, local_id FROM id_mappings WHERE network_id = ?1`;
 const RESOLVE_BY_LOCAL = `SELECT network_id, local_id FROM id_mappings WHERE local_id = ?1`;
+const DELETE_BY_NETWORK = `DELETE FROM id_mappings WHERE network_id = ?1`;
+const DELETE_BY_LOCAL = `DELETE FROM id_mappings WHERE local_id = ?1`;
 
 /**
  * Creates a SQLite-backed implementation of {@link IdMappingStore}.
@@ -52,6 +54,8 @@ export function createSqliteIdMappingStore(db: Database): IdMappingStore {
     { network_id: string; local_id: string },
     [string]
   >(RESOLVE_BY_LOCAL);
+  const deleteByNetworkStmt = db.prepare(DELETE_BY_NETWORK);
+  const deleteByLocalStmt = db.prepare(DELETE_BY_LOCAL);
 
   return {
     set(
@@ -86,6 +90,21 @@ export function createSqliteIdMappingStore(db: Database): IdMappingStore {
       }
 
       return null;
+    },
+
+    remove(id: string): { networkId: string; localId: string } | null {
+      const mapping = this.resolve(id);
+      if (!mapping) {
+        return null;
+      }
+
+      if (mapping.networkId === id) {
+        deleteByNetworkStmt.run(id);
+      } else {
+        deleteByLocalStmt.run(id);
+      }
+
+      return mapping;
     },
   };
 }

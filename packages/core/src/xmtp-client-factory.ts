@@ -58,6 +58,43 @@ export interface XmtpClient {
     inboxIds: readonly string[],
   ): Promise<Result<void, SignetError>>;
 
+  /** Update mutable group metadata fields. */
+  updateGroupMetadata(
+    groupId: string,
+    changes: {
+      name?: string;
+      description?: string;
+      imageUrl?: string;
+    },
+  ): Promise<Result<XmtpGroupInfo, SignetError>>;
+
+  /** Leave a group conversation. */
+  leaveGroup(groupId: string): Promise<Result<void, SignetError>>;
+
+  /** Promote a member to admin. */
+  addAdmin(
+    groupId: string,
+    inboxId: string,
+  ): Promise<Result<void, SignetError>>;
+
+  /** Demote an admin back to a regular member. */
+  removeAdmin(
+    groupId: string,
+    inboxId: string,
+  ): Promise<Result<void, SignetError>>;
+
+  /** Promote a member to super admin. */
+  addSuperAdmin(
+    groupId: string,
+    inboxId: string,
+  ): Promise<Result<void, SignetError>>;
+
+  /** Remove super admin status from a member. */
+  removeSuperAdmin(
+    groupId: string,
+    inboxId: string,
+  ): Promise<Result<void, SignetError>>;
+
   /** Query historical messages from a conversation. */
   listMessages(
     groupId: string,
@@ -88,6 +125,7 @@ export interface XmtpGroupInfo {
   readonly groupId: string;
   readonly name: string;
   readonly description: string;
+  readonly imageUrl?: string | undefined;
   readonly memberInboxIds: readonly string[];
   readonly createdAt: string;
 }

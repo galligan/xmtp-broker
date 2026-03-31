@@ -55,6 +55,7 @@ export interface SdkGroupShape {
   id: string;
   name: string;
   description: string;
+  imageUrl?: string;
   isActive: boolean;
   createdAtNs: bigint;
   createdAt: Date;
@@ -64,6 +65,14 @@ export interface SdkGroupShape {
   send(encoded: unknown): Promise<string>;
   addMembers(inboxIds: string[]): Promise<void>;
   removeMembers(inboxIds: string[]): Promise<void>;
+  updateName(name: string): Promise<void>;
+  updateDescription(description: string): Promise<void>;
+  updateImageUrl(imageUrl: string): Promise<void>;
+  leaveGroup(): Promise<void>;
+  addAdmin(inboxId: string): Promise<void>;
+  removeAdmin(inboxId: string): Promise<void>;
+  addSuperAdmin(inboxId: string): Promise<void>;
+  removeSuperAdmin(inboxId: string): Promise<void>;
   messages(options?: {
     limit?: number;
     sentBeforeNs?: bigint;

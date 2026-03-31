@@ -154,6 +154,9 @@ describe("chat commands", () => {
     const args = leave!.registeredArguments;
     expect(args.length).toBeGreaterThanOrEqual(1);
     expect(args[0]?.name()).toBe("id");
+    const flags = optionFlags(leave!);
+    expect(flags).toContain("--purge");
+    expect(flags).toContain("--force");
   });
 
   // -- rm --

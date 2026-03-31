@@ -179,6 +179,7 @@ export function createMockXmtpClient(options?: MockXmtpClientOptions): {
         groupId,
         name: opts?.name ?? "",
         description: "",
+        imageUrl: undefined,
         memberInboxIds: [inboxId, ...memberInboxIds],
         createdAt: new Date().toISOString(),
       };
@@ -193,6 +194,56 @@ export function createMockXmtpClient(options?: MockXmtpClientOptions): {
 
     async removeMembers(groupId, inboxIds) {
       removedMembers.push({ groupId, inboxIds });
+      return Result.ok(undefined);
+    },
+
+    async updateGroupMetadata(groupId, changes) {
+      const existing = groups.get(groupId);
+      if (!existing) {
+        return Result.err(NotFoundError.create("group", groupId));
+      }
+      const updated: XmtpGroupInfo = {
+        ...existing,
+        name: changes.name ?? existing.name,
+        description: changes.description ?? existing.description,
+        imageUrl: changes.imageUrl ?? existing.imageUrl,
+      };
+      groups.set(groupId, updated);
+      return Result.ok(updated);
+    },
+
+    async leaveGroup(groupId) {
+      if (!groups.has(groupId)) {
+        return Result.err(NotFoundError.create("group", groupId));
+      }
+      return Result.ok(undefined);
+    },
+
+    async addAdmin(groupId, _inboxId) {
+      if (!groups.has(groupId)) {
+        return Result.err(NotFoundError.create("group", groupId));
+      }
+      return Result.ok(undefined);
+    },
+
+    async removeAdmin(groupId, _inboxId) {
+      if (!groups.has(groupId)) {
+        return Result.err(NotFoundError.create("group", groupId));
+      }
+      return Result.ok(undefined);
+    },
+
+    async addSuperAdmin(groupId, _inboxId) {
+      if (!groups.has(groupId)) {
+        return Result.err(NotFoundError.create("group", groupId));
+      }
+      return Result.ok(undefined);
+    },
+
+    async removeSuperAdmin(groupId, _inboxId) {
+      if (!groups.has(groupId)) {
+        return Result.err(NotFoundError.create("group", groupId));
+      }
       return Result.ok(undefined);
     },
 

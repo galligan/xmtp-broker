@@ -93,4 +93,10 @@ export interface IdMappingStore {
 
   /** Resolve any ID (network or local) to both IDs. Returns null if not found. */
   resolve(id: string): { networkId: string; localId: string } | null;
+
+  /**
+   * Remove a mapping by either its network ID or local ID.
+   * Returns the removed mapping, or null if no mapping existed.
+   */
+  remove(id: string): { networkId: string; localId: string } | null;
 }

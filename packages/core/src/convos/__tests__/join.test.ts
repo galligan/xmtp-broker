@@ -147,6 +147,12 @@ function createMockClient(options?: {
     createGroup: notImplemented,
     addMembers: notImplemented,
     removeMembers: notImplemented,
+    updateGroupMetadata: notImplemented,
+    leaveGroup: notImplemented,
+    addAdmin: notImplemented,
+    removeAdmin: notImplemented,
+    addSuperAdmin: notImplemented,
+    removeSuperAdmin: notImplemented,
     streamAllMessages: notImplemented,
     streamGroups: notImplemented,
   };

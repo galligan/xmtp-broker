@@ -11,6 +11,7 @@ export interface GroupLike {
   readonly id: string;
   readonly name: string;
   readonly description: string;
+  readonly imageUrl?: string | undefined;
   readonly createdAtNs: bigint;
 }
 
@@ -43,6 +44,7 @@ export function toGroupInfo(
     groupId: group.id,
     name: group.name,
     description: group.description,
+    imageUrl: group.imageUrl,
     memberInboxIds: members.map((m) => m.inboxId),
     createdAt: new Date(Number(group.createdAtNs / 1_000_000n)).toISOString(),
   };

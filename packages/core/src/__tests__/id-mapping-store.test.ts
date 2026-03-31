@@ -105,6 +105,38 @@ describe("SqliteIdMappingStore", () => {
     });
   });
 
+  describe("remove", () => {
+    test("removes a mapping by network ID", () => {
+      store.set("xmtp_abc12345feedbabe", "msg_1234567890abcdef", "message");
+
+      const removed = store.remove("xmtp_abc12345feedbabe");
+
+      expect(removed).toEqual({
+        networkId: "xmtp_abc12345feedbabe",
+        localId: "msg_1234567890abcdef",
+      });
+      expect(store.getLocal("xmtp_abc12345feedbabe")).toBeNull();
+      expect(store.getNetwork("msg_1234567890abcdef")).toBeNull();
+    });
+
+    test("removes a mapping by local ID", () => {
+      store.set("xmtp_abc12345feedbabe", "msg_1234567890abcdef", "message");
+
+      const removed = store.remove("msg_1234567890abcdef");
+
+      expect(removed).toEqual({
+        networkId: "xmtp_abc12345feedbabe",
+        localId: "msg_1234567890abcdef",
+      });
+      expect(store.getLocal("xmtp_abc12345feedbabe")).toBeNull();
+      expect(store.getNetwork("msg_1234567890abcdef")).toBeNull();
+    });
+
+    test("returns null when removing an unknown ID", () => {
+      expect(store.remove("conv_unknown123456")).toBeNull();
+    });
+  });
+
   describe("multiple resource types", () => {
     test("stores mappings for different resource types independently", () => {
       store.set("xmtp_aaa11111feedbabe", "msg_1234567890abcdef", "message");
