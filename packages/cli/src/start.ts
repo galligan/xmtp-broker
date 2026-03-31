@@ -8,7 +8,7 @@
 import { rm } from "node:fs/promises";
 import { Result } from "better-result";
 import type { SignetError } from "@xmtp/signet-schemas";
-import { InternalError, PermissionError } from "@xmtp/signet-schemas";
+import { InternalError } from "@xmtp/signet-schemas";
 import type {
   SignetCore,
   CoreState,
@@ -32,7 +32,6 @@ import {
   type SignetState,
   type SignerProviderFactory,
 } from "@xmtp/signet-core";
-import { checkChatInScope } from "@xmtp/signet-policy";
 import {
   createCredentialManager as createCredentialManagerImpl,
   createCredentialService,
@@ -43,7 +42,6 @@ import {
 import type { PolicyManager } from "@xmtp/signet-contracts";
 import { createSealManager as createSealManagerImpl } from "@xmtp/signet-seals";
 import { createSealPublisher } from "@xmtp/signet-seals";
-import type { InputResolver } from "@xmtp/signet-seals";
 import {
   createWsServer as createWsServerImpl,
   type WsServer,
@@ -64,6 +62,7 @@ import { createLazyCoreUpgrade } from "./ws/core-upgrade.js";
 import { createEventProjector } from "./ws/event-projector.js";
 import { createPendingActionStore } from "@xmtp/signet-sessions";
 import { startManagedInviteHostListener } from "./invite-host-listener.js";
+import { createSealInputResolver } from "./seal-input-resolver.js";
 
 /** Map SignetCoreImpl states to the contract's CoreState. */
 function mapSignetState(state: SignetState): CoreState {
@@ -359,85 +358,22 @@ export function createProductionDeps(): SignetRuntimeDeps {
           d.core.sendMessage(groupId, contentType, content),
       });
 
-      // Seal bypass: when SIGNET_SEAL_BYPASS=1, InputResolver errors are
-      // swallowed and a minimal synthetic SealInput is returned so message
-      // sends proceed without real provenance. The seal will carry a
-      // `bypassed: true` marker so clients can detect it.
-      const sealBypass = process.env["SIGNET_SEAL_BYPASS"] === "1";
-
-      // Real InputResolver: derive SealInput from credential + operator records.
-      // Fail closed by default — if seal input can't be resolved, the caller
-      // should reject the operation unless SIGNET_SEAL_BYPASS is set.
-      const resolveInput: InputResolver = async (credentialId, chatId) => {
-        // 1. Look up credential
-        const credResult = await d.credentialManager.lookup(credentialId);
-        if (Result.isError(credResult)) return credResult;
-        const cred = credResult.value;
-
-        // 2. Look up operator for scope mode
-        if (!operatorManagerRef) {
-          return Result.err(
-            InternalError.create(
-              "OperatorManager not initialized -- cannot resolve seal input",
-            ),
-          );
-        }
-        const opResult = await operatorManagerRef.lookup(
-          cred.config.operatorId,
+      if (!operatorManagerRef) {
+        throw new Error(
+          "OperatorManager not initialized before seal input resolver",
         );
-        if (Result.isError(opResult)) return opResult;
-        const op = opResult.value;
+      }
 
-        // 3. Build permissions from credential config
-        const permissions = {
-          allow: cred.config.allow ?? [],
-          deny: cred.config.deny ?? [],
-        };
-
-        const inScopeResult = checkChatInScope(chatId, cred.config.chatIds);
-        if (Result.isError(inScopeResult)) {
-          return Result.err(
-            PermissionError.create(inScopeResult.error.message, {
-              ...inScopeResult.error.context,
-              credentialId,
-            }),
-          );
-        }
-
-        // 4. Assemble SealInput
-        return Result.ok({
-          credentialId,
-          operatorId: cred.config.operatorId,
-          chatId,
-          scopeMode: op.config.scopeMode,
-          permissions,
-          // trustTier, operatorDisclosures, provenanceMap deferred to later iteration
-        });
-      };
-
-      // Wrap the resolver with bypass logic when SIGNET_SEAL_BYPASS=1.
-      // In bypass mode, if the real resolver fails, a synthetic SealInput
-      // is returned so issuance proceeds. The seal will contain synthetic
-      // operator/permission data — clients should verify seals cryptographically.
-      const effectiveResolver: InputResolver = sealBypass
-        ? async (credentialId, chatId) => {
-            const result = await resolveInput(credentialId, chatId);
-            if (Result.isOk(result)) return result;
-            return Result.ok({
-              credentialId,
-              operatorId: "op_0000000000000000",
-              chatId,
-              scopeMode: "per-chat" as const,
-              permissions: { allow: [], deny: [] },
-              bypassed: true,
-            });
-          }
-        : resolveInput;
+      const resolveInput = createSealInputResolver({
+        credentialManager: d.credentialManager,
+        operatorManager: operatorManagerRef,
+        trustTier: keyManagerRef?.trustTier ?? "unverified",
+      });
 
       const sealManager = createSealManagerImpl({
         signer,
         publisher,
-        resolveInput: effectiveResolver,
+        resolveInput,
       });
       globalSealManagerRef = sealManager;
       return sealManager;

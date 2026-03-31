@@ -35,6 +35,59 @@ export const WalletProvider: z.ZodEnum<["internal", "ows"]> = z.enum([
 /** Inferred union of wallet provider strings. */
 export type WalletProviderType = z.infer<typeof WalletProvider>;
 
+/** How an operator performs inference. */
+export const InferenceMode: z.ZodEnum<["local", "cloud", "hybrid"]> = z.enum([
+  "local",
+  "cloud",
+  "hybrid",
+]);
+
+/** Inferred union of inference mode strings. */
+export type InferenceModeType = z.infer<typeof InferenceMode>;
+
+/** What content may leave the signet boundary. */
+export const ContentEgressScope: z.ZodEnum<
+  ["none", "provider-only", "unrestricted"]
+> = z.enum(["none", "provider-only", "unrestricted"]);
+
+/** Inferred union of content egress scope strings. */
+export type ContentEgressScopeType = z.infer<typeof ContentEgressScope>;
+
+/** Where the operator runtime is hosted. */
+export const HostingMode: z.ZodEnum<["self-hosted", "cloud", "tee"]> = z.enum([
+  "self-hosted",
+  "cloud",
+  "tee",
+]);
+
+/** Inferred union of hosting mode strings. */
+export type HostingModeType = z.infer<typeof HostingMode>;
+
+/**
+ * Operator-declared claims about the runtime environment.
+ *
+ * These are self-reported by the operator and passed through by the signet
+ * unless later upgraded by provenance-aware verification or inspection.
+ */
+export type OperatorDisclosuresType = {
+  inferenceMode?: InferenceModeType | undefined;
+  inferenceProviders?: string[] | undefined;
+  contentEgressScope?: ContentEgressScopeType | undefined;
+  retentionAtProvider?: string | undefined;
+  hostingMode?: HostingModeType | undefined;
+};
+
+/** Structured self-reported runtime disclosures for an operator. */
+export const OperatorDisclosures: z.ZodType<OperatorDisclosuresType> = z
+  .object({
+    inferenceMode: InferenceMode.optional(),
+    inferenceProviders: z.array(z.string()).optional(),
+    contentEgressScope: ContentEgressScope.optional(),
+    retentionAtProvider: z.string().optional(),
+    hostingMode: HostingMode.optional(),
+  })
+  .describe("Operator-declared claims about the runtime environment");
+
 // -- Composite schemas ------------------------------------------------------
 
 /** Configuration for an operator within the signet. */
@@ -44,6 +97,7 @@ export const OperatorConfig: z.ZodObject<{
   scopeMode: typeof ScopeMode;
   provider: z.ZodDefault<typeof WalletProvider>;
   walletId: z.ZodOptional<z.ZodString>;
+  operatorDisclosures: z.ZodOptional<typeof OperatorDisclosures>;
 }> = z.object({
   /** Human-readable name for the operator. */
   label: z.string().min(1),
@@ -55,6 +109,8 @@ export const OperatorConfig: z.ZodObject<{
   provider: WalletProvider.default("internal"),
   /** Reference to the backing wallet. */
   walletId: z.string().optional(),
+  /** Self-reported runtime transparency claims for seal disclosure. */
+  operatorDisclosures: OperatorDisclosures.optional(),
 });
 
 /** Inferred type for operator configuration. */

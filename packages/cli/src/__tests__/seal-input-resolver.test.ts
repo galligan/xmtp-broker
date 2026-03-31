@@ -1,9 +1,5 @@
 /**
- * Tests for the production InputResolver wiring in start.ts.
- *
- * Since the InputResolver is a closure inside createProductionDeps, we test
- * it indirectly through the seal manager's issue path using an integration-style
- * approach with real credential and operator managers.
+ * Tests for the extracted production seal input resolver.
  */
 
 import { describe, expect, test, beforeEach } from "bun:test";
@@ -13,10 +9,12 @@ import type {
   CredentialManager,
   OperatorManager,
 } from "@xmtp/signet-contracts";
-import { checkChatInScope } from "@xmtp/signet-policy";
-import type { InputResolver } from "@xmtp/signet-seals";
 import { createOperatorManager } from "@xmtp/signet-sessions";
 import { InternalError } from "@xmtp/signet-schemas";
+import {
+  buildSealProvenanceMap,
+  createSealInputResolver,
+} from "../seal-input-resolver.js";
 
 /** Minimal CredentialManager mock that returns a fixed record. */
 function createMockCredentialManager(record?: {
@@ -66,41 +64,6 @@ function createMockCredentialManager(record?: {
   };
 }
 
-/**
- * Build a real InputResolver following the same logic as start.ts.
- * This is a unit-testable extraction of the production closure.
- */
-function buildInputResolver(
-  credentialManager: CredentialManager,
-  operatorManager: OperatorManager,
-): InputResolver {
-  return async (credentialId, chatId) => {
-    const credResult = await credentialManager.lookup(credentialId);
-    if (Result.isError(credResult)) return credResult;
-    const cred = credResult.value;
-
-    const opResult = await operatorManager.lookup(cred.config.operatorId);
-    if (Result.isError(opResult)) return opResult;
-    const op = opResult.value;
-
-    const permissions = {
-      allow: cred.config.allow ?? [],
-      deny: cred.config.deny ?? [],
-    };
-
-    const inScopeResult = checkChatInScope(chatId, cred.config.chatIds);
-    if (Result.isError(inScopeResult)) return inScopeResult;
-
-    return Result.ok({
-      credentialId,
-      operatorId: cred.config.operatorId,
-      chatId,
-      scopeMode: op.config.scopeMode,
-      permissions,
-    });
-  };
-}
-
 describe("InputResolver", () => {
   let operatorManager: OperatorManager;
   let operatorId: string;
@@ -130,7 +93,11 @@ describe("InputResolver", () => {
       },
     });
 
-    const resolver = buildInputResolver(credManager, operatorManager);
+    const resolver = createSealInputResolver({
+      credentialManager: credManager,
+      operatorManager,
+      trustTier: "source-verified",
+    });
     const result = await resolver(
       "cred_0123456789abcdef",
       "conv_aabbccdd11223344",
@@ -144,6 +111,10 @@ describe("InputResolver", () => {
       expect(result.value.scopeMode).toBe("per-chat");
       expect(result.value.permissions.allow).toEqual(["messaging:send"]);
       expect(result.value.permissions.deny).toEqual(["access:*"]);
+      expect(result.value.trustTier).toBe("source-verified");
+      expect(result.value.provenanceMap).toEqual({
+        trustTier: { source: "verified" },
+      });
     }
   });
 
@@ -156,7 +127,11 @@ describe("InputResolver", () => {
       },
     });
 
-    const resolver = buildInputResolver(credManager, operatorManager);
+    const resolver = createSealInputResolver({
+      credentialManager: credManager,
+      operatorManager,
+      trustTier: "unverified",
+    });
     const result = await resolver(
       "cred_0123456789abcdef",
       "conv_aabbccdd11223344",
@@ -166,12 +141,17 @@ describe("InputResolver", () => {
     if (Result.isOk(result)) {
       expect(result.value.permissions.allow).toEqual([]);
       expect(result.value.permissions.deny).toEqual([]);
+      expect(result.value.trustTier).toBe("unverified");
     }
   });
 
   test("returns error when credential not found", async () => {
     const credManager = createMockCredentialManager();
-    const resolver = buildInputResolver(credManager, operatorManager);
+    const resolver = createSealInputResolver({
+      credentialManager: credManager,
+      operatorManager,
+      trustTier: "source-verified",
+    });
     const result = await resolver("cred_doesnotexist1234", "conv_abc");
 
     expect(Result.isError(result)).toBe(true);
@@ -186,7 +166,11 @@ describe("InputResolver", () => {
       },
     });
 
-    const resolver = buildInputResolver(credManager, operatorManager);
+    const resolver = createSealInputResolver({
+      credentialManager: credManager,
+      operatorManager,
+      trustTier: "source-verified",
+    });
     const result = await resolver(
       "cred_0123456789abcdef",
       "conv_aabbccdd11223344",
@@ -204,7 +188,11 @@ describe("InputResolver", () => {
       },
     });
 
-    const resolver = buildInputResolver(credManager, operatorManager);
+    const resolver = createSealInputResolver({
+      credentialManager: credManager,
+      operatorManager,
+      trustTier: "source-verified",
+    });
     const result = await resolver(
       "cred_0123456789abcdef",
       "conv_deadbeef11223344",
@@ -234,7 +222,11 @@ describe("InputResolver", () => {
       },
     });
 
-    const resolver = buildInputResolver(credManager, operatorManager);
+    const resolver = createSealInputResolver({
+      credentialManager: credManager,
+      operatorManager,
+      trustTier: "source-verified",
+    });
     const result = await resolver(
       "cred_0123456789abcdef",
       "conv_aabbccdd11223344",
@@ -244,5 +236,76 @@ describe("InputResolver", () => {
     if (Result.isOk(result)) {
       expect(result.value.scopeMode).toBe("shared");
     }
+  });
+
+  test("passes through operator disclosures and declared provenance", async () => {
+    const disclosedResult = await operatorManager.create({
+      label: "disclosed-bot",
+      role: "operator",
+      scopeMode: "per-chat",
+      operatorDisclosures: {
+        inferenceMode: "hybrid",
+        inferenceProviders: ["openai", "anthropic"],
+        contentEgressScope: "provider-only",
+        retentionAtProvider: "30 days",
+        hostingMode: "cloud",
+      },
+    });
+    expect(Result.isOk(disclosedResult)).toBe(true);
+    if (!Result.isOk(disclosedResult)) return;
+
+    const credManager = createMockCredentialManager({
+      id: "cred_0123456789abcdef",
+      config: {
+        operatorId: disclosedResult.value.id,
+        chatIds: ["conv_aabbccdd11223344"],
+      },
+    });
+
+    const resolver = createSealInputResolver({
+      credentialManager: credManager,
+      operatorManager,
+      trustTier: "source-verified",
+    });
+    const result = await resolver(
+      "cred_0123456789abcdef",
+      "conv_aabbccdd11223344",
+    );
+
+    expect(Result.isOk(result)).toBe(true);
+    if (!Result.isOk(result)) return;
+    expect(result.value.operatorDisclosures).toEqual({
+      inferenceMode: "hybrid",
+      inferenceProviders: ["openai", "anthropic"],
+      contentEgressScope: "provider-only",
+      retentionAtProvider: "30 days",
+      hostingMode: "cloud",
+    });
+    expect(result.value.provenanceMap).toEqual({
+      trustTier: { source: "verified" },
+      inferenceMode: { source: "declared" },
+      inferenceProviders: { source: "declared" },
+      contentEgressScope: { source: "declared" },
+      retentionAtProvider: { source: "declared" },
+      hostingMode: { source: "declared" },
+    });
+  });
+});
+
+describe("buildSealProvenanceMap", () => {
+  test("marks trust tier as verified and disclosures as declared", () => {
+    expect(
+      buildSealProvenanceMap({
+        trustTier: "source-verified",
+        operatorDisclosures: {
+          inferenceMode: "cloud",
+          hostingMode: "self-hosted",
+        },
+      }),
+    ).toEqual({
+      trustTier: { source: "verified" },
+      inferenceMode: { source: "declared" },
+      hostingMode: { source: "declared" },
+    });
   });
 });

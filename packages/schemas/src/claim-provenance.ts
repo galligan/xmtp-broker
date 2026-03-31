@@ -11,7 +11,7 @@ export const OPERATOR_DISCLOSURE_PROVENANCE_KEYS = [
   "hostingMode",
 ] as const;
 
-/** Claim keys backed by signet-managed external verification evidence. */
+/** Claim keys backed by signet-established runtime evidence. */
 export const EXTERNAL_PROVENANCE_KEYS = ["trustTier"] as const;
 
 /** Every provenance key currently supported by the seal transparency model. */
