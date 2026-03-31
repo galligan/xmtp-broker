@@ -8,7 +8,7 @@
 import { rm } from "node:fs/promises";
 import { Result } from "better-result";
 import type { SignetError } from "@xmtp/signet-schemas";
-import { InternalError, PermissionError } from "@xmtp/signet-schemas";
+import { InternalError } from "@xmtp/signet-schemas";
 import type {
   SignetCore,
   CoreState,
@@ -633,6 +633,23 @@ export function createProductionDeps(): SignetRuntimeDeps {
           const matchChatIds = [groupId];
           if (chatId && !matchChatIds.includes(chatId)) {
             matchChatIds.push(chatId);
+          }
+
+          // Resolve network ↔ local IDs so credential/seal matching works
+          // regardless of whether the caller passed a network groupId or local conv_ ID.
+          if (idMappingStoreRef) {
+            for (const candidate of [groupId, chatId].filter(
+              Boolean,
+            ) as string[]) {
+              const mapped = idMappingStoreRef.resolve(candidate);
+              if (mapped) {
+                for (const resolved of [mapped.localId, mapped.networkId]) {
+                  if (!matchChatIds.includes(resolved)) {
+                    matchChatIds.push(resolved);
+                  }
+                }
+              }
+            }
           }
 
           let matchingCredentialIds: string[] = [];
