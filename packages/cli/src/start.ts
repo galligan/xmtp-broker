@@ -57,6 +57,7 @@ import { createWsRequestHandler } from "./ws/request-handler.js";
 import { createLazyCoreUpgrade } from "./ws/core-upgrade.js";
 import { createEventProjector } from "./ws/event-projector.js";
 import { createPendingActionStore } from "@xmtp/signet-sessions";
+import { startManagedInviteHostListener } from "./invite-host-listener.js";
 
 /** Map SignetCoreImpl states to the contract's CoreState. */
 function mapSignetState(state: SignetState): CoreState {
@@ -101,6 +102,10 @@ export function createProductionDeps(): SignetRuntimeDeps {
   // Lazy-initialized ID mapping store for conv_ boundary
   let idMappingStoreRef: import("@xmtp/signet-schemas").IdMappingStore | null =
     null;
+  // In-memory invite tag store: groupId -> inviteTag (v1 single-process)
+  const inviteTagStore = new Map<string, string>();
+  // Track invite host listener unsubscribe for cleanup
+  let inviteHostUnsub: (() => void) | null = null;
 
   return {
     async createKeyManager(
@@ -525,7 +530,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
         idMappingStoreRef = createSqliteIdMappingStore(new Database(dbPath));
       }
 
-      return createConversationActions({
+      const actions = createConversationActions({
         identityStore: coreImplRef.identityStore,
         getManagedClient: (id) => coreImplRef!.getManagedClient(id),
         getGroupInfo: (groupId: string) =>
@@ -534,7 +539,40 @@ export function createProductionDeps(): SignetRuntimeDeps {
         signerProviderFactory,
         config: coreImplRef.config,
         idMappings: idMappingStoreRef,
+        storeInviteTag: (groupId, tag) => inviteTagStore.set(groupId, tag),
+        getInviteTag: (groupId) => inviteTagStore.get(groupId),
       });
+
+      // Start the invite host listener (v1: single identity, in-process).
+      // Wired here because all deps are available after conversation actions
+      // are created. The listener resolves the matching managed identity at
+      // message time so multi-identity invite links work without a restart.
+      if (!inviteHostUnsub) {
+        const core = coreImplRef;
+        const spf = signerProviderFactory;
+        inviteHostUnsub = startManagedInviteHostListener({
+          subscribe: (handler) => core.on(handler),
+          listIdentities: () => core.identityStore.list(),
+          getWalletPrivateKeyHex: async (identityId) => {
+            const signer = spf(identityId);
+            const keyResult = await signer.getXmtpIdentityKey(identityId);
+            if (Result.isError(keyResult)) return keyResult;
+            return Result.ok(keyResult.value);
+          },
+          getManagedClient: (identityId) => {
+            const managed = core.getManagedClient(identityId);
+            if (!managed) return undefined;
+            return {
+              addMembers: (groupId, inboxIds) =>
+                managed.client.addMembers(groupId, inboxIds as string[]),
+            };
+          },
+          getGroupInviteTag: async (groupId) =>
+            Result.ok(inviteTagStore.get(groupId)),
+        });
+      }
+
+      return actions;
     },
 
     createMessageActions() {

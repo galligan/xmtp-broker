@@ -48,6 +48,10 @@ export interface ConversationActionDeps {
   readonly config?: Pick<SignetCoreConfig, "dataDir" | "env" | "appVersion">;
   /** Optional ID mapping store for conv_ boundary enforcement. */
   readonly idMappings?: IdMappingStore;
+  /** Store an invite tag for a group (for hosted invite verification). */
+  readonly storeInviteTag?: (groupId: string, inviteTag: string) => void;
+  /** Get the stored invite tag for a group. */
+  readonly getInviteTag?: (groupId: string) => string | undefined;
 }
 
 /**
@@ -442,6 +446,11 @@ export function createConversationActions(
       });
 
       if (Result.isError(urlResult)) return urlResult;
+
+      // Persist the invite tag so the host-side join processor can verify it
+      if (deps.storeInviteTag) {
+        deps.storeInviteTag(groupId, inviteTag);
+      }
 
       return Result.ok({
         inviteUrl: urlResult.value,

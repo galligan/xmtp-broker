@@ -118,4 +118,35 @@ describe("processJoinRequest", () => {
 
     expect(result.isErr()).toBe(true);
   });
+
+  test("rejects invite when stored tag does not match", async () => {
+    const slug = await buildValidSlug();
+    const deps = createMockDeps({
+      getGroupTagResult: Result.ok("wrong-tag-value"),
+    });
+
+    const result = await processJoinRequest(deps, {
+      senderInboxId: TEST_REQUESTER_INBOX_ID,
+      messageText: slug,
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (!result.isErr()) return;
+
+    expect(result.error.message).toContain("tag");
+  });
+
+  test("allows invite when no stored tag exists (undefined)", async () => {
+    const slug = await buildValidSlug();
+    const deps = createMockDeps({
+      getGroupTagResult: Result.ok(undefined),
+    });
+
+    const result = await processJoinRequest(deps, {
+      senderInboxId: TEST_REQUESTER_INBOX_ID,
+      messageText: slug,
+    });
+
+    expect(result.isOk()).toBe(true);
+  });
 });
