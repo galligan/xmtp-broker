@@ -8,7 +8,7 @@
 import { rm } from "node:fs/promises";
 import { Result } from "better-result";
 import type { SignetError } from "@xmtp/signet-schemas";
-import { InternalError } from "@xmtp/signet-schemas";
+import { InternalError, PermissionError } from "@xmtp/signet-schemas";
 import type {
   SignetCore,
   CoreState,
