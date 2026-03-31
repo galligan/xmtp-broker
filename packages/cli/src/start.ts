@@ -7,7 +7,7 @@
 
 import { Result } from "better-result";
 import type { SignetError } from "@xmtp/signet-schemas";
-import { InternalError } from "@xmtp/signet-schemas";
+import { InternalError, PermissionError } from "@xmtp/signet-schemas";
 import type { SignetCore, CoreState } from "@xmtp/signet-contracts";
 import {
   createKeyManager,
@@ -27,6 +27,7 @@ import {
   type SignetState,
   type SignerProviderFactory,
 } from "@xmtp/signet-core";
+import { checkChatInScope } from "@xmtp/signet-policy";
 import {
   createCredentialManager as createCredentialManagerImpl,
   createCredentialService,
@@ -99,6 +100,10 @@ export function createProductionDeps(): SignetRuntimeDeps {
     | null = null;
   // Late-bound policy manager ref for credential service wiring
   let policyManagerRef: PolicyManager | null = null;
+  // Late-bound operator manager ref for seal input resolution
+  let operatorManagerRef:
+    | import("@xmtp/signet-contracts").OperatorManager
+    | null = null;
   // Lazy-initialized ID mapping store for conv_ boundary
   let idMappingStoreRef: import("@xmtp/signet-schemas").IdMappingStore | null =
     null;
@@ -346,15 +351,54 @@ export function createProductionDeps(): SignetRuntimeDeps {
           d.core.sendMessage(groupId, contentType, content),
       });
 
-      // InputResolver stub: translating credential policy into SealInput
-      // requires aggregating fields from the credential record, config,
-      // and key manager that don't have a mapping layer yet.
-      const resolveInput: InputResolver = async (_credentialId, _groupId) => {
-        return Result.err(
-          InternalError.create(
-            "InputResolver not yet wired -- credential-to-seal-input mapping pending",
-          ),
+      // Real InputResolver: derive SealInput from credential + operator records.
+      // Fail closed by default — if seal input can't be resolved, the caller
+      // should reject the operation unless SIGNET_SEAL_BYPASS is set.
+      const resolveInput: InputResolver = async (credentialId, chatId) => {
+        // 1. Look up credential
+        const credResult = await d.credentialManager.lookup(credentialId);
+        if (Result.isError(credResult)) return credResult;
+        const cred = credResult.value;
+
+        // 2. Look up operator for scope mode
+        if (!operatorManagerRef) {
+          return Result.err(
+            InternalError.create(
+              "OperatorManager not initialized -- cannot resolve seal input",
+            ),
+          );
+        }
+        const opResult = await operatorManagerRef.lookup(
+          cred.config.operatorId,
         );
+        if (Result.isError(opResult)) return opResult;
+        const op = opResult.value;
+
+        // 3. Build permissions from credential config
+        const permissions = {
+          allow: cred.config.allow ?? [],
+          deny: cred.config.deny ?? [],
+        };
+
+        const inScopeResult = checkChatInScope(chatId, cred.config.chatIds);
+        if (Result.isError(inScopeResult)) {
+          return Result.err(
+            PermissionError.create(inScopeResult.error.message, {
+              ...inScopeResult.error.context,
+              credentialId,
+            }),
+          );
+        }
+
+        // 4. Assemble SealInput
+        return Result.ok({
+          credentialId,
+          operatorId: cred.config.operatorId,
+          chatId,
+          scopeMode: op.config.scopeMode,
+          permissions,
+          // trustTier, operatorDisclosures, provenanceMap deferred to later iteration
+        });
       };
 
       const sealManager = createSealManagerImpl({
@@ -496,7 +540,9 @@ export function createProductionDeps(): SignetRuntimeDeps {
     },
 
     createOperatorManager() {
-      return createOperatorManagerImpl();
+      const om = createOperatorManagerImpl();
+      operatorManagerRef = om;
+      return om;
     },
 
     createPolicyManager() {
