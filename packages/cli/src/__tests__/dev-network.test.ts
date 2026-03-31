@@ -114,7 +114,7 @@ async function runCli(
 
 function startDaemon(configPath: string): Bun.Subprocess {
   const proc = Bun.spawn(
-    ["bun", CLI, "start", "--config", configPath, "--json"],
+    ["bun", CLI, "daemon", "start", "--config", configPath, "--json"],
     {
       cwd: repoRoot,
       stdout: "pipe",
@@ -174,7 +174,7 @@ async function waitForDaemonReady(
 
 async function stopDaemon(configPath: string): Promise<void> {
   const result = await runCli(
-    ["stop", "--config", configPath, "--json"],
+    ["daemon", "stop", "--config", configPath, "--json"],
     10_000,
   );
   if (result.exitCode !== 0) {
@@ -190,12 +190,11 @@ async function stopDaemon(configPath: string): Promise<void> {
 describe.skipIf(!process.env["XMTP_NETWORK_TESTS"])(
   "dev network smoke",
   () => {
-    test("identity init registers with devnet", async () => {
+    test("init registers with devnet", async () => {
       const dir = makeTestDir("init");
       const configPath = writeConfig(dir);
 
       const result = await runCli([
-        "identity",
         "init",
         "--env",
         "dev",
@@ -223,7 +222,6 @@ describe.skipIf(!process.env["XMTP_NETWORK_TESTS"])(
       const configPath = writeConfig(dir);
 
       const alice = await runCli([
-        "identity",
         "init",
         "--env",
         "dev",
@@ -237,7 +235,6 @@ describe.skipIf(!process.env["XMTP_NETWORK_TESTS"])(
       const aliceOutput = JSON.parse(alice.stdout) as Record<string, unknown>;
 
       const bob = await runCli([
-        "identity",
         "init",
         "--env",
         "dev",
@@ -261,7 +258,6 @@ describe.skipIf(!process.env["XMTP_NETWORK_TESTS"])(
 
       // Init two identities
       const alice = await runCli([
-        "identity",
         "init",
         "--env",
         "dev",
@@ -274,7 +270,6 @@ describe.skipIf(!process.env["XMTP_NETWORK_TESTS"])(
       expect(alice.exitCode).toBe(0);
 
       const bob = await runCli([
-        "identity",
         "init",
         "--env",
         "dev",

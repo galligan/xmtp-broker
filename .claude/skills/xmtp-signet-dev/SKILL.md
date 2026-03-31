@@ -301,6 +301,6 @@ Use repo tools before guessing:
 ```bash
 blz query -s xmtp "your query" --limit 5 --text
 qmd query "your query" -c xmtp-signet
-qmd query "your query" -c xmtp-signet-plans
+qmd query "your query" -c xmtp-signet-notes
 qmd query "your query" -c xmtp-signet-claude
 ```
