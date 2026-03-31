@@ -110,6 +110,13 @@ export type {
   JoinRequestResult,
 } from "./convos/process-join-requests.js";
 
+// Convos invite host (join request listener)
+export {
+  tryProcessJoinRequest,
+  startInviteHostListener,
+} from "./convos/invite-host.js";
+export type { InviteHostDeps } from "./convos/invite-host.js";
+
 // SDK integration (production XmtpClientFactory implementation)
 export {
   createSdkClientFactory,

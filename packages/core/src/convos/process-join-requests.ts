@@ -166,7 +166,19 @@ export async function processJoinRequest(
     );
   }
 
-  // Step 6: Add the requester to the group
+  // Step 6: Verify the invite tag matches what was stored at generation time
+  const tagResult = await deps.getGroupInviteTag(groupId);
+  if (!tagResult.isOk()) return tagResult;
+  if (tagResult.value !== undefined && tagResult.value !== invite.tag) {
+    return Result.err(
+      ValidationError.create(
+        "invite",
+        "Invite tag does not match the stored tag for this group",
+      ),
+    );
+  }
+
+  // Step 7: Add the requester to the group
   const addResult = await deps.addMembersToGroup(groupId, [
     message.senderInboxId,
   ]);
