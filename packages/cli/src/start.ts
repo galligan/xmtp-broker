@@ -540,7 +540,15 @@ export function createProductionDeps(): SignetRuntimeDeps {
     },
 
     createOperatorManager() {
-      const om = createOperatorManagerImpl();
+      const om = createOperatorManagerImpl({
+        revokeCredentials(operatorId, reason) {
+          if (!internalCredentialManagerRef) {
+            return Result.ok(undefined);
+          }
+          internalCredentialManagerRef.revokeAllCredentials(operatorId, reason);
+          return Result.ok(undefined);
+        },
+      });
       operatorManagerRef = om;
       return om;
     },
