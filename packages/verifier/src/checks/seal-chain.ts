@@ -3,6 +3,7 @@ import type { InternalError } from "@xmtp/signet-schemas";
 import { validateSealChain, verifyChainDelta } from "@xmtp/signet-seals";
 import type { VerificationCheck } from "../schemas/check.js";
 import type { VerificationRequest } from "../schemas/request.js";
+import { canonicalize, bytesEqual } from "../canonicalize.js";
 import type { CheckHandler } from "./handler.js";
 
 /** Check ID for seal chain verification. */
@@ -96,6 +97,22 @@ export function createSealChainCheck(): CheckHandler {
           evidence: {
             expectedSealId: seal.sealId,
             envelopeSealId: request.sealEnvelope.chain.current.sealId,
+            chainValid: false,
+            chainWalked: false,
+          },
+        });
+      }
+
+      // Verify claimed seal payload matches the signed envelope content
+      const sealBytes = canonicalize(seal);
+      const envelopeBytes = canonicalize(request.sealEnvelope.chain.current);
+      if (!bytesEqual(sealBytes, envelopeBytes)) {
+        return Result.ok({
+          checkId: SEAL_CHAIN_CHECK_ID,
+          verdict: "fail",
+          reason: "Seal payload does not match signed envelope content",
+          evidence: {
+            sealId: seal.sealId,
             chainValid: false,
             chainWalked: false,
           },

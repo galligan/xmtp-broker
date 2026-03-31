@@ -1,7 +1,7 @@
 import { Result } from "better-result";
 import type { InternalError } from "@xmtp/signet-schemas";
 import { InternalError as InternalErrorClass } from "@xmtp/signet-schemas";
-import { canonicalize } from "../canonicalize.js";
+import { canonicalize, bytesEqual } from "../canonicalize.js";
 import type { VerificationCheck } from "../schemas/check.js";
 import type { VerificationRequest } from "../schemas/request.js";
 import type { CheckHandler } from "./handler.js";
@@ -94,6 +94,21 @@ export function createSealSignatureCheck(): CheckHandler {
           evidence: {
             expectedSealId: seal.sealId,
             envelopeSealId: request.sealEnvelope.chain.current.sealId,
+            signatureVerified: false,
+          },
+        });
+      }
+
+      // Verify claimed seal payload matches the signed envelope content
+      const sealBytes = canonicalize(seal);
+      const envelopeBytes = canonicalize(request.sealEnvelope.chain.current);
+      if (!bytesEqual(sealBytes, envelopeBytes)) {
+        return Result.ok({
+          checkId: SEAL_SIGNATURE_CHECK_ID,
+          verdict: "fail",
+          reason: "Seal payload does not match signed envelope content",
+          evidence: {
+            sealId: seal.sealId,
             signatureVerified: false,
           },
         });
