@@ -363,7 +363,6 @@ export function createCredentialCommands(
           formatOutput(
             {
               credentialId: id,
-              force: opts.force === true,
               ...result.value,
             },
             { json },

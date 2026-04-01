@@ -50,4 +50,39 @@ describe("requireForce", () => {
     expect(stderr.join("")).toContain("This will remove the widget.");
     expect(exitCode).toBe(0);
   });
+
+  test("outputs structured JSON to stderr when json flag is set", () => {
+    const stderr: string[] = [];
+    let exitCode: number | undefined;
+    const result = requireForce(
+      { json: true },
+      "delete everything",
+      (msg) => stderr.push(msg),
+      (code) => {
+        exitCode = code;
+      },
+    );
+    expect(result).toBe(false);
+    const parsed = JSON.parse(stderr.join(""));
+    expect(parsed.error).toBe("dry_run");
+    expect(parsed.message).toContain("delete everything");
+    expect(parsed.message).toContain("--force");
+    expect(exitCode).toBe(0);
+  });
+
+  test("returns true when force is set regardless of json flag", () => {
+    const stderr: string[] = [];
+    let exitCode: number | undefined;
+    const result = requireForce(
+      { force: true, json: true },
+      "delete everything",
+      (msg) => stderr.push(msg),
+      (code) => {
+        exitCode = code;
+      },
+    );
+    expect(result).toBe(true);
+    expect(stderr).toEqual([]);
+    expect(exitCode).toBeUndefined();
+  });
 });

@@ -15,14 +15,23 @@
  * exits with code 0.
  */
 export function requireForce(
-  opts: { force?: boolean },
+  opts: { force?: boolean; json?: boolean },
   description: string,
   writeStderr: (msg: string) => void,
   exit: (code: number) => void,
 ): boolean {
   if (opts.force) return true;
-  writeStderr(`This will ${description}.\n`);
-  writeStderr(`Run with --force to execute.\n`);
+  if (opts.json) {
+    writeStderr(
+      JSON.stringify({
+        error: "dry_run",
+        message: `This will ${description}. Run with --force to execute.`,
+      }) + "\n",
+    );
+  } else {
+    writeStderr(`This will ${description}.\n`);
+    writeStderr(`Run with --force to execute.\n`);
+  }
   exit(0);
   return false;
 }

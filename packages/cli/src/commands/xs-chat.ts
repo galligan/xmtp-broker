@@ -378,7 +378,7 @@ export function createChatCommands(
         }
 
         const json = opts.json === true;
-        const payload: Record<string, unknown> = { chatId: id };
+        const payload: Record<string, unknown> = { chatId: id, force: true };
 
         const result = await resolvedDeps.withDaemonClient(
           { configPath: opts.config },

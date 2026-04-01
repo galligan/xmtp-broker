@@ -184,6 +184,7 @@ describe("xs chat rm", () => {
         method: "chat.rm",
         params: {
           chatId: "conv_abc",
+          force: true,
         },
       },
     ]);
