@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { Result } from "better-result";
+import { createResourceId } from "@xmtp/signet-schemas";
 import { InternalError, NotFoundError } from "@xmtp/signet-schemas";
 
 /** Represents a single agent identity managed by the signet. */
@@ -30,11 +31,9 @@ function rowToIdentity(row: IdentityRow): AgentIdentity {
   };
 }
 
-/** Generate a random 32-byte hex string for identity IDs. */
+/** Generate a local inbox resource ID for a managed identity. */
 function generateId(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return createResourceId("inbox");
 }
 
 /**

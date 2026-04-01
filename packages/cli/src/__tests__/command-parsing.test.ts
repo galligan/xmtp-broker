@@ -237,6 +237,7 @@ describe("all commands on program", () => {
     expect(names).toContain("daemon");
     expect(names).toContain("operator");
     expect(names).toContain("cred");
+    expect(names).toContain("inbox");
     expect(names).toContain("chat");
     expect(names).toContain("msg");
     expect(names).toContain("policy");

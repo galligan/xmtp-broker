@@ -6,6 +6,7 @@ import { CoreEventEmitter } from "./event-emitter.js";
 import { SqliteIdentityStore } from "./identity-store.js";
 import { ClientRegistry } from "./client-registry.js";
 import { SignetCoreContext } from "./core-context.js";
+import type { AgentIdentity } from "./identity-store.js";
 import type { ManagedClient } from "./client-registry.js";
 import type { RawEventHandler } from "./raw-events.js";
 import type {
@@ -14,6 +15,10 @@ import type {
   XmtpDecodedMessage,
   XmtpGroupEvent,
 } from "./xmtp-client-factory.js";
+import type {
+  RegisterIdentityInput,
+  RegisteredIdentity,
+} from "./identity-registration.js";
 
 /** Signet lifecycle states. */
 export type SignetState =
@@ -50,7 +55,7 @@ export class SignetCoreImpl {
   readonly #context: SignetCoreContext;
   #heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   #livenessTimer: ReturnType<typeof setInterval> | null = null;
-  #streams: Array<{ abort: () => void }> = [];
+  #streams: Array<{ identityId: string; abort: () => void }> = [];
 
   constructor(
     config: SignetCoreConfig,
@@ -117,6 +122,86 @@ export class SignetCoreImpl {
     return this.#emitter.on(handler);
   }
 
+  /**
+   * Register a new managed inbox and hydrate it into the live runtime.
+   *
+   * When the core is already running, the inbox is connected immediately
+   * so callers do not need to restart the daemon before using it.
+   */
+  async registerManagedIdentity(
+    input: RegisterIdentityInput,
+  ): Promise<Result<RegisteredIdentity, SignetError>> {
+    if (this.#state !== "running" && this.#state !== "local") {
+      return Result.err(
+        ValidationError.create(
+          "state",
+          `Cannot register inbox from '${this.#state}' state (expected 'running' or 'local')`,
+        ),
+      );
+    }
+
+    const created = await this.#identityStore.create(
+      input.groupId ?? null,
+      input.label,
+    );
+    if (Result.isError(created)) {
+      return created;
+    }
+
+    const hydrated = await this.#hydrateIdentity(created.value, {
+      registerNetworkIdentity: true,
+    });
+    if (Result.isError(hydrated)) {
+      await this.detachManagedIdentity(created.value.id);
+      await this.#identityStore.remove(created.value.id);
+      return hydrated;
+    }
+
+    const { privateKeyToAccount } = await import("viem/accounts");
+    const signerProvider = this.#signerProviderFactory(created.value.id);
+    const identityKey = await signerProvider.getXmtpIdentityKey(
+      created.value.id,
+    );
+    if (Result.isError(identityKey)) {
+      await this.detachManagedIdentity(created.value.id);
+      await this.#identityStore.remove(created.value.id);
+      return identityKey;
+    }
+
+    const account = privateKeyToAccount(identityKey.value);
+    return Result.ok({
+      identityId: created.value.id,
+      inboxId: hydrated.value.inboxId,
+      address: account.address,
+      env: this.#config.env,
+      label: input.label,
+    });
+  }
+
+  /**
+   * Detach a managed inbox from the live runtime without touching persistence.
+   *
+   * This is used by higher-level action cleanup to stop streams and remove the
+   * in-memory client entry before deleting the persisted inbox record.
+   */
+  async detachManagedIdentity(
+    identityId: string,
+  ): Promise<Result<void, SignetError>> {
+    const remaining: Array<{ identityId: string; abort: () => void }> = [];
+
+    for (const stream of this.#streams) {
+      if (stream.identityId === identityId) {
+        stream.abort();
+        continue;
+      }
+      remaining.push(stream);
+    }
+
+    this.#streams = remaining;
+    this.#registry.unregister(identityId);
+    return Result.ok(undefined);
+  }
+
   /** Start the core: initialize clients, begin streaming. */
   async startLocal(): Promise<Result<void, SignetError>> {
     if (this.#state !== "idle") {
@@ -157,94 +242,12 @@ export class SignetCoreImpl {
       const identities = await this.#identityStore.list();
 
       for (const identity of identities) {
-        // Fix 1: Create a fresh signer provider per identity
-        const signerProvider = this.#signerProviderFactory(identity.id);
-
-        const dbEncKeyResult = await signerProvider.getDbEncryptionKey(
-          identity.id,
-        );
-        if (dbEncKeyResult.isErr()) {
-          return failStart(
-            InternalError.create(
-              "Failed to get DB encryption key for identity",
-            ),
-          );
-        }
-
-        const xmtpKeyResult = await signerProvider.getXmtpIdentityKey(
-          identity.id,
-        );
-        if (xmtpKeyResult.isErr()) {
-          return failStart(
-            InternalError.create(
-              "Failed to get XMTP identity key for identity",
-            ),
-          );
-        }
-
-        const clientResult = await this.#clientFactory.create({
-          identityId: identity.id,
-          dbPath:
-            this.#config.dataDir === ":memory:"
-              ? ":memory:"
-              : `${this.#config.dataDir}/db/${this.#config.env}/${identity.id}.db3`,
-          dbEncryptionKey: dbEncKeyResult.value,
-          env: this.#config.env,
-          appVersion: this.#config.appVersion,
-          signerPrivateKey: xmtpKeyResult.value,
+        const hydrated = await this.#hydrateIdentity(identity, {
+          registerNetworkIdentity: false,
         });
-
-        if (clientResult.isErr()) {
-          return failStart(clientResult.error);
+        if (Result.isError(hydrated)) {
+          return failStart(hydrated.error);
         }
-
-        const client = clientResult.value;
-        const managedClient = {
-          identityId: identity.id,
-          inboxId: client.inboxId,
-          client,
-          groupIds: new Set(identity.groupId ? [identity.groupId] : []),
-        };
-        this.#registry.register(managedClient);
-
-        // Update inboxId if not set
-        if (!identity.inboxId) {
-          await this.#identityStore.setInboxId(identity.id, client.inboxId);
-        }
-
-        // Fix 3: Check syncAll result — fail fast on error
-        const syncResult = await client.syncAll();
-        if (syncResult.isErr()) {
-          return failStart(syncResult.error);
-        }
-
-        // Hydrate group membership from the XMTP client.
-        // Fail startup if listGroups() errors — without hydration the
-        // signet cannot route any group operations.
-        const groupsResult = await client.listGroups();
-        if (groupsResult.isErr()) {
-          return failStart(groupsResult.error);
-        }
-        for (const group of groupsResult.value) {
-          managedClient.groupIds.add(group.groupId);
-        }
-
-        const msgStreamResult = await client.streamAllMessages();
-        if (msgStreamResult.isErr()) {
-          return failStart(msgStreamResult.error);
-        }
-        const msgStream = msgStreamResult.value;
-        this.#streams.push(msgStream);
-        const streamStartedAt = new Date().toISOString();
-        this.#consumeMessageStream(msgStream.messages, streamStartedAt);
-
-        const groupStreamResult = await client.streamGroups();
-        if (groupStreamResult.isErr()) {
-          return failStart(groupStreamResult.error);
-        }
-        const groupStream = groupStreamResult.value;
-        this.#streams.push(groupStream);
-        this.#consumeGroupStream(identity.id, groupStream.groups);
       }
 
       // Start heartbeat
@@ -378,6 +381,107 @@ export class SignetCoreImpl {
         // Stream aborted or errored — expected during shutdown.
       }
     })();
+  }
+
+  async #hydrateIdentity(
+    identity: AgentIdentity,
+    options: { registerNetworkIdentity: boolean },
+  ): Promise<Result<ManagedClient, SignetError>> {
+    const signerProvider = this.#signerProviderFactory(identity.id);
+
+    const dbEncKeyResult = await signerProvider.getDbEncryptionKey(identity.id);
+    if (dbEncKeyResult.isErr()) {
+      return Result.err(
+        InternalError.create("Failed to get DB encryption key for identity"),
+      );
+    }
+
+    const xmtpKeyResult = await signerProvider.getXmtpIdentityKey(identity.id);
+    if (xmtpKeyResult.isErr()) {
+      return Result.err(
+        InternalError.create("Failed to get XMTP identity key for identity"),
+      );
+    }
+
+    const clientResult = await this.#clientFactory.create({
+      identityId: identity.id,
+      dbPath:
+        this.#config.dataDir === ":memory:"
+          ? ":memory:"
+          : `${this.#config.dataDir}/db/${this.#config.env}/${identity.id}.db3`,
+      dbEncryptionKey: dbEncKeyResult.value,
+      env: this.#config.env,
+      appVersion: this.#config.appVersion,
+      signerPrivateKey: xmtpKeyResult.value,
+    });
+
+    if (clientResult.isErr()) {
+      return clientResult;
+    }
+
+    const client = clientResult.value;
+    if (options.registerNetworkIdentity || identity.inboxId === null) {
+      const setResult = await this.#identityStore.setInboxId(
+        identity.id,
+        client.inboxId,
+      );
+      if (Result.isError(setResult)) {
+        return Result.err(
+          InternalError.create("Failed to persist inbox ID", {
+            identityId: identity.id,
+            inboxId: client.inboxId,
+          }),
+        );
+      }
+    }
+
+    const managedClient: ManagedClient = {
+      identityId: identity.id,
+      inboxId: client.inboxId,
+      client,
+      groupIds: new Set(identity.groupId ? [identity.groupId] : []),
+    };
+
+    if (this.#state === "running" || this.#state === "starting") {
+      this.#registry.register(managedClient);
+
+      const syncResult = await client.syncAll();
+      if (syncResult.isErr()) {
+        return syncResult;
+      }
+
+      const groupsResult = await client.listGroups();
+      if (groupsResult.isErr()) {
+        return groupsResult;
+      }
+      for (const group of groupsResult.value) {
+        managedClient.groupIds.add(group.groupId);
+      }
+
+      const msgStreamResult = await client.streamAllMessages();
+      if (msgStreamResult.isErr()) {
+        return msgStreamResult;
+      }
+      const msgStream = msgStreamResult.value;
+      this.#streams.push({
+        identityId: identity.id,
+        abort: msgStream.abort,
+      });
+      this.#consumeMessageStream(msgStream.messages, new Date().toISOString());
+
+      const groupStreamResult = await client.streamGroups();
+      if (groupStreamResult.isErr()) {
+        return groupStreamResult;
+      }
+      const groupStream = groupStreamResult.value;
+      this.#streams.push({
+        identityId: identity.id,
+        abort: groupStream.abort,
+      });
+      this.#consumeGroupStream(identity.id, groupStream.groups);
+    }
+
+    return Result.ok(managedClient);
   }
 
   #resetStartupArtifacts(): void {

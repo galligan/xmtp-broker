@@ -59,6 +59,16 @@ export type {
   RegisteredIdentity,
 } from "./identity-registration.js";
 
+// Inbox actions
+export { createInboxActions } from "./inbox-actions.js";
+export type {
+  InboxActionDeps,
+  InboxSummary,
+  InboxRemoveResult,
+  RegisterInbox,
+  CleanupInbox,
+} from "./inbox-actions.js";
+
 // ID mapping store
 export { createSqliteIdMappingStore } from "./id-mapping-store.js";
 

@@ -16,7 +16,7 @@ describe("SqliteIdentityStore", () => {
       if (!result.isOk()) return;
 
       const identity = result.value;
-      expect(identity.id).toMatch(/^[a-f0-9]{64}$/);
+      expect(identity.id).toMatch(/^inbox_[a-f0-9]{16}$/);
       expect(identity.inboxId).toBeNull();
       expect(identity.groupId).toBeNull();
       expect(identity.createdAt).toBeTruthy();
