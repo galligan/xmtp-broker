@@ -93,6 +93,25 @@ export class SignetCoreImpl {
     return this.#registry.get(identityId);
   }
 
+  /** Look up the managed client currently responsible for a group. */
+  getManagedClientForGroup(groupId: string): ManagedClient | undefined {
+    return this.#registry.getByGroupId(groupId);
+  }
+
+  /** Forget a single group binding from the in-memory registry. */
+  forgetGroup(groupId: string): boolean {
+    const managed = this.#registry.getByGroupId(groupId);
+    if (!managed) {
+      return false;
+    }
+    return managed.groupIds.delete(groupId);
+  }
+
+  /** Remove a managed client from the in-memory registry. */
+  unregisterManagedClient(identityId: string): boolean {
+    return this.#registry.unregister(identityId);
+  }
+
   /** Subscribe to raw events. Returns an unsubscribe function. */
   on(handler: RawEventHandler): () => void {
     return this.#emitter.on(handler);

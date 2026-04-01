@@ -5,10 +5,15 @@
  * SignetRuntimeDeps interface expected by createSignetRuntime.
  */
 
+import { rm } from "node:fs/promises";
 import { Result } from "better-result";
 import type { SignetError } from "@xmtp/signet-schemas";
-import { InternalError, PermissionError } from "@xmtp/signet-schemas";
-import type { SignetCore, CoreState } from "@xmtp/signet-contracts";
+import { InternalError } from "@xmtp/signet-schemas";
+import type {
+  SignetCore,
+  CoreState,
+  CredentialManager,
+} from "@xmtp/signet-contracts";
 import {
   createKeyManager,
   createSignerProvider,
@@ -27,7 +32,6 @@ import {
   type SignetState,
   type SignerProviderFactory,
 } from "@xmtp/signet-core";
-import { checkChatInScope } from "@xmtp/signet-policy";
 import {
   createCredentialManager as createCredentialManagerImpl,
   createCredentialService,
@@ -38,7 +42,6 @@ import {
 import type { PolicyManager } from "@xmtp/signet-contracts";
 import { createSealManager as createSealManagerImpl } from "@xmtp/signet-seals";
 import { createSealPublisher } from "@xmtp/signet-seals";
-import type { InputResolver } from "@xmtp/signet-seals";
 import {
   createWsServer as createWsServerImpl,
   type WsServer,
@@ -59,6 +62,7 @@ import { createLazyCoreUpgrade } from "./ws/core-upgrade.js";
 import { createEventProjector } from "./ws/event-projector.js";
 import { createPendingActionStore } from "@xmtp/signet-sessions";
 import { startManagedInviteHostListener } from "./invite-host-listener.js";
+import { createSealInputResolver } from "./seal-input-resolver.js";
 
 /** Map SignetCoreImpl states to the contract's CoreState. */
 function mapSignetState(state: SignetState): CoreState {
@@ -92,6 +96,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
   let keyManagerRef: KeyManager | null = null;
   let coreImplRef: SignetCoreImpl | null = null;
   let internalCredentialManagerRef: InternalCredentialManager | null = null;
+  let credentialManagerRef: CredentialManager | null = null;
   // Late-bound WS server ref for credential invalidation callbacks
   let globalWsServerRef: WsServer | null = null;
   // Late-bound seal manager ref for revocation publishing
@@ -272,11 +277,13 @@ export function createProductionDeps(): SignetRuntimeDeps {
       );
       internalCredentialManagerRef = internal;
 
-      return createCredentialService(
+      const service = createCredentialService(
         policyManagerRef
           ? { manager: internal, policyManager: policyManagerRef }
           : { manager: internal },
       );
+      credentialManagerRef = service;
+      return service;
     },
 
     getInternalCredentialManager() {
@@ -351,85 +358,22 @@ export function createProductionDeps(): SignetRuntimeDeps {
           d.core.sendMessage(groupId, contentType, content),
       });
 
-      // Seal bypass: when SIGNET_SEAL_BYPASS=1, InputResolver errors are
-      // swallowed and a minimal synthetic SealInput is returned so message
-      // sends proceed without real provenance. The seal will carry a
-      // `bypassed: true` marker so clients can detect it.
-      const sealBypass = process.env["SIGNET_SEAL_BYPASS"] === "1";
-
-      // Real InputResolver: derive SealInput from credential + operator records.
-      // Fail closed by default — if seal input can't be resolved, the caller
-      // should reject the operation unless SIGNET_SEAL_BYPASS is set.
-      const resolveInput: InputResolver = async (credentialId, chatId) => {
-        // 1. Look up credential
-        const credResult = await d.credentialManager.lookup(credentialId);
-        if (Result.isError(credResult)) return credResult;
-        const cred = credResult.value;
-
-        // 2. Look up operator for scope mode
-        if (!operatorManagerRef) {
-          return Result.err(
-            InternalError.create(
-              "OperatorManager not initialized -- cannot resolve seal input",
-            ),
-          );
-        }
-        const opResult = await operatorManagerRef.lookup(
-          cred.config.operatorId,
+      if (!operatorManagerRef) {
+        throw new Error(
+          "OperatorManager not initialized before seal input resolver",
         );
-        if (Result.isError(opResult)) return opResult;
-        const op = opResult.value;
+      }
 
-        // 3. Build permissions from credential config
-        const permissions = {
-          allow: cred.config.allow ?? [],
-          deny: cred.config.deny ?? [],
-        };
-
-        const inScopeResult = checkChatInScope(chatId, cred.config.chatIds);
-        if (Result.isError(inScopeResult)) {
-          return Result.err(
-            PermissionError.create(inScopeResult.error.message, {
-              ...inScopeResult.error.context,
-              credentialId,
-            }),
-          );
-        }
-
-        // 4. Assemble SealInput
-        return Result.ok({
-          credentialId,
-          operatorId: cred.config.operatorId,
-          chatId,
-          scopeMode: op.config.scopeMode,
-          permissions,
-          // trustTier, operatorDisclosures, provenanceMap deferred to later iteration
-        });
-      };
-
-      // Wrap the resolver with bypass logic when SIGNET_SEAL_BYPASS=1.
-      // In bypass mode, if the real resolver fails, a synthetic SealInput
-      // is returned so issuance proceeds. The seal will contain synthetic
-      // operator/permission data — clients should verify seals cryptographically.
-      const effectiveResolver: InputResolver = sealBypass
-        ? async (credentialId, chatId) => {
-            const result = await resolveInput(credentialId, chatId);
-            if (Result.isOk(result)) return result;
-            return Result.ok({
-              credentialId,
-              operatorId: "op_0000000000000000",
-              chatId,
-              scopeMode: "per-chat" as const,
-              permissions: { allow: [], deny: [] },
-              bypassed: true,
-            });
-          }
-        : resolveInput;
+      const resolveInput = createSealInputResolver({
+        credentialManager: d.credentialManager,
+        operatorManager: operatorManagerRef,
+        trustTier: keyManagerRef?.trustTier ?? "unverified",
+      });
 
       const sealManager = createSealManagerImpl({
         signer,
         publisher,
-        resolveInput: effectiveResolver,
+        resolveInput,
       });
       globalSealManagerRef = sealManager;
       return sealManager;
@@ -595,6 +539,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
           "KeyManager not initialized before conversation actions",
         );
       }
+      const core = coreImplRef;
       const km = keyManagerRef;
       const signerProviderFactory: SignerProviderFactory = (
         identityId: string,
@@ -603,23 +548,127 @@ export function createProductionDeps(): SignetRuntimeDeps {
       // Lazily create the ID mapping store on the same dataDir
       if (!idMappingStoreRef) {
         const dbPath =
-          coreImplRef.config.dataDir === ":memory:"
+          core.config.dataDir === ":memory:"
             ? ":memory:"
-            : `${coreImplRef.config.dataDir}/id-mappings.db`;
+            : `${core.config.dataDir}/id-mappings.db`;
         idMappingStoreRef = createSqliteIdMappingStore(new Database(dbPath));
       }
 
       const actions = createConversationActions({
-        identityStore: coreImplRef.identityStore,
-        getManagedClient: (id) => coreImplRef!.getManagedClient(id),
-        getGroupInfo: (groupId: string) =>
-          coreImplRef!.context.getGroupInfo(groupId),
+        identityStore: core.identityStore,
+        getManagedClient: (id) => core.getManagedClient(id),
+        getManagedClientForGroup: (groupId) =>
+          core.getManagedClientForGroup(groupId),
+        getGroupInfo: (groupId: string) => core.context.getGroupInfo(groupId),
         clientFactory: createSdkClientFactory(),
         signerProviderFactory,
-        config: coreImplRef.config,
+        config: core.config,
         idMappings: idMappingStoreRef,
         storeInviteTag: (groupId, tag) => inviteTagStore.set(groupId, tag),
         getInviteTag: (groupId) => inviteTagStore.get(groupId),
+        cleanupLocalState: async ({ chatId, groupId, execute }) => {
+          const actions: string[] = [];
+          const matchChatIds = [groupId];
+          if (chatId && !matchChatIds.includes(chatId)) {
+            matchChatIds.push(chatId);
+          }
+
+          let matchingCredentialIds: string[] = [];
+          if (credentialManagerRef) {
+            const credentialsResult = await credentialManagerRef.list();
+            if (Result.isError(credentialsResult)) {
+              return credentialsResult;
+            }
+
+            matchingCredentialIds = credentialsResult.value
+              .filter((credential) =>
+                credential.config.chatIds.some((id) =>
+                  matchChatIds.includes(id),
+                ),
+              )
+              .map((credential) => credential.credentialId);
+
+            for (const credentialId of matchingCredentialIds) {
+              actions.push(`revoke credential ${credentialId}`);
+            }
+          }
+
+          if (globalSealManagerRef) {
+            for (const credentialId of matchingCredentialIds) {
+              for (const candidateChatId of matchChatIds) {
+                const currentSealResult = await globalSealManagerRef.current(
+                  credentialId,
+                  candidateChatId,
+                );
+                if (Result.isError(currentSealResult)) {
+                  return currentSealResult;
+                }
+                const sealId = currentSealResult.value?.chain.current.sealId;
+                if (sealId) {
+                  actions.push(`revoke seal ${sealId}`);
+                }
+              }
+            }
+          }
+
+          const mapping =
+            (chatId ? idMappingStoreRef?.resolve(chatId) : null) ??
+            idMappingStoreRef?.resolve(groupId) ??
+            null;
+          if (mapping) {
+            actions.push(
+              `remove mapping ${mapping.localId} <-> ${mapping.networkId}`,
+            );
+          }
+
+          const boundIdentity = await core.identityStore.getByGroupId(groupId);
+          if (boundIdentity) {
+            actions.push(`remove identity ${boundIdentity.id}`);
+            if (core.config.dataDir !== ":memory:") {
+              const dbPath = `${core.config.dataDir}/db/${core.config.env}/${boundIdentity.id}.db3`;
+              actions.push(`delete db ${dbPath}`);
+            }
+          }
+
+          if (!execute) {
+            return Result.ok({ executed: false, actions });
+          }
+
+          for (const credentialId of matchingCredentialIds) {
+            const revokeResult = await credentialManagerRef?.revoke(
+              credentialId,
+              "owner-initiated",
+            );
+            if (revokeResult && Result.isError(revokeResult)) {
+              return revokeResult;
+            }
+          }
+
+          if (mapping) {
+            idMappingStoreRef?.remove(mapping.localId);
+          }
+
+          core.forgetGroup(groupId);
+
+          if (boundIdentity) {
+            core.unregisterManagedClient(boundIdentity.id);
+            const removeIdentityResult = await core.identityStore.remove(
+              boundIdentity.id,
+            );
+            if (Result.isError(removeIdentityResult)) {
+              return removeIdentityResult;
+            }
+
+            if (core.config.dataDir !== ":memory:") {
+              const dbBase = `${core.config.dataDir}/db/${core.config.env}/${boundIdentity.id}.db3`;
+              await rm(dbBase, { force: true });
+              await rm(`${dbBase}-shm`, { force: true });
+              await rm(`${dbBase}-wal`, { force: true });
+            }
+          }
+
+          return Result.ok({ executed: true, actions });
+        },
       });
 
       // Start the invite host listener (v1: single identity, in-process).

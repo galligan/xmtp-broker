@@ -79,6 +79,20 @@ export function createOperatorCommands(
       "Wallet provider: internal, ows",
       "internal",
     )
+    .option("--inference-mode <mode>", "Inference mode: local, cloud, hybrid")
+    .option(
+      "--inference-providers <providers>",
+      "Comma-separated inference providers",
+    )
+    .option(
+      "--content-egress-scope <scope>",
+      "Content egress scope: none, provider-only, unrestricted",
+    )
+    .option(
+      "--retention-at-provider <policy>",
+      "Provider-stated retention policy",
+    )
+    .option("--hosting-mode <mode>", "Hosting mode: self-hosted, cloud, tee")
     .option("--json", "JSON output")
     .action(
       async (opts: {
@@ -87,9 +101,33 @@ export function createOperatorCommands(
         role: string;
         scope: string;
         provider: string;
+        inferenceMode?: string;
+        inferenceProviders?: string;
+        contentEgressScope?: string;
+        retentionAtProvider?: string;
+        hostingMode?: string;
         json?: true;
       }) => {
         const json = opts.json === true;
+        const operatorDisclosures: Record<string, unknown> = {};
+        if (opts.inferenceMode !== undefined) {
+          operatorDisclosures["inferenceMode"] = opts.inferenceMode;
+        }
+        if (opts.inferenceProviders !== undefined) {
+          operatorDisclosures["inferenceProviders"] = opts.inferenceProviders
+            .split(",")
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0);
+        }
+        if (opts.contentEgressScope !== undefined) {
+          operatorDisclosures["contentEgressScope"] = opts.contentEgressScope;
+        }
+        if (opts.retentionAtProvider !== undefined) {
+          operatorDisclosures["retentionAtProvider"] = opts.retentionAtProvider;
+        }
+        if (opts.hostingMode !== undefined) {
+          operatorDisclosures["hostingMode"] = opts.hostingMode;
+        }
         const result = await resolvedDeps.withDaemonClient(
           { configPath: opts.config },
           (client) =>
@@ -98,6 +136,9 @@ export function createOperatorCommands(
               role: opts.role,
               scopeMode: opts.scope,
               provider: opts.provider,
+              ...(Object.keys(operatorDisclosures).length > 0
+                ? { operatorDisclosures }
+                : {}),
             }),
         );
 

@@ -1,6 +1,10 @@
 import { Result } from "better-result";
 import type { SignetError } from "@xmtp/signet-schemas";
-import { NotFoundError } from "@xmtp/signet-schemas";
+import {
+  NotFoundError,
+  PermissionError,
+  ValidationError,
+} from "@xmtp/signet-schemas";
 import type {
   XmtpClient,
   XmtpDecodedMessage,
@@ -231,6 +235,141 @@ export function createSdkClient(options: SdkClientOptions): XmtpClient {
       return wrapSdkCall(
         async () => groupResult.value.removeMembers([...inboxIds]),
         "removeMembers",
+        { resourceType: "group", resourceId: groupId },
+      );
+    },
+
+    async updateGroupMetadata(
+      groupId: string,
+      changes: {
+        name?: string;
+        description?: string;
+        imageUrl?: string;
+      },
+    ): Promise<Result<XmtpGroupInfo, SignetError>> {
+      if (
+        changes.name === undefined &&
+        changes.description === undefined &&
+        changes.imageUrl === undefined
+      ) {
+        return Result.err(
+          ValidationError.create(
+            "changes",
+            "At least one metadata field must be provided",
+          ),
+        );
+      }
+
+      const groupResult = await getGroup(client, groupId);
+      if (groupResult.isErr()) return groupResult;
+      const group = groupResult.value;
+
+      return wrapSdkCall(
+        async () => {
+          if (changes.name !== undefined) {
+            await group.updateName(changes.name);
+          }
+          if (changes.description !== undefined) {
+            await group.updateDescription(changes.description);
+          }
+          if (changes.imageUrl !== undefined) {
+            await group.updateImageUrl(changes.imageUrl);
+          }
+          await group.sync();
+          const members = await group.members();
+          return toGroupInfo(group, members);
+        },
+        "updateGroupMetadata",
+        { resourceType: "group", resourceId: groupId },
+      );
+    },
+
+    async leaveGroup(groupId: string): Promise<Result<void, SignetError>> {
+      const groupResult = await getGroup(client, groupId);
+      if (groupResult.isErr()) return groupResult;
+      const group = groupResult.value;
+
+      const membersResult = await wrapSdkCall(
+        async () => group.members(),
+        "leaveGroup.members",
+        { resourceType: "group", resourceId: groupId },
+      );
+      if (membersResult.isErr()) return membersResult;
+
+      const selfMember = membersResult.value.find(
+        (member) => member.inboxId === client.inboxId,
+      );
+      if (selfMember?.permissionLevel === "super_admin") {
+        return Result.err(
+          PermissionError.create(
+            "Super admins must transfer ownership before leaving the group",
+            { groupId, inboxId: client.inboxId },
+          ),
+        );
+      }
+
+      return wrapSdkCall(
+        async () => {
+          await group.leaveGroup();
+          await group.sync();
+        },
+        "leaveGroup",
+        { resourceType: "group", resourceId: groupId },
+      );
+    },
+
+    async addAdmin(
+      groupId: string,
+      inboxId: string,
+    ): Promise<Result<void, SignetError>> {
+      const groupResult = await getGroup(client, groupId);
+      if (groupResult.isErr()) return groupResult;
+
+      return wrapSdkCall(
+        async () => groupResult.value.addAdmin(inboxId),
+        "addAdmin",
+        { resourceType: "group", resourceId: groupId },
+      );
+    },
+
+    async removeAdmin(
+      groupId: string,
+      inboxId: string,
+    ): Promise<Result<void, SignetError>> {
+      const groupResult = await getGroup(client, groupId);
+      if (groupResult.isErr()) return groupResult;
+
+      return wrapSdkCall(
+        async () => groupResult.value.removeAdmin(inboxId),
+        "removeAdmin",
+        { resourceType: "group", resourceId: groupId },
+      );
+    },
+
+    async addSuperAdmin(
+      groupId: string,
+      inboxId: string,
+    ): Promise<Result<void, SignetError>> {
+      const groupResult = await getGroup(client, groupId);
+      if (groupResult.isErr()) return groupResult;
+
+      return wrapSdkCall(
+        async () => groupResult.value.addSuperAdmin(inboxId),
+        "addSuperAdmin",
+        { resourceType: "group", resourceId: groupId },
+      );
+    },
+
+    async removeSuperAdmin(
+      groupId: string,
+      inboxId: string,
+    ): Promise<Result<void, SignetError>> {
+      const groupResult = await getGroup(client, groupId);
+      if (groupResult.isErr()) return groupResult;
+
+      return wrapSdkCall(
+        async () => groupResult.value.removeSuperAdmin(inboxId),
+        "removeSuperAdmin",
         { resourceType: "group", resourceId: groupId },
       );
     },

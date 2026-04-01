@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Result } from "better-result";
-import type { SignetError } from "@xmtp/signet-schemas";
+import { InternalError, type SignetError } from "@xmtp/signet-schemas";
 import type { AdminClient } from "../admin/client.js";
 import { createChatCommands } from "../commands/xs-chat.js";
 
@@ -11,6 +11,10 @@ interface RequestCall {
 
 function createHarness<T>(response: T) {
   const requestCalls: RequestCall[] = [];
+  const withDaemonCalls: Array<{ configPath?: string | undefined }> = [];
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  let exitCode: number | undefined;
 
   const client: AdminClient = {
     async connect() {
@@ -24,50 +28,151 @@ function createHarness<T>(response: T) {
   };
 
   return {
-    requestCalls,
     deps: {
       async withDaemonClient<TResult>(
-        _options: { configPath?: string | undefined },
+        options: { configPath?: string | undefined },
         run: (
           adminClient: AdminClient,
         ) => Promise<Result<TResult, SignetError>>,
       ): Promise<Result<TResult, SignetError>> {
+        withDaemonCalls.push(options);
         return run(client);
       },
-      writeStdout() {},
-      writeStderr() {},
-      exit() {},
+      writeStdout(message: string) {
+        stdout.push(message);
+      },
+      writeStderr(message: string) {
+        stderr.push(message);
+      },
+      exit(code: number) {
+        exitCode = code;
+      },
+    },
+    requestCalls,
+    withDaemonCalls,
+    stdout,
+    stderr,
+    get exitCode() {
+      return exitCode;
     },
   };
 }
 
-describe("xs chat command wiring", () => {
-  test("forwards --as on chat sync as identityLabel", async () => {
-    const harness = createHarness({ synced: true });
+function createErrorHarness(error: SignetError) {
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  let exitCode: number | undefined;
+
+  return {
+    deps: {
+      async withDaemonClient<TResult>(): Promise<Result<TResult, SignetError>> {
+        return Result.err(error);
+      },
+      writeStdout(message: string) {
+        stdout.push(message);
+      },
+      writeStderr(message: string) {
+        stderr.push(message);
+      },
+      exit(code: number) {
+        exitCode = code;
+      },
+    },
+    stdout,
+    stderr,
+    get exitCode() {
+      return exitCode;
+    },
+  };
+}
+
+describe("xs chat update", () => {
+  test("routes metadata fields through the daemon client", async () => {
+    const harness = createHarness({ groupId: "g1", name: "Renamed" });
     const command = createChatCommands(harness.deps);
 
     await command.parseAsync([
       "node",
       "chat",
-      "sync",
-      "conv_0123456789abcdef",
-      "--as",
-      "alpha",
+      "update",
+      "conv_abc",
+      "--name",
+      "Renamed",
+      "--description",
+      "Updated description",
+      "--image",
+      "https://example.com/group.png",
+      "--config",
+      "/tmp/test.toml",
+    ]);
+
+    expect(harness.withDaemonCalls).toEqual([{ configPath: "/tmp/test.toml" }]);
+    expect(harness.requestCalls).toEqual([
+      {
+        method: "chat.update",
+        params: {
+          chatId: "conv_abc",
+          name: "Renamed",
+          description: "Updated description",
+          imageUrl: "https://example.com/group.png",
+        },
+      },
+    ]);
+    expect(harness.stderr).toEqual([]);
+  });
+});
+
+describe("xs chat leave", () => {
+  test("routes purge and force flags through the daemon client", async () => {
+    const harness = createHarness({ leftGroup: true });
+    const command = createChatCommands(harness.deps);
+
+    await command.parseAsync([
+      "node",
+      "chat",
+      "leave",
+      "conv_abc",
+      "--purge",
+      "--force",
     ]);
 
     expect(harness.requestCalls).toEqual([
       {
-        method: "chat.sync",
+        method: "chat.leave",
         params: {
-          chatId: "conv_0123456789abcdef",
-          identityLabel: "alpha",
+          chatId: "conv_abc",
+          purge: true,
+          force: true,
         },
       },
     ]);
+    expect(harness.stderr).toEqual([]);
   });
+});
 
-  test("forwards --as on chat member rm as identityLabel", async () => {
-    const harness = createHarness({ chatId: "conv_0123456789abcdef" });
+describe("xs chat rm", () => {
+  test("routes force through the daemon client", async () => {
+    const harness = createHarness({ removed: true });
+    const command = createChatCommands(harness.deps);
+
+    await command.parseAsync(["node", "chat", "rm", "conv_abc", "--force"]);
+
+    expect(harness.requestCalls).toEqual([
+      {
+        method: "chat.rm",
+        params: {
+          chatId: "conv_abc",
+          force: true,
+        },
+      },
+    ]);
+    expect(harness.stderr).toEqual([]);
+  });
+});
+
+describe("xs chat member admin commands", () => {
+  test("routes member rm with identity label", async () => {
+    const harness = createHarness({ memberCount: 1 });
     const command = createChatCommands(harness.deps);
 
     await command.parseAsync([
@@ -75,21 +180,73 @@ describe("xs chat command wiring", () => {
       "chat",
       "member",
       "rm",
-      "conv_0123456789abcdef",
-      "inbox_abc",
+      "conv_abc",
+      "inbox_member",
       "--as",
-      "moderator",
+      "agent-alpha",
     ]);
 
     expect(harness.requestCalls).toEqual([
       {
         method: "chat.remove-member",
         params: {
-          chatId: "conv_0123456789abcdef",
-          inboxId: "inbox_abc",
-          identityLabel: "moderator",
+          chatId: "conv_abc",
+          inboxId: "inbox_member",
+          identityLabel: "agent-alpha",
         },
       },
     ]);
+  });
+
+  test("routes member promote and demote", async () => {
+    const harness = createHarness({ role: "admin" });
+    const command = createChatCommands(harness.deps);
+
+    await command.parseAsync([
+      "node",
+      "chat",
+      "member",
+      "promote",
+      "conv_abc",
+      "inbox_member",
+    ]);
+    await command.parseAsync([
+      "node",
+      "chat",
+      "member",
+      "demote",
+      "conv_abc",
+      "inbox_member",
+    ]);
+
+    expect(harness.requestCalls).toEqual([
+      {
+        method: "chat.promote-member",
+        params: {
+          chatId: "conv_abc",
+          inboxId: "inbox_member",
+        },
+      },
+      {
+        method: "chat.demote-member",
+        params: {
+          chatId: "conv_abc",
+          inboxId: "inbox_member",
+        },
+      },
+    ]);
+  });
+});
+
+describe("xs chat error handling", () => {
+  test("writes error output on daemon failure", async () => {
+    const harness = createErrorHarness(InternalError.create("daemon offline"));
+    const command = createChatCommands(harness.deps);
+
+    await command.parseAsync(["node", "chat", "update", "conv_abc"]);
+
+    expect(harness.stderr.join("")).toContain("daemon offline");
+    expect(harness.stdout).toEqual([]);
+    expect(harness.exitCode).toBeDefined();
   });
 });

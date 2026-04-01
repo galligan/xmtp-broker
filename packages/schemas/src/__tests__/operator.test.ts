@@ -91,6 +91,27 @@ describe("OperatorConfig", () => {
     }
   });
 
+  it("accepts config with operator disclosures", () => {
+    const result = OperatorConfig.safeParse({
+      ...validConfig,
+      operatorDisclosures: {
+        inferenceMode: "cloud",
+        inferenceProviders: ["openai", "anthropic"],
+        contentEgressScope: "provider-only",
+        retentionAtProvider: "30 days",
+        hostingMode: "cloud",
+      },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.operatorDisclosures?.inferenceMode).toBe("cloud");
+      expect(result.data.operatorDisclosures?.inferenceProviders).toEqual([
+        "openai",
+        "anthropic",
+      ]);
+    }
+  });
+
   it("defaults provider to internal when omitted", () => {
     const result = OperatorConfig.safeParse(validConfig);
     expect(result.success).toBe(true);

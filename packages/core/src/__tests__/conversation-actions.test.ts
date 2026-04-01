@@ -50,12 +50,32 @@ function createMockClient(options?: {
     listGroups: async () => Result.ok(groups),
     addMembers: async () => Result.ok(),
     removeMembers: async () => Result.ok(),
+    updateGroupMetadata: async (groupId, changes) => {
+      const g = groups.find((x) => x.groupId === groupId);
+      if (!g) {
+        return Result.err(
+          NotFoundError.create("group", groupId) as SignetError,
+        );
+      }
+      return Result.ok({
+        ...g,
+        name: changes.name ?? g.name,
+        description: changes.description ?? g.description,
+        imageUrl: changes.imageUrl ?? g.imageUrl,
+      });
+    },
+    leaveGroup: async () => Result.ok(),
+    addAdmin: async () => Result.ok(),
+    removeAdmin: async () => Result.ok(),
+    addSuperAdmin: async () => Result.ok(),
+    removeSuperAdmin: async () => Result.ok(),
     createGroup: async (memberInboxIds, opts) => {
       if (createdGroup) return Result.ok(createdGroup);
       return Result.ok({
         groupId: "new-group-1",
         name: opts?.name ?? "",
         description: "",
+        imageUrl: undefined,
         memberInboxIds: [inboxId, ...memberInboxIds],
         createdAt: new Date().toISOString(),
       });
@@ -102,15 +122,21 @@ describe("conversation actions", () => {
     getGroupInfoFn?: (
       groupId: string,
     ) => Promise<Result<XmtpGroupInfo, SignetError>>,
+    cleanupLocalState?: ConversationActionDeps["cleanupLocalState"],
   ): void {
     deps = {
       identityStore,
       getManagedClient: (id) => managedClients.get(id),
+      getManagedClientForGroup: (groupId) =>
+        [...managedClients.values()].find((managed) =>
+          managed.groupIds.has(groupId),
+        ),
       getGroupInfo:
         getGroupInfoFn ??
         (async (groupId) =>
           Result.err(NotFoundError.create("group", groupId) as SignetError)),
       idMappings,
+      cleanupLocalState,
     };
   }
 
@@ -122,6 +148,14 @@ describe("conversation actions", () => {
     const listAction = actions.find((a) => a.id === "chat.list");
     const inviteAction = actions.find((a) => a.id === "chat.invite");
     const membersAction = actions.find((a) => a.id === "chat.members");
+    const updateAction = actions.find((a) => a.id === "chat.update");
+    const leaveAction = actions.find((a) => a.id === "chat.leave");
+    const rmAction = actions.find((a) => a.id === "chat.rm");
+    const removeMemberAction = actions.find(
+      (a) => a.id === "chat.remove-member",
+    );
+    const promoteAction = actions.find((a) => a.id === "chat.promote-member");
+    const demoteAction = actions.find((a) => a.id === "chat.demote-member");
 
     expect(createAction?.description).toBe("Create a new group conversation");
     expect(createAction?.intent).toBe("write");
@@ -137,6 +171,24 @@ describe("conversation actions", () => {
     expect(membersAction?.intent).toBe("read");
     expect(membersAction?.idempotent).toBe(true);
     expect(membersAction?.http?.auth).toBe("admin");
+
+    expect(updateAction?.intent).toBe("write");
+    expect(updateAction?.http?.auth).toBe("admin");
+
+    expect(leaveAction?.intent).toBe("write");
+    expect(leaveAction?.http?.auth).toBe("admin");
+
+    expect(rmAction?.intent).toBe("write");
+    expect(rmAction?.http?.auth).toBe("admin");
+
+    expect(removeMemberAction?.intent).toBe("write");
+    expect(removeMemberAction?.http?.auth).toBe("admin");
+
+    expect(promoteAction?.intent).toBe("write");
+    expect(promoteAction?.http?.auth).toBe("admin");
+
+    expect(demoteAction?.intent).toBe("write");
+    expect(demoteAction?.http?.auth).toBe("admin");
   });
 
   /** Seed an identity and a managed client in the test harness. */
@@ -375,6 +427,7 @@ describe("conversation actions", () => {
         createdAt: new Date().toISOString(),
       };
       const managed = await seedIdentity("adder");
+      managed.groupIds.add("g-add");
       // Replace client with one that has the group and tracks addMembers
       const addedMembers: string[] = [];
       const client = createMockClient({
@@ -449,6 +502,405 @@ describe("conversation actions", () => {
       if (Result.isError(result)) {
         expect(result.error.category).toBe("not_found");
       }
+    });
+  });
+
+  describe("chat.update", () => {
+    test("updates group metadata and returns refreshed group info", async () => {
+      const managed = await seedIdentity("updater");
+      managed.groupIds.add("g-update");
+      const updates: Array<Record<string, string>> = [];
+      const trackedClient: XmtpClient = {
+        ...createMockClient({
+          inboxId: managed.inboxId,
+          groups: [
+            {
+              groupId: "g-update",
+              name: "Old Name",
+              description: "Old Description",
+              imageUrl: undefined,
+              memberInboxIds: [managed.inboxId],
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        }),
+        updateGroupMetadata: async (_groupId, changes) => {
+          updates.push({
+            ...(changes.name ? { name: changes.name } : {}),
+            ...(changes.description
+              ? { description: changes.description }
+              : {}),
+            ...(changes.imageUrl ? { imageUrl: changes.imageUrl } : {}),
+          });
+          return Result.ok({
+            groupId: "g-update",
+            name: changes.name ?? "Old Name",
+            description: changes.description ?? "Old Description",
+            imageUrl: changes.imageUrl,
+            memberInboxIds: [managed.inboxId],
+            createdAt: new Date().toISOString(),
+          });
+        },
+      };
+      managedClients.set(managed.identityId, {
+        ...managed,
+        client: trackedClient,
+      });
+      setupDeps(async () =>
+        Result.ok({
+          groupId: "g-update",
+          name: "New Name",
+          description: "New Description",
+          imageUrl: "https://example.com/group.png",
+          memberInboxIds: [managed.inboxId],
+          createdAt: new Date().toISOString(),
+        }),
+      );
+
+      const actions = createConversationActions(deps);
+      const updateAction = actions.find((a) => a.id === "chat.update");
+      expect(updateAction).toBeDefined();
+
+      const result = await updateAction!.handler(
+        {
+          chatId: "g-update",
+          name: "New Name",
+          description: "New Description",
+          imageUrl: "https://example.com/group.png",
+        },
+        stubCtx(),
+      );
+
+      expect(Result.isOk(result)).toBe(true);
+      if (Result.isOk(result)) {
+        const value = result.value as XmtpGroupInfo & { chatId: string };
+        expect(value.chatId).toBe("g-update");
+        expect(value.name).toBe("New Name");
+        expect(value.description).toBe("New Description");
+        expect(value.imageUrl).toBe("https://example.com/group.png");
+      }
+      expect(updates).toEqual([
+        {
+          name: "New Name",
+          description: "New Description",
+          imageUrl: "https://example.com/group.png",
+        },
+      ]);
+    });
+  });
+
+  describe("chat.leave", () => {
+    test("leaves a group without purge by default", async () => {
+      const managed = await seedIdentity("leaver");
+      managed.groupIds.add("g-leave");
+      let left = false;
+      const trackedClient: XmtpClient = {
+        ...createMockClient({ inboxId: managed.inboxId }),
+        leaveGroup: async () => {
+          left = true;
+          return Result.ok();
+        },
+      };
+      managedClients.set(managed.identityId, {
+        ...managed,
+        client: trackedClient,
+      });
+      setupDeps();
+
+      const actions = createConversationActions(deps);
+      const leaveAction = actions.find((a) => a.id === "chat.leave");
+      expect(leaveAction).toBeDefined();
+
+      const result = await leaveAction!.handler(
+        { chatId: "g-leave" },
+        stubCtx(),
+      );
+
+      expect(Result.isOk(result)).toBe(true);
+      if (Result.isOk(result)) {
+        expect(result.value).toEqual({
+          chatId: "g-leave",
+          groupId: "g-leave",
+          leftGroup: true,
+          purged: false,
+        });
+      }
+      expect(left).toBe(true);
+    });
+
+    test("runs local cleanup when purge is requested", async () => {
+      const managed = await seedIdentity("purger");
+      managed.groupIds.add("g-purge");
+      let left = false;
+      const cleanupCalls: Array<{
+        chatId?: string;
+        groupId: string;
+        execute: boolean;
+        reason: "rm" | "leave-purge";
+      }> = [];
+      const trackedClient: XmtpClient = {
+        ...createMockClient({ inboxId: managed.inboxId }),
+        leaveGroup: async () => {
+          left = true;
+          return Result.ok();
+        },
+      };
+      managedClients.set(managed.identityId, {
+        ...managed,
+        client: trackedClient,
+      });
+      setupDeps(undefined, async (input) => {
+        cleanupCalls.push(input);
+        return Result.ok({
+          executed: input.execute,
+          actions: ["removed local identity", "revoked scoped credentials"],
+        });
+      });
+
+      const actions = createConversationActions(deps);
+      const leaveAction = actions.find((a) => a.id === "chat.leave");
+
+      const result = await leaveAction!.handler(
+        { chatId: "g-purge", purge: true },
+        stubCtx(),
+      );
+
+      expect(Result.isOk(result)).toBe(true);
+      if (Result.isOk(result)) {
+        expect(result.value).toEqual({
+          chatId: "g-purge",
+          groupId: "g-purge",
+          leftGroup: true,
+          purged: true,
+          cleanup: {
+            executed: true,
+            actions: ["removed local identity", "revoked scoped credentials"],
+          },
+        });
+      }
+      expect(left).toBe(true);
+      expect(cleanupCalls).toEqual([
+        {
+          chatId: "g-purge",
+          groupId: "g-purge",
+          execute: true,
+          reason: "leave-purge",
+        },
+      ]);
+    });
+  });
+
+  describe("chat.rm", () => {
+    test("returns a dry-run preview by default", async () => {
+      const cleanupCalls: Array<{
+        chatId?: string;
+        groupId: string;
+        execute: boolean;
+        reason: "rm" | "leave-purge";
+      }> = [];
+      setupDeps(undefined, async (input) => {
+        cleanupCalls.push(input);
+        return Result.ok({
+          executed: input.execute,
+          actions: ["remove conv_ mapping", "revoke scoped credentials"],
+        });
+      });
+
+      const actions = createConversationActions(deps);
+      const rmAction = actions.find((a) => a.id === "chat.rm");
+      expect(rmAction).toBeDefined();
+
+      const result = await rmAction!.handler(
+        { chatId: "g-local-only" },
+        stubCtx(),
+      );
+
+      expect(Result.isOk(result)).toBe(true);
+      if (Result.isOk(result)) {
+        expect(result.value).toEqual({
+          chatId: "g-local-only",
+          groupId: "g-local-only",
+          removed: false,
+          cleanup: {
+            executed: false,
+            actions: ["remove conv_ mapping", "revoke scoped credentials"],
+          },
+        });
+      }
+      expect(cleanupCalls).toEqual([
+        {
+          chatId: "g-local-only",
+          groupId: "g-local-only",
+          execute: false,
+          reason: "rm",
+        },
+      ]);
+    });
+
+    test("executes cleanup when force is true", async () => {
+      const cleanupCalls: Array<{
+        chatId?: string;
+        groupId: string;
+        execute: boolean;
+        reason: "rm" | "leave-purge";
+      }> = [];
+      setupDeps(undefined, async (input) => {
+        cleanupCalls.push(input);
+        return Result.ok({
+          executed: input.execute,
+          actions: ["remove conv_ mapping", "revoke scoped credentials"],
+        });
+      });
+
+      const actions = createConversationActions(deps);
+      const rmAction = actions.find((a) => a.id === "chat.rm");
+
+      const result = await rmAction!.handler(
+        { chatId: "g-local-only", force: true },
+        stubCtx(),
+      );
+
+      expect(Result.isOk(result)).toBe(true);
+      if (Result.isOk(result)) {
+        expect(result.value).toEqual({
+          chatId: "g-local-only",
+          groupId: "g-local-only",
+          removed: true,
+          cleanup: {
+            executed: true,
+            actions: ["remove conv_ mapping", "revoke scoped credentials"],
+          },
+        });
+      }
+      expect(cleanupCalls).toEqual([
+        {
+          chatId: "g-local-only",
+          groupId: "g-local-only",
+          execute: true,
+          reason: "rm",
+        },
+      ]);
+    });
+  });
+
+  describe("chat.remove-member", () => {
+    test("removes a member from a group and returns updated member count", async () => {
+      const managed = await seedIdentity("member-remover");
+      managed.groupIds.add("g-remove-member");
+      const removedMembers: string[] = [];
+      const trackedClient: XmtpClient = {
+        ...createMockClient({
+          inboxId: managed.inboxId,
+          groups: [
+            {
+              groupId: "g-remove-member",
+              name: "Remove Test",
+              description: "",
+              imageUrl: undefined,
+              memberInboxIds: [managed.inboxId, "inbox-remove-me"],
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        }),
+        removeMembers: async (_groupId, inboxIds) => {
+          removedMembers.push(...inboxIds);
+          return Result.ok();
+        },
+        getGroupInfo: async () =>
+          Result.ok({
+            groupId: "g-remove-member",
+            name: "Remove Test",
+            description: "",
+            imageUrl: undefined,
+            memberInboxIds: [managed.inboxId],
+            createdAt: new Date().toISOString(),
+          }),
+      };
+      managedClients.set(managed.identityId, {
+        ...managed,
+        client: trackedClient,
+      });
+      setupDeps(async () => trackedClient.getGroupInfo("g-remove-member"));
+
+      const actions = createConversationActions(deps);
+      const removeMemberAction = actions.find(
+        (a) => a.id === "chat.remove-member",
+      );
+      expect(removeMemberAction).toBeDefined();
+
+      const result = await removeMemberAction!.handler(
+        { chatId: "g-remove-member", inboxId: "inbox-remove-me" },
+        stubCtx(),
+      );
+
+      expect(Result.isOk(result)).toBe(true);
+      if (Result.isOk(result)) {
+        expect(result.value).toEqual({
+          chatId: "g-remove-member",
+          groupId: "g-remove-member",
+          memberCount: 1,
+        });
+      }
+      expect(removedMembers).toEqual(["inbox-remove-me"]);
+    });
+  });
+
+  describe("chat role changes", () => {
+    test("promotes and demotes a member via admin role methods", async () => {
+      const managed = await seedIdentity("moderator");
+      managed.groupIds.add("g-admin");
+      const calls: string[] = [];
+      const trackedClient: XmtpClient = {
+        ...createMockClient({ inboxId: managed.inboxId }),
+        addAdmin: async (_groupId, inboxId) => {
+          calls.push(`promote:${inboxId}`);
+          return Result.ok();
+        },
+        removeAdmin: async (_groupId, inboxId) => {
+          calls.push(`demote:${inboxId}`);
+          return Result.ok();
+        },
+      };
+      managedClients.set(managed.identityId, {
+        ...managed,
+        client: trackedClient,
+      });
+      setupDeps();
+
+      const actions = createConversationActions(deps);
+      const promoteAction = actions.find((a) => a.id === "chat.promote-member");
+      const demoteAction = actions.find((a) => a.id === "chat.demote-member");
+      expect(promoteAction).toBeDefined();
+      expect(demoteAction).toBeDefined();
+
+      const promoteResult = await promoteAction!.handler(
+        { chatId: "g-admin", inboxId: "inbox-a" },
+        stubCtx(),
+      );
+      const demoteResult = await demoteAction!.handler(
+        { chatId: "g-admin", inboxId: "inbox-a" },
+        stubCtx(),
+      );
+
+      expect(Result.isOk(promoteResult)).toBe(true);
+      expect(Result.isOk(demoteResult)).toBe(true);
+      if (Result.isOk(promoteResult)) {
+        expect(promoteResult.value).toEqual({
+          chatId: "g-admin",
+          groupId: "g-admin",
+          inboxId: "inbox-a",
+          role: "admin",
+        });
+      }
+      if (Result.isOk(demoteResult)) {
+        expect(demoteResult.value).toEqual({
+          chatId: "g-admin",
+          groupId: "g-admin",
+          inboxId: "inbox-a",
+          role: "member",
+        });
+      }
+      expect(calls).toEqual(["promote:inbox-a", "demote:inbox-a"]);
     });
   });
 

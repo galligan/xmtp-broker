@@ -186,33 +186,28 @@ export function createChatCommands(
     .option("--description <desc>", "New description")
     .option("--image <url>", "New image URL")
     .option("--json", "JSON output")
-    .action(async () => {
-      resolvedDeps.writeStderr(
-        "This command requires XMTP client support that is not yet available.\n",
-      );
-      resolvedDeps.exit(1);
-    });
-
-  cmd
-    .command("sync")
-    .description("Sync conversations")
-    .argument("[id]", "Optional conversation ID")
-    .option("--config <path>", "Path to config file")
-    .option("--as <identity>", "Identity to act as")
-    .option("--json", "JSON output")
     .action(
       async (
-        id: string | undefined,
-        opts: { config?: string; as?: string; json?: true },
+        id: string,
+        opts: {
+          config?: string;
+          name?: string;
+          description?: string;
+          image?: string;
+          json?: true;
+        },
       ) => {
         const json = opts.json === true;
-        const payload: Record<string, unknown> = {};
-        if (id !== undefined) payload["chatId"] = id;
-        if (opts.as !== undefined) payload["identityLabel"] = opts.as;
+        const payload: Record<string, unknown> = { chatId: id };
+        if (opts.name !== undefined) payload["name"] = opts.name;
+        if (opts.description !== undefined) {
+          payload["description"] = opts.description;
+        }
+        if (opts.image !== undefined) payload["imageUrl"] = opts.image;
 
         const result = await resolvedDeps.withDaemonClient(
           { configPath: opts.config },
-          (client) => client.request("chat.sync", payload),
+          (client) => client.request("chat.update", payload),
         );
 
         if (result.isErr()) {
@@ -223,6 +218,18 @@ export function createChatCommands(
         resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
       },
     );
+
+  cmd
+    .command("sync")
+    .description("Sync conversations")
+    .argument("[id]", "Optional conversation ID")
+    .option("--config <path>", "Path to config file")
+    .option("--as <identity>", "Identity to act as")
+    .option("--json", "JSON output")
+    .action(async () => {
+      resolvedDeps.writeStderr("This command is not yet implemented.\n");
+      resolvedDeps.exit(1);
+    });
 
   cmd
     .command("join")
@@ -305,13 +312,32 @@ export function createChatCommands(
     .description("Leave a conversation")
     .argument("<id>", "Conversation ID")
     .option("--config <path>", "Path to config file")
+    .option("--purge", "Also clean up local state after leaving")
+    .option("--force", "Execute destructive cleanup without confirmation")
     .option("--json", "JSON output")
-    .action(async () => {
-      resolvedDeps.writeStderr(
-        "This command requires XMTP client support that is not yet available.\n",
-      );
-      resolvedDeps.exit(1);
-    });
+    .action(
+      async (
+        id: string,
+        opts: { config?: string; purge?: true; force?: true; json?: true },
+      ) => {
+        const json = opts.json === true;
+        const payload: Record<string, unknown> = { chatId: id };
+        if (opts.purge === true) payload["purge"] = true;
+        if (opts.force === true) payload["force"] = true;
+
+        const result = await resolvedDeps.withDaemonClient(
+          { configPath: opts.config },
+          (client) => client.request("chat.leave", payload),
+        );
+
+        if (result.isErr()) {
+          writeError(resolvedDeps, result.error, json);
+          return;
+        }
+
+        resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
+      },
+    );
 
   cmd
     .command("rm")
@@ -320,12 +346,28 @@ export function createChatCommands(
     .option("--config <path>", "Path to config file")
     .option("--force", "Execute without confirmation")
     .option("--json", "JSON output")
-    .action(async () => {
-      resolvedDeps.writeStderr(
-        "This command requires XMTP client support that is not yet available.\n",
-      );
-      resolvedDeps.exit(1);
-    });
+    .action(
+      async (
+        id: string,
+        opts: { config?: string; force?: true; json?: true },
+      ) => {
+        const json = opts.json === true;
+        const payload: Record<string, unknown> = { chatId: id };
+        if (opts.force === true) payload["force"] = true;
+
+        const result = await resolvedDeps.withDaemonClient(
+          { configPath: opts.config },
+          (client) => client.request("chat.rm", payload),
+        );
+
+        if (result.isErr()) {
+          writeError(resolvedDeps, result.error, json);
+          return;
+        }
+
+        resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
+      },
+    );
 
   // --- member subgroup ---
 
@@ -399,10 +441,7 @@ export function createChatCommands(
         opts: { config?: string; as?: string; json?: true },
       ) => {
         const json = opts.json === true;
-        const payload: Record<string, unknown> = {
-          chatId: id,
-          inboxId: inbox,
-        };
+        const payload: Record<string, unknown> = { chatId: id, inboxId: inbox };
         if (opts.as !== undefined) payload["identityLabel"] = opts.as;
 
         const result = await resolvedDeps.withDaemonClient(
@@ -426,12 +465,30 @@ export function createChatCommands(
     .argument("<inbox>", "Inbox ID to promote")
     .option("--config <path>", "Path to config file")
     .option("--json", "JSON output")
-    .action(async () => {
-      resolvedDeps.writeStderr(
-        "This command requires XMTP client support that is not yet available.\n",
-      );
-      resolvedDeps.exit(1);
-    });
+    .action(
+      async (
+        id: string,
+        inbox: string,
+        opts: { config?: string; json?: true },
+      ) => {
+        const json = opts.json === true;
+        const result = await resolvedDeps.withDaemonClient(
+          { configPath: opts.config },
+          (client) =>
+            client.request("chat.promote-member", {
+              chatId: id,
+              inboxId: inbox,
+            }),
+        );
+
+        if (result.isErr()) {
+          writeError(resolvedDeps, result.error, json);
+          return;
+        }
+
+        resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
+      },
+    );
 
   member
     .command("demote")
@@ -440,12 +497,30 @@ export function createChatCommands(
     .argument("<inbox>", "Inbox ID to demote")
     .option("--config <path>", "Path to config file")
     .option("--json", "JSON output")
-    .action(async () => {
-      resolvedDeps.writeStderr(
-        "This command requires XMTP client support that is not yet available.\n",
-      );
-      resolvedDeps.exit(1);
-    });
+    .action(
+      async (
+        id: string,
+        inbox: string,
+        opts: { config?: string; json?: true },
+      ) => {
+        const json = opts.json === true;
+        const result = await resolvedDeps.withDaemonClient(
+          { configPath: opts.config },
+          (client) =>
+            client.request("chat.demote-member", {
+              chatId: id,
+              inboxId: inbox,
+            }),
+        );
+
+        if (result.isErr()) {
+          writeError(resolvedDeps, result.error, json);
+          return;
+        }
+
+        resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
+      },
+    );
 
   cmd.addCommand(member);
 

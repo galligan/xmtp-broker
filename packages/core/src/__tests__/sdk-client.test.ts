@@ -190,6 +190,147 @@ describe("createSdkClient", () => {
     });
   });
 
+  describe("updateGroupMetadata", () => {
+    test("delegates provided metadata fields to the group", async () => {
+      const calls: string[] = [];
+      const group = createMockGroup({ id: "g1" });
+      group.updateName = async (name: string) => {
+        calls.push(`name:${name}`);
+        group.name = name;
+      };
+      group.updateDescription = async (description: string) => {
+        calls.push(`description:${description}`);
+        group.description = description;
+      };
+      group.updateImageUrl = async (imageUrl: string) => {
+        calls.push(`image:${imageUrl}`);
+        group.imageUrl = imageUrl;
+      };
+      const native = createMockSdkNativeClient({ groups: [group] });
+      const client = createSdkClient({ client: native, syncTimeoutMs: 5000 });
+
+      const result = await client.updateGroupMetadata("g1", {
+        name: "Renamed",
+        description: "Updated description",
+        imageUrl: "https://example.com/new.png",
+      });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.value.name).toBe("Renamed");
+        expect(result.value.description).toBe("Updated description");
+        expect(result.value.imageUrl).toBe("https://example.com/new.png");
+      }
+      expect(calls).toEqual([
+        "name:Renamed",
+        "description:Updated description",
+        "image:https://example.com/new.png",
+      ]);
+    });
+  });
+
+  describe("leaveGroup", () => {
+    test("delegates to group.leaveGroup for a regular member", async () => {
+      let left = false;
+      const native = createMockSdkNativeClient({ inboxId: "self-inbox" });
+      const group = createMockGroup({
+        id: "g1",
+        members: [
+          {
+            inboxId: "self-inbox",
+            accountIdentifiers: [],
+            installationIds: [],
+            permissionLevel: "member",
+          },
+        ],
+      });
+      group.leaveGroup = async () => {
+        left = true;
+      };
+      native.conversations.getConversationById = async () => group;
+      const client = createSdkClient({ client: native, syncTimeoutMs: 5000 });
+
+      const result = await client.leaveGroup("g1");
+
+      expect(result.isOk()).toBe(true);
+      expect(left).toBe(true);
+    });
+
+    test("returns a permission error when the caller is super admin", async () => {
+      let left = false;
+      const native = createMockSdkNativeClient({ inboxId: "self-inbox" });
+      const group = createMockGroup({
+        id: "g1",
+        members: [
+          {
+            inboxId: "self-inbox",
+            accountIdentifiers: [],
+            installationIds: [],
+            permissionLevel: "super_admin",
+          },
+        ],
+      });
+      group.leaveGroup = async () => {
+        left = true;
+      };
+      native.conversations.getConversationById = async () => group;
+      const client = createSdkClient({ client: native, syncTimeoutMs: 5000 });
+
+      const result = await client.leaveGroup("g1");
+
+      expect(result.isErr()).toBe(true);
+      if (result.isErr()) {
+        expect(result.error._tag).toBe("PermissionError");
+      }
+      expect(left).toBe(false);
+    });
+  });
+
+  describe("group role management", () => {
+    test("delegates addAdmin and removeAdmin", async () => {
+      const calls: string[] = [];
+      const group = createMockGroup({ id: "g1" });
+      group.addAdmin = async (inboxId: string) => {
+        calls.push(`add-admin:${inboxId}`);
+      };
+      group.removeAdmin = async (inboxId: string) => {
+        calls.push(`remove-admin:${inboxId}`);
+      };
+      const native = createMockSdkNativeClient({ groups: [group] });
+      const client = createSdkClient({ client: native, syncTimeoutMs: 5000 });
+
+      const promote = await client.addAdmin("g1", "inbox-a");
+      const demote = await client.removeAdmin("g1", "inbox-a");
+
+      expect(promote.isOk()).toBe(true);
+      expect(demote.isOk()).toBe(true);
+      expect(calls).toEqual(["add-admin:inbox-a", "remove-admin:inbox-a"]);
+    });
+
+    test("delegates addSuperAdmin and removeSuperAdmin", async () => {
+      const calls: string[] = [];
+      const group = createMockGroup({ id: "g1" });
+      group.addSuperAdmin = async (inboxId: string) => {
+        calls.push(`add-super-admin:${inboxId}`);
+      };
+      group.removeSuperAdmin = async (inboxId: string) => {
+        calls.push(`remove-super-admin:${inboxId}`);
+      };
+      const native = createMockSdkNativeClient({ groups: [group] });
+      const client = createSdkClient({ client: native, syncTimeoutMs: 5000 });
+
+      const promote = await client.addSuperAdmin("g1", "inbox-a");
+      const demote = await client.removeSuperAdmin("g1", "inbox-a");
+
+      expect(promote.isOk()).toBe(true);
+      expect(demote.isOk()).toBe(true);
+      expect(calls).toEqual([
+        "add-super-admin:inbox-a",
+        "remove-super-admin:inbox-a",
+      ]);
+    });
+  });
+
   describe("streamAllMessages", () => {
     test("returns a message stream", async () => {
       const msgs = [

@@ -75,6 +75,29 @@ describe("createOperatorActions", () => {
       const action = findAction(actions, "operator.create");
       expect(action.intent).toBe("write");
     });
+
+    test("persists operator disclosures when provided", async () => {
+      const action = findAction(actions, "operator.create");
+      const result = await action.handler(
+        makeConfig({
+          operatorDisclosures: {
+            inferenceMode: "hybrid",
+            inferenceProviders: ["openai", "anthropic"],
+            contentEgressScope: "provider-only",
+            hostingMode: "cloud",
+          },
+        }),
+        stubCtx(),
+      );
+      expect(Result.isOk(result)).toBe(true);
+      if (!Result.isOk(result)) return;
+      expect(result.value.config.operatorDisclosures).toEqual({
+        inferenceMode: "hybrid",
+        inferenceProviders: ["openai", "anthropic"],
+        contentEgressScope: "provider-only",
+        hostingMode: "cloud",
+      });
+    });
   });
 
   describe("operator.list", () => {

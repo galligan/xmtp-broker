@@ -44,7 +44,7 @@ describe("operator commands", () => {
     expect(flags).toContain("--label");
   });
 
-  test("create subcommand has --role, --scope, --provider options", async () => {
+  test("create subcommand has role, provider, and disclosure options", async () => {
     const cmd = await load();
     const create = findSub(cmd, "create");
     expect(create).toBeDefined();
@@ -52,6 +52,11 @@ describe("operator commands", () => {
     expect(flags).toContain("--role");
     expect(flags).toContain("--scope");
     expect(flags).toContain("--provider");
+    expect(flags).toContain("--inference-mode");
+    expect(flags).toContain("--inference-providers");
+    expect(flags).toContain("--content-egress-scope");
+    expect(flags).toContain("--retention-at-provider");
+    expect(flags).toContain("--hosting-mode");
   });
 
   test("create subcommand has --json option", async () => {

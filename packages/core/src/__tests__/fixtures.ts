@@ -77,11 +77,26 @@ export function createMockXmtpClient(options?: {
         groupId: `group-${Date.now()}`,
         name: opts?.name ?? "",
         description: "",
+        imageUrl: undefined,
         memberInboxIds: [inboxId, ...memberInboxIds],
         createdAt: new Date().toISOString(),
       }),
     addMembers: async (_groupId, _inboxIds) => Result.ok(),
     removeMembers: async (_groupId, _inboxIds) => Result.ok(),
+    updateGroupMetadata: async (_groupId, _changes) =>
+      Result.ok({
+        groupId: `group-${Date.now()}`,
+        name: "",
+        description: "",
+        imageUrl: undefined,
+        memberInboxIds: [inboxId],
+        createdAt: new Date().toISOString(),
+      }),
+    leaveGroup: async (_groupId) => Result.ok(),
+    addAdmin: async (_groupId, _inboxId) => Result.ok(),
+    removeAdmin: async (_groupId, _inboxId) => Result.ok(),
+    addSuperAdmin: async (_groupId, _inboxId) => Result.ok(),
+    removeSuperAdmin: async (_groupId, _inboxId) => Result.ok(),
     listMessages: async (_groupId) => Result.ok([]),
     streamAllMessages: async () =>
       Result.ok({

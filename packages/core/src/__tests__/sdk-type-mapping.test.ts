@@ -46,6 +46,16 @@ describe("toGroupInfo", () => {
     expect(info.description).toBe("");
   });
 
+  test("maps imageUrl when present", async () => {
+    const group = createMockGroup({
+      imageUrl: "https://example.com/group.png",
+    });
+    const members = await group.members();
+    const info = toGroupInfo(group, members);
+
+    expect(info.imageUrl).toBe("https://example.com/group.png");
+  });
+
   test("converts createdAtNs to ISO string", async () => {
     const knownTime = 1700000000000n * 1_000_000n; // nanoseconds
     const group = createMockGroup({ createdAtNs: knownTime });

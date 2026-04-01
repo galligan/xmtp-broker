@@ -19,6 +19,7 @@ const GroupInfoSchema = z.object({
   groupId: z.string(),
   name: z.string(),
   description: z.string(),
+  imageUrl: z.string().optional(),
   memberInboxIds: z.array(z.string()),
   createdAt: z.string(),
 });
@@ -30,12 +31,21 @@ const MembersOutputSchema = z.object({
   memberCount: z.number().int().nonnegative(),
 });
 
+const CleanupResultSchema = z.object({
+  executed: z.boolean(),
+  actions: z.array(z.string()),
+});
+
 /** Dependencies used to build conversation-related action specs. */
 export interface ConversationActionDeps {
   /** Identity store used to resolve conversation creators and viewers. */
   readonly identityStore: SqliteIdentityStore;
   /** Lookup for the managed client tied to a signet identity. */
   readonly getManagedClient: (identityId: string) => ManagedClient | undefined;
+  /** Optional lookup for the managed client currently responsible for a group. */
+  readonly getManagedClientForGroup?: (
+    groupId: string,
+  ) => ManagedClient | undefined;
   /** Fetch group metadata from XMTP for the provided group id. */
   readonly getGroupInfo: (
     groupId: string,
@@ -52,6 +62,21 @@ export interface ConversationActionDeps {
   readonly storeInviteTag?: (groupId: string, inviteTag: string) => void;
   /** Get the stored invite tag for a group. */
   readonly getInviteTag?: (groupId: string) => string | undefined;
+  /** Optional runtime-owned local cleanup hook for destructive chat operations. */
+  readonly cleanupLocalState?: (input: {
+    chatId?: string;
+    groupId: string;
+    execute: boolean;
+    reason: "rm" | "leave-purge";
+  }) => Promise<
+    Result<
+      {
+        executed: boolean;
+        actions: readonly string[];
+      },
+      SignetError
+    >
+  >;
 }
 
 /**
@@ -116,6 +141,73 @@ function ensureLocalId(
   const localId = createResourceId("conversation");
   idMappings.set(groupId, localId, "conversation");
   return localId;
+}
+
+async function resolveManagedClientForGroup(
+  deps: ConversationActionDeps,
+  groupId: string,
+  identityLabel?: string,
+): Promise<Result<ManagedClient, SignetError>> {
+  if (identityLabel !== undefined) {
+    const resolved = await resolveIdentity(deps.identityStore, identityLabel);
+    if (Result.isError(resolved)) return resolved;
+
+    const managed = deps.getManagedClient(resolved.value.identityId);
+    if (!managed) {
+      return Result.err(
+        NotFoundError.create(
+          "managed-client",
+          resolved.value.identityId,
+        ) as SignetError,
+      );
+    }
+    return Result.ok(managed);
+  }
+
+  const byGroup = deps.getManagedClientForGroup?.(groupId);
+  if (byGroup) {
+    return Result.ok(byGroup);
+  }
+
+  const fallback = await resolveIdentity(deps.identityStore, undefined);
+  if (Result.isError(fallback)) return fallback;
+
+  const managed = deps.getManagedClient(fallback.value.identityId);
+  if (!managed) {
+    return Result.err(
+      NotFoundError.create(
+        "managed-client",
+        fallback.value.identityId,
+      ) as SignetError,
+    );
+  }
+  return Result.ok(managed);
+}
+
+async function runLocalCleanup(
+  deps: ConversationActionDeps,
+  input: {
+    chatId?: string;
+    groupId: string;
+    execute: boolean;
+    reason: "rm" | "leave-purge";
+  },
+): Promise<
+  Result<
+    {
+      executed: boolean;
+      actions: readonly string[];
+    },
+    SignetError
+  >
+> {
+  if (!deps.cleanupLocalState) {
+    return Result.ok({
+      executed: input.execute,
+      actions: [],
+    });
+  }
+  return deps.cleanupLocalState(input);
 }
 
 /** Create ActionSpecs for conversation operations. */
@@ -489,21 +581,13 @@ export function createConversationActions(
     }),
     handler: async (input) => {
       const groupId = resolveGroupId(deps.idMappings, input.chatId);
-      const resolved = await resolveIdentity(
-        deps.identityStore,
+      const managedResult = await resolveManagedClientForGroup(
+        deps,
+        groupId,
         input.identityLabel,
       );
-      if (Result.isError(resolved)) return resolved;
-
-      const managed = deps.getManagedClient(resolved.value.identityId);
-      if (!managed) {
-        return Result.err(
-          NotFoundError.create(
-            "managed-client",
-            resolved.value.identityId,
-          ) as SignetError,
-        );
-      }
+      if (Result.isError(managedResult)) return managedResult;
+      const managed = managedResult.value;
 
       const addResult = await managed.client.addMembers(groupId, [
         input.inboxId,
@@ -522,6 +606,335 @@ export function createConversationActions(
     },
     cli: {
       command: "chat:add-member",
+    },
+    mcp: {},
+    http: {
+      auth: "admin",
+    },
+  };
+
+  const update: ActionSpec<
+    {
+      chatId: string;
+      name?: string | undefined;
+      description?: string | undefined;
+      imageUrl?: string | undefined;
+    },
+    XmtpGroupInfo & { chatId?: string | undefined },
+    SignetError
+  > = {
+    id: "chat.update",
+    description: "Update group conversation metadata",
+    intent: "write",
+    input: z
+      .object({
+        chatId: z.string(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+        imageUrl: z.string().optional(),
+      })
+      .refine(
+        (value) =>
+          value.name !== undefined ||
+          value.description !== undefined ||
+          value.imageUrl !== undefined,
+        {
+          message: "At least one metadata field must be provided",
+          path: ["chatId"],
+        },
+      ),
+    output: GroupInfoSchema,
+    handler: async (input) => {
+      const groupId = resolveGroupId(deps.idMappings, input.chatId);
+      const managedResult = await resolveManagedClientForGroup(deps, groupId);
+      if (Result.isError(managedResult)) return managedResult;
+
+      const changes: {
+        name?: string;
+        description?: string;
+        imageUrl?: string;
+      } = {};
+      if (input.name !== undefined) changes.name = input.name;
+      if (input.description !== undefined) {
+        changes.description = input.description;
+      }
+      if (input.imageUrl !== undefined) changes.imageUrl = input.imageUrl;
+
+      const updateResult = await managedResult.value.client.updateGroupMetadata(
+        groupId,
+        changes,
+      );
+      if (Result.isError(updateResult)) return updateResult;
+
+      const groupResult = await deps.getGroupInfo(groupId);
+      if (Result.isError(groupResult)) return groupResult;
+
+      return Result.ok({ ...groupResult.value, chatId: input.chatId });
+    },
+    cli: {
+      command: "chat:update",
+    },
+    mcp: {},
+    http: {
+      auth: "admin",
+    },
+  };
+
+  const leave: ActionSpec<
+    { chatId: string; purge?: boolean | undefined },
+    {
+      chatId?: string | undefined;
+      groupId: string;
+      leftGroup: true;
+      purged: boolean;
+      cleanup?:
+        | {
+            executed: boolean;
+            actions: readonly string[];
+          }
+        | undefined;
+    },
+    SignetError
+  > = {
+    id: "chat.leave",
+    description: "Leave a group conversation",
+    intent: "write",
+    input: z.object({
+      chatId: z.string(),
+      purge: z.boolean().optional(),
+    }),
+    output: z.object({
+      chatId: z.string().optional(),
+      groupId: z.string(),
+      leftGroup: z.literal(true),
+      purged: z.boolean(),
+      cleanup: CleanupResultSchema.optional(),
+    }),
+    handler: async (input) => {
+      const groupId = resolveGroupId(deps.idMappings, input.chatId);
+      const managedResult = await resolveManagedClientForGroup(deps, groupId);
+      if (Result.isError(managedResult)) return managedResult;
+
+      const leaveResult = await managedResult.value.client.leaveGroup(groupId);
+      if (Result.isError(leaveResult)) return leaveResult;
+
+      if (input.purge === true) {
+        const cleanupResult = await runLocalCleanup(deps, {
+          chatId: input.chatId,
+          groupId,
+          execute: true,
+          reason: "leave-purge",
+        });
+        if (Result.isError(cleanupResult)) return cleanupResult;
+
+        return Result.ok({
+          chatId: input.chatId,
+          groupId,
+          leftGroup: true,
+          purged: true,
+          cleanup: cleanupResult.value,
+        });
+      }
+
+      return Result.ok({
+        chatId: input.chatId,
+        groupId,
+        leftGroup: true,
+        purged: false,
+      });
+    },
+    cli: {
+      command: "chat:leave",
+    },
+    mcp: {},
+    http: {
+      auth: "admin",
+    },
+  };
+
+  const removeLocal: ActionSpec<
+    { chatId: string; force?: boolean | undefined },
+    {
+      chatId?: string | undefined;
+      groupId: string;
+      removed: boolean;
+      cleanup: {
+        executed: boolean;
+        actions: readonly string[];
+      };
+    },
+    SignetError
+  > = {
+    id: "chat.rm",
+    description: "Remove local conversation state without leaving the group",
+    intent: "write",
+    input: z.object({
+      chatId: z.string(),
+      force: z.boolean().optional(),
+    }),
+    output: z.object({
+      chatId: z.string().optional(),
+      groupId: z.string(),
+      removed: z.boolean(),
+      cleanup: CleanupResultSchema,
+    }),
+    handler: async (input) => {
+      const groupId = resolveGroupId(deps.idMappings, input.chatId);
+      const cleanupResult = await runLocalCleanup(deps, {
+        chatId: input.chatId,
+        groupId,
+        execute: input.force === true,
+        reason: "rm",
+      });
+      if (Result.isError(cleanupResult)) return cleanupResult;
+
+      return Result.ok({
+        chatId: input.chatId,
+        groupId,
+        removed: cleanupResult.value.executed,
+        cleanup: cleanupResult.value,
+      });
+    },
+    cli: {
+      command: "chat:rm",
+    },
+    mcp: {},
+    http: {
+      auth: "admin",
+    },
+  };
+
+  const removeMember: ActionSpec<
+    {
+      chatId: string;
+      inboxId: string;
+      identityLabel?: string | undefined;
+    },
+    { chatId?: string | undefined; groupId: string; memberCount: number },
+    SignetError
+  > = {
+    id: "chat.remove-member",
+    description: "Remove a member from a group conversation",
+    intent: "write",
+    input: z.object({
+      chatId: z.string(),
+      inboxId: z.string(),
+      identityLabel: z.string().optional(),
+    }),
+    handler: async (input) => {
+      const groupId = resolveGroupId(deps.idMappings, input.chatId);
+      const managedResult = await resolveManagedClientForGroup(
+        deps,
+        groupId,
+        input.identityLabel,
+      );
+      if (Result.isError(managedResult)) return managedResult;
+
+      const removeResult = await managedResult.value.client.removeMembers(
+        groupId,
+        [input.inboxId],
+      );
+      if (Result.isError(removeResult)) return removeResult;
+
+      const groupResult = await deps.getGroupInfo(groupId);
+      if (Result.isError(groupResult)) return groupResult;
+
+      return Result.ok({
+        chatId: input.chatId,
+        groupId,
+        memberCount: groupResult.value.memberInboxIds.length,
+      });
+    },
+    cli: {
+      command: "chat:remove-member",
+    },
+    mcp: {},
+    http: {
+      auth: "admin",
+    },
+  };
+
+  const promoteMember: ActionSpec<
+    { chatId: string; inboxId: string },
+    {
+      chatId?: string | undefined;
+      groupId: string;
+      inboxId: string;
+      role: "admin";
+    },
+    SignetError
+  > = {
+    id: "chat.promote-member",
+    description: "Promote a member to admin",
+    intent: "write",
+    input: z.object({
+      chatId: z.string(),
+      inboxId: z.string(),
+    }),
+    handler: async (input) => {
+      const groupId = resolveGroupId(deps.idMappings, input.chatId);
+      const managedResult = await resolveManagedClientForGroup(deps, groupId);
+      if (Result.isError(managedResult)) return managedResult;
+
+      const promoteResult = await managedResult.value.client.addAdmin(
+        groupId,
+        input.inboxId,
+      );
+      if (Result.isError(promoteResult)) return promoteResult;
+
+      return Result.ok({
+        chatId: input.chatId,
+        groupId,
+        inboxId: input.inboxId,
+        role: "admin",
+      });
+    },
+    cli: {
+      command: "chat:promote-member",
+    },
+    mcp: {},
+    http: {
+      auth: "admin",
+    },
+  };
+
+  const demoteMember: ActionSpec<
+    { chatId: string; inboxId: string },
+    {
+      chatId?: string | undefined;
+      groupId: string;
+      inboxId: string;
+      role: "member";
+    },
+    SignetError
+  > = {
+    id: "chat.demote-member",
+    description: "Demote an admin back to member",
+    intent: "write",
+    input: z.object({
+      chatId: z.string(),
+      inboxId: z.string(),
+    }),
+    handler: async (input) => {
+      const groupId = resolveGroupId(deps.idMappings, input.chatId);
+      const managedResult = await resolveManagedClientForGroup(deps, groupId);
+      if (Result.isError(managedResult)) return managedResult;
+
+      const demoteResult = await managedResult.value.client.removeAdmin(
+        groupId,
+        input.inboxId,
+      );
+      if (Result.isError(demoteResult)) return demoteResult;
+
+      return Result.ok({
+        chatId: input.chatId,
+        groupId,
+        inboxId: input.inboxId,
+        role: "member",
+      });
+    },
+    cli: {
+      command: "chat:demote-member",
     },
     mcp: {},
     http: {
@@ -582,130 +995,19 @@ export function createConversationActions(
     },
   };
 
-  const sync: ActionSpec<
-    {
-      chatId?: string | undefined;
-      identityLabel?: string | undefined;
-    },
-    { synced: true },
-    SignetError
-  > = {
-    id: "chat.sync",
-    description: "Sync conversations with the XMTP network",
-    intent: "write",
-    input: z.object({
-      chatId: z.string().optional(),
-      identityLabel: z.string().optional(),
-    }),
-    handler: async (input) => {
-      const resolved = await resolveIdentity(
-        deps.identityStore,
-        input.identityLabel,
-      );
-      if (Result.isError(resolved)) return resolved;
-
-      const managed = deps.getManagedClient(resolved.value.identityId);
-      if (!managed) {
-        return Result.err(
-          NotFoundError.create(
-            "managed-client",
-            resolved.value.identityId,
-          ) as SignetError,
-        );
-      }
-
-      if (input.chatId) {
-        const groupId = resolveGroupId(deps.idMappings, input.chatId);
-        const result = await managed.client.syncGroup(groupId);
-        if (Result.isError(result)) return result;
-      } else {
-        const result = await managed.client.syncAll();
-        if (Result.isError(result)) return result;
-      }
-      return Result.ok({ synced: true as const });
-    },
-    cli: {
-      command: "chat:sync",
-    },
-    mcp: {
-      toolName: "chat_sync",
-    },
-    http: {
-      auth: "admin",
-    },
-  };
-
-  const removeMember: ActionSpec<
-    {
-      chatId: string;
-      inboxId: string;
-      identityLabel?: string | undefined;
-    },
-    {
-      chatId: string;
-      memberCount: number;
-    },
-    SignetError
-  > = {
-    id: "chat.remove-member",
-    description: "Remove a member from a conversation",
-    intent: "write",
-    input: z.object({
-      chatId: z.string(),
-      inboxId: z.string(),
-      identityLabel: z.string().optional(),
-    }),
-    handler: async (input) => {
-      const resolved = await resolveIdentity(
-        deps.identityStore,
-        input.identityLabel,
-      );
-      if (Result.isError(resolved)) return resolved;
-
-      const managed = deps.getManagedClient(resolved.value.identityId);
-      if (!managed) {
-        return Result.err(
-          NotFoundError.create(
-            "managed-client",
-            resolved.value.identityId,
-          ) as SignetError,
-        );
-      }
-
-      const groupId = resolveGroupId(deps.idMappings, input.chatId);
-      const removeResult = await managed.client.removeMembers(groupId, [
-        input.inboxId,
-      ]);
-      if (Result.isError(removeResult)) return removeResult;
-
-      const groupResult = await deps.getGroupInfo(groupId);
-      if (Result.isError(groupResult)) return groupResult;
-
-      return Result.ok({
-        chatId: input.chatId,
-        memberCount: groupResult.value.memberInboxIds.length,
-      });
-    },
-    cli: {
-      command: "chat:remove-member",
-    },
-    mcp: {
-      toolName: "chat_remove_member",
-    },
-    http: {
-      auth: "admin",
-    },
-  };
-
   return [
     create,
     list,
     info,
+    update,
     join,
     invite,
+    leave,
+    removeLocal,
     addMember,
     removeMember,
+    promoteMember,
+    demoteMember,
     members,
-    sync,
   ];
 }
