@@ -13,11 +13,18 @@ import type {
   ListMessagesOptions,
   MessageStream,
   GroupStream,
+  ConsentEntityType,
+  ConsentState,
 } from "../xmtp-client-factory.js";
 import { wrapSdkCall } from "./error-mapping.js";
 import { toGroupInfo, toDecodedMessage } from "./type-mapping.js";
 import { wrapMessageStream, wrapGroupStream } from "./stream-wrappers.js";
-import type { SdkClientShape, SdkGroupShape } from "./sdk-types.js";
+import type {
+  SdkClientShape,
+  SdkGroupShape,
+  SdkConsentEntityType,
+  SdkConsentState,
+} from "./sdk-types.js";
 
 /** Options for creating an SdkClient adapter. */
 export interface SdkClientOptions {
@@ -64,6 +71,30 @@ function resolveTextContent(content: unknown): string {
     }
   }
   return JSON.stringify(content);
+}
+
+/** Map our consent entity types to SDK enum string equivalents. */
+function toSdkConsentEntityType(
+  entityType: ConsentEntityType,
+): SdkConsentEntityType {
+  return entityType === "inbox_id" ? "InboxId" : "GroupId";
+}
+
+/** Map SDK consent state to our lowercase string equivalents. */
+function fromSdkConsentState(state: SdkConsentState): ConsentState {
+  switch (state) {
+    case "Allowed":
+      return "allowed";
+    case "Denied":
+      return "denied";
+    default:
+      return "unknown";
+  }
+}
+
+/** Map our consent state to SDK enum string equivalents. */
+function toSdkConsentState(state: "allowed" | "denied"): SdkConsentState {
+  return state === "allowed" ? "Allowed" : "Denied";
 }
 
 /**
@@ -421,6 +452,37 @@ export function createSdkClient(options: SdkClientOptions): XmtpClient {
         const stream = await client.conversations.streamGroups();
         return wrapGroupStream(stream);
       }, "streamGroups");
+    },
+
+    async getConsentState(
+      entityType: ConsentEntityType,
+      entity: string,
+    ): Promise<Result<ConsentState, SignetError>> {
+      return wrapSdkCall(async () => {
+        const sdkState = await client.preferences.getConsentState(
+          toSdkConsentEntityType(entityType),
+          entity,
+        );
+        return fromSdkConsentState(sdkState);
+      }, "getConsentState");
+    },
+
+    async setConsentState(
+      entityType: ConsentEntityType,
+      entity: string,
+      state: "allowed" | "denied",
+    ): Promise<Result<void, SignetError>> {
+      return wrapSdkCall(
+        async () =>
+          client.preferences.setConsentStates([
+            {
+              entityType: toSdkConsentEntityType(entityType),
+              entity,
+              state: toSdkConsentState(state),
+            },
+          ]),
+        "setConsentState",
+      );
     },
   };
 }

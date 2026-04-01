@@ -155,6 +155,8 @@ function createMockClient(options?: {
     removeSuperAdmin: notImplemented,
     streamAllMessages: notImplemented,
     streamGroups: notImplemented,
+    getConsentState: notImplemented,
+    setConsentState: notImplemented,
   };
 }
 

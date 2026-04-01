@@ -266,6 +266,14 @@ export function createMockXmtpClient(options?: MockXmtpClientOptions): {
       };
       return Result.ok(stream);
     },
+
+    async getConsentState() {
+      return Result.ok("unknown" as const);
+    },
+
+    async setConsentState() {
+      return Result.ok(undefined);
+    },
   };
 
   return {

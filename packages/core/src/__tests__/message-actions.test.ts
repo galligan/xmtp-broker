@@ -71,6 +71,8 @@ function createMockClient(options?: {
       Result.ok({ messages: emptyAsyncIterable(), abort: () => {} }),
     streamGroups: async () =>
       Result.ok({ groups: emptyAsyncIterable(), abort: () => {} }),
+    getConsentState: async () => Result.ok("unknown" as const),
+    setConsentState: async () => Result.ok(undefined),
   };
 
   return client;

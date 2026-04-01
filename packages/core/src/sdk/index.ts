@@ -23,6 +23,10 @@ export type {
   SdkConversationsShape,
   SdkContentTypeIdShape,
   SdkIdentifierShape,
+  SdkPreferencesShape,
+  SdkConsentEntityType,
+  SdkConsentState,
+  SdkConsentRecord,
 } from "./sdk-types.js";
 export { wrapSdkCall } from "./error-mapping.js";
 export type { WrapSdkCallHints } from "./error-mapping.js";

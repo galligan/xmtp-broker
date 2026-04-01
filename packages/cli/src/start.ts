@@ -26,6 +26,7 @@ import {
   SignetCoreImpl,
   SignetCoreConfigSchema,
   createSdkClientFactory,
+  createConsentActions,
   createConversationActions,
   createInboxActions as createInboxActionSpecs,
   createMessageActions,
@@ -840,6 +841,19 @@ export function createProductionDeps(): SignetRuntimeDeps {
         identityStore: coreImplRef.identityStore,
         getManagedClient: (id) => coreImplRef!.getManagedClient(id),
         idMappings: idMappingStoreRef,
+      });
+    },
+
+    createConsentActions() {
+      if (coreImplRef === null) {
+        throw new Error(
+          "SignetCoreImpl not initialized before consent actions",
+        );
+      }
+
+      return createConsentActions({
+        identityStore: coreImplRef.identityStore,
+        getManagedClient: (id) => coreImplRef!.getManagedClient(id),
       });
     },
 

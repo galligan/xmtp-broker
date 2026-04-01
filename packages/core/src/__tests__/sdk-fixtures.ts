@@ -109,6 +109,8 @@ export function createMockSdkNativeClient(
   const groups = overrides?.groups ?? [];
   const groupMap = new Map(groups.map((g) => [g.id, g]));
 
+  const consentStore = new Map<string, "Unknown" | "Allowed" | "Denied">();
+
   return {
     inboxId: overrides?.inboxId ?? "test-inbox-id",
     installationId: overrides?.installationId ?? "test-installation-id",
@@ -116,6 +118,10 @@ export function createMockSdkNativeClient(
       getConversationById: async (id: string) => groupMap.get(id),
       list: async () => groups,
       listGroups: () => groups,
+      createDm: async (_inboxId: string) =>
+        createMockGroup({ id: `dm-${Date.now()}` }),
+      createGroup: async (inboxIds: string[], opts?: { name?: string }) =>
+        createMockGroup({ id: `group-${Date.now()}`, name: opts?.name }),
       sync: async () => {},
       syncAll: async () => ({ numConversations: groups.length }),
       stream: async () => createMockAsyncStreamProxy<SdkGroupShape>([]),
@@ -124,6 +130,20 @@ export function createMockSdkNativeClient(
         createMockAsyncStreamProxy<SdkDecodedMessageShape>([]),
       streamAllGroupMessages: async () =>
         createMockAsyncStreamProxy<SdkDecodedMessageShape>([]),
+    },
+    preferences: {
+      getConsentState: async (_entityType: string, entity: string) =>
+        consentStore.get(entity) ?? ("Unknown" as const),
+      setConsentStates: async (
+        records: { entity: string; state: string }[],
+      ) => {
+        for (const r of records) {
+          consentStore.set(
+            r.entity,
+            r.state as "Unknown" | "Allowed" | "Denied",
+          );
+        }
+      },
     },
   };
 }
