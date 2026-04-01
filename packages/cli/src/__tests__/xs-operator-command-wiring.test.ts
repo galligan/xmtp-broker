@@ -140,6 +140,58 @@ describe("xs operator create", () => {
   });
 });
 
+describe("xs operator rm", () => {
+  test("without --force prints dry-run message and does not dispatch", async () => {
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    let exitCode: number | undefined;
+
+    const command = createOperatorCommands({
+      async withDaemonClient() {
+        throw new Error("should not be called");
+      },
+      writeStdout(message: string) {
+        stdout.push(message);
+      },
+      writeStderr(message: string) {
+        stderr.push(message);
+      },
+      exit(code: number) {
+        exitCode = code;
+      },
+    });
+
+    await command.parseAsync(["node", "operator", "rm", "op_abc"]);
+
+    expect(stderr.join("")).toContain("This will");
+    expect(stderr.join("")).toContain("--force");
+    expect(exitCode).toBe(0);
+    expect(stdout).toEqual([]);
+  });
+
+  test("with --force dispatches through the daemon client", async () => {
+    const harness = createHarness({ removed: true });
+    const command = createOperatorCommands(harness.deps);
+
+    await command.parseAsync([
+      "node",
+      "operator",
+      "rm",
+      "op_abc",
+      "--force",
+      "--config",
+      "/tmp/test.toml",
+    ]);
+
+    expect(harness.requestCalls).toEqual([
+      {
+        method: "operator.remove",
+        params: { operatorId: "op_abc" },
+      },
+    ]);
+  });
+});
+
 describe("xs operator create errors", () => {
   test("writes daemon errors to stderr", async () => {
     const harness = createErrorHarness(InternalError.create("boom"));
