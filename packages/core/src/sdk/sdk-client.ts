@@ -77,7 +77,14 @@ function resolveTextContent(content: unknown): string {
 function toSdkConsentEntityType(
   entityType: ConsentEntityType,
 ): SdkConsentEntityType {
-  return entityType === "inbox_id" ? "InboxId" : "GroupId";
+  switch (entityType) {
+    case "inbox_id":
+      return "InboxId";
+    case "group_id":
+      return "GroupId";
+    default:
+      throw new Error(`Unknown consent entity type: ${entityType}`);
+  }
 }
 
 /** Map SDK consent state to our lowercase string equivalents. */

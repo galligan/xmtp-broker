@@ -19,6 +19,10 @@ export interface ConsentActionDeps {
   readonly identityStore: SqliteIdentityStore;
   /** Lookup for the managed client tied to a signet identity. */
   readonly getManagedClient: (identityId: string) => ManagedClient | undefined;
+  /** Optional lookup for the managed client currently responsible for a group. */
+  readonly getManagedClientForGroup?: (
+    groupId: string,
+  ) => ManagedClient | undefined;
 }
 
 /**
@@ -55,12 +59,38 @@ async function resolveIdentity(
   });
 }
 
-/** Resolve a managed client for an identity label. */
+/** Resolve a managed client, preferring group ownership when applicable. */
 async function resolveManagedClient(
   deps: ConsentActionDeps,
-  identityLabel?: string,
+  identityLabel: string | undefined,
+  entityType: ConsentEntityType | undefined,
+  entity: string,
 ): Promise<Result<ManagedClient, SignetError>> {
-  const resolved = await resolveIdentity(deps.identityStore, identityLabel);
+  if (identityLabel) {
+    const resolved = await resolveIdentity(deps.identityStore, identityLabel);
+    if (Result.isError(resolved)) return resolved;
+
+    const managed = deps.getManagedClient(resolved.value.identityId);
+    if (!managed) {
+      return Result.err(
+        NotFoundError.create(
+          "managed-client",
+          resolved.value.identityId,
+        ) as SignetError,
+      );
+    }
+    return Result.ok(managed);
+  }
+
+  // For group_id entities, resolve against the client that owns the group.
+  if (entityType === "group_id") {
+    const byGroup = deps.getManagedClientForGroup?.(entity);
+    if (byGroup) {
+      return Result.ok(byGroup);
+    }
+  }
+
+  const resolved = await resolveIdentity(deps.identityStore, undefined);
   if (Result.isError(resolved)) return resolved;
 
   const managed = deps.getManagedClient(resolved.value.identityId);
@@ -99,7 +129,7 @@ export function createConsentActions(
     idempotent: true,
     input: z.object({
       entity: z.string().min(1),
-      entityType: ConsentEntityTypeSchema.default("inbox_id").optional(),
+      entityType: ConsentEntityTypeSchema.optional().default("inbox_id"),
       identityLabel: z.string().optional(),
     }),
     output: z.object({
@@ -122,13 +152,15 @@ export function createConsentActions(
       },
     ],
     handler: async (input) => {
+      const entityType: ConsentEntityType = input.entityType ?? "inbox_id";
       const managedResult = await resolveManagedClient(
         deps,
         input.identityLabel,
+        entityType,
+        input.entity,
       );
       if (Result.isError(managedResult)) return managedResult;
 
-      const entityType: ConsentEntityType = input.entityType ?? "inbox_id";
       const stateResult = await managedResult.value.client.getConsentState(
         entityType,
         input.entity,
@@ -168,7 +200,7 @@ export function createConsentActions(
     intent: "write",
     input: z.object({
       entity: z.string().min(1),
-      entityType: ConsentEntityTypeSchema.default("inbox_id").optional(),
+      entityType: ConsentEntityTypeSchema.optional().default("inbox_id"),
       identityLabel: z.string().optional(),
     }),
     output: z.object({
@@ -177,13 +209,15 @@ export function createConsentActions(
       state: z.literal("allowed"),
     }),
     handler: async (input) => {
+      const entityType: ConsentEntityType = input.entityType ?? "inbox_id";
       const managedResult = await resolveManagedClient(
         deps,
         input.identityLabel,
+        entityType,
+        input.entity,
       );
       if (Result.isError(managedResult)) return managedResult;
 
-      const entityType: ConsentEntityType = input.entityType ?? "inbox_id";
       const setResult = await managedResult.value.client.setConsentState(
         entityType,
         input.entity,
@@ -224,7 +258,7 @@ export function createConsentActions(
     intent: "write",
     input: z.object({
       entity: z.string().min(1),
-      entityType: ConsentEntityTypeSchema.default("inbox_id").optional(),
+      entityType: ConsentEntityTypeSchema.optional().default("inbox_id"),
       identityLabel: z.string().optional(),
     }),
     output: z.object({
@@ -233,13 +267,15 @@ export function createConsentActions(
       state: z.literal("denied"),
     }),
     handler: async (input) => {
+      const entityType: ConsentEntityType = input.entityType ?? "inbox_id";
       const managedResult = await resolveManagedClient(
         deps,
         input.identityLabel,
+        entityType,
+        input.entity,
       );
       if (Result.isError(managedResult)) return managedResult;
 
-      const entityType: ConsentEntityType = input.entityType ?? "inbox_id";
       const setResult = await managedResult.value.client.setConsentState(
         entityType,
         input.entity,
