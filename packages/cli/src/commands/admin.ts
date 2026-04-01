@@ -142,7 +142,7 @@ export function createAdminCommands(): Command {
   cmd
     .command("audit-log")
     .description("Display audit trail")
-    .option("--limit <n>", "Maximum number of entries", "50")
+    .option("--limit <n>", "Maximum number of entries")
     .option("--since <timestamp>", "Filter entries after timestamp (ISO 8601)")
     .option("--config <path>", "Path to config file")
     .option("--json", "JSON output")

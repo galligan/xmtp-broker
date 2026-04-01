@@ -97,10 +97,7 @@ export function createUtilityCommands(
     .command("export")
     .description("Export the full audit log as NDJSON")
     .option("--config <path>", "Path to config file")
-    .option("--json", "JSON output")
-    .action(async (opts: { config?: string; json?: true }) => {
-      const json = opts.json === true;
-
+    .action(async (opts: { config?: string }) => {
       const result = await withDaemonClient(
         { configPath: opts.config },
         async (client) =>
@@ -109,7 +106,7 @@ export function createUtilityCommands(
 
       if (Result.isError(result)) {
         process.stderr.write(
-          formatOutput({ error: result.error.message }, { json }) + "\n",
+          formatOutput({ error: result.error.message }, { json: true }) + "\n",
         );
         process.exit(exitCodeFromCategory(result.error.category));
       }

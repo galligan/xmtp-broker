@@ -448,13 +448,14 @@ describe("utility commands", () => {
     expect(flags).toContain("--json");
   });
 
-  test("logs command includes an export subcommand with --json", async () => {
+  test("logs export subcommand has --config but no --json (always NDJSON)", async () => {
     const commands = await loadProgram();
     const logs = commands.find((c) => c.name() === "logs");
     expect(logs).toBeDefined();
     const exportCmd = findSub(logs!, "export");
     expect(exportCmd).toBeDefined();
-    expect(optionFlags(exportCmd!)).toContain("--json");
+    expect(optionFlags(exportCmd!)).toContain("--config");
+    expect(optionFlags(exportCmd!)).not.toContain("--json");
   });
 
   test("includes a lookup command with an address argument and --json", async () => {
