@@ -304,38 +304,47 @@ export function createSearchActions(
         }
       }
 
-      // Search conversations
+      // Search conversations — gracefully degrade when no identity/client is
+      // available so that unfiltered searches still return operator/policy/
+      // credential results.  Only hard-fail when conversation was explicitly
+      // requested via the `type` filter.
       if (shouldSearch("conversation")) {
         const resolved = await resolveIdentity(deps.identityStore, undefined);
-        if (Result.isError(resolved)) return resolved;
-
-        const managed = deps.getManagedClient(resolved.value.identityId);
-        if (!managed) {
-          return Result.err(
-            NotFoundError.create(
-              "managed-client",
-              resolved.value.identityId,
-            ) as SignetError,
-          );
-        }
-
-        const groupsResult = await managed.client.listGroups();
-        if (Result.isError(groupsResult)) return groupsResult;
-
-        for (const group of groupsResult.value) {
-          if (matches.length >= maxResults) break;
-          const chatId =
-            deps.idMappings?.getLocal(group.groupId) ?? group.groupId;
-          if (
-            chatId.toLowerCase().includes(queryLower) ||
-            group.groupId.toLowerCase().includes(queryLower) ||
-            group.name.toLowerCase().includes(queryLower)
-          ) {
-            matches.push({
-              type: "conversation",
-              id: chatId,
-              label: group.name || chatId,
-            });
+        if (Result.isError(resolved)) {
+          if (input.type === "conversation") return resolved;
+        } else {
+          const managed = deps.getManagedClient(resolved.value.identityId);
+          if (!managed) {
+            if (input.type === "conversation") {
+              return Result.err(
+                NotFoundError.create(
+                  "managed-client",
+                  resolved.value.identityId,
+                ) as SignetError,
+              );
+            }
+          } else {
+            const groupsResult = await managed.client.listGroups();
+            if (Result.isError(groupsResult)) {
+              if (input.type === "conversation") return groupsResult;
+            } else {
+              for (const group of groupsResult.value) {
+                if (matches.length >= maxResults) break;
+                const chatId =
+                  deps.idMappings?.getLocal(group.groupId) ?? group.groupId;
+                if (
+                  chatId.toLowerCase().includes(queryLower) ||
+                  group.groupId.toLowerCase().includes(queryLower) ||
+                  group.name.toLowerCase().includes(queryLower)
+                ) {
+                  matches.push({
+                    type: "conversation",
+                    id: chatId,
+                    label: group.name || chatId,
+                  });
+                }
+              }
+            }
           }
         }
       }
