@@ -247,6 +247,10 @@ export function createMockXmtpClient(options?: MockXmtpClientOptions): {
       return Result.ok(undefined);
     },
 
+    getMessageById(_messageId: string) {
+      return Result.ok(undefined);
+    },
+
     async listMessages(_groupId: string) {
       return Result.ok([] as readonly XmtpDecodedMessage[]);
     },

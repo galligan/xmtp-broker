@@ -116,6 +116,7 @@ export function createMockSdkNativeClient(
     installationId: overrides?.installationId ?? "test-installation-id",
     conversations: {
       getConversationById: async (id: string) => groupMap.get(id),
+      getMessageById: (_id: string) => undefined,
       list: async () => groups,
       listGroups: () => groups,
       createDm: async (_inboxId: string) =>

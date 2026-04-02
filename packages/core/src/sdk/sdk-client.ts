@@ -1,6 +1,7 @@
 import { Result } from "better-result";
 import type { SignetError } from "@xmtp/signet-schemas";
 import {
+  InternalError,
   NotFoundError,
   PermissionError,
   ValidationError,
@@ -410,6 +411,24 @@ export function createSdkClient(options: SdkClientOptions): XmtpClient {
         "removeSuperAdmin",
         { resourceType: "group", resourceId: groupId },
       );
+    },
+
+    getMessageById(
+      messageId: string,
+    ): Result<XmtpDecodedMessage | undefined, SignetError> {
+      try {
+        const message = client.conversations.getMessageById(messageId);
+        return Result.ok(message ? toDecodedMessage(message) : undefined);
+      } catch (thrown) {
+        // Mirror wrapSdkCall error classification for consistency
+        const message =
+          thrown instanceof Error ? thrown.message : String(thrown);
+        return Result.err(
+          InternalError.create(`SDK error (getMessageById): ${message}`, {
+            cause: message,
+          }) as SignetError,
+        );
+      }
     },
 
     async listMessages(

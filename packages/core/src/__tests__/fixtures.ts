@@ -97,6 +97,7 @@ export function createMockXmtpClient(options?: {
     removeAdmin: async (_groupId, _inboxId) => Result.ok(),
     addSuperAdmin: async (_groupId, _inboxId) => Result.ok(),
     removeSuperAdmin: async (_groupId, _inboxId) => Result.ok(),
+    getMessageById: (_messageId) => Result.ok(undefined),
     listMessages: async (_groupId) => Result.ok([]),
     streamAllMessages: async () =>
       Result.ok({

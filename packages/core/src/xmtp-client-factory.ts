@@ -95,6 +95,11 @@ export interface XmtpClient {
     inboxId: string,
   ): Promise<Result<void, SignetError>>;
 
+  /** Look up a single message by its XMTP message ID. */
+  getMessageById(
+    messageId: string,
+  ): Result<XmtpDecodedMessage | undefined, SignetError>;
+
   /** Query historical messages from a conversation. */
   listMessages(
     groupId: string,

@@ -62,6 +62,7 @@ function createMockClient(options?: {
         memberInboxIds: [inboxId, ...memberInboxIds],
         createdAt: new Date().toISOString(),
       }),
+    getMessageById: () => Result.ok(undefined),
     listMessages: async (groupId) => Result.ok(messagesByGroup[groupId] ?? []),
     streamAllMessages: async () =>
       Result.ok({ messages: emptyAsyncIterable(), abort: () => {} }),

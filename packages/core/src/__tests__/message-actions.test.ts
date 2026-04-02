@@ -66,6 +66,10 @@ function createMockClient(options?: {
         createdAt: new Date().toISOString(),
       });
     },
+    getMessageById: (messageId: string) => {
+      const found = messages.find((m) => m.messageId === messageId);
+      return Result.ok(found);
+    },
     listMessages: async () => Result.ok(messages),
     streamAllMessages: async () =>
       Result.ok({ messages: emptyAsyncIterable(), abort: () => {} }),
@@ -287,6 +291,32 @@ describe("message actions", () => {
       expect(Result.isError(result)).toBe(true);
       if (Result.isError(result)) {
         expect(result.error.category).toBe("not_found");
+      }
+    });
+
+    test("resolves msg_ local ID to XMTP network ID via mapping", async () => {
+      await seedIdentity("viewer", { messages: sampleMessages });
+      // Map XMTP network ID "msg-bbb" to local ID "msg_0123456789abcdef"
+      idMappings.set("msg-bbb", "msg_0123456789abcdef", "message");
+      setupDeps();
+
+      const actions = createMessageActions(deps);
+      const infoAction = actions.find((a) => a.id === "message.info");
+
+      const result = await infoAction!.handler(
+        {
+          chatId: "g1",
+          messageId: "msg_0123456789abcdef",
+          identityLabel: "viewer",
+        },
+        stubCtx(),
+      );
+
+      expect(Result.isOk(result)).toBe(true);
+      if (Result.isOk(result)) {
+        const val = result.value as XmtpDecodedMessage;
+        expect(val.messageId).toBe("msg-bbb");
+        expect(val.content).toBe("World");
       }
     });
   });

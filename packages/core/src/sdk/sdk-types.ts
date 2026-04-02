@@ -91,6 +91,7 @@ export interface SdkGroupShape {
 /** Mirrors the Conversations object from @xmtp/node-sdk */
 export interface SdkConversationsShape {
   getConversationById(id: string): Promise<SdkGroupShape | undefined>;
+  getMessageById(id: string): SdkDecodedMessageShape | undefined;
   list(options?: unknown): Promise<SdkGroupShape[]>;
   listGroups(options?: unknown): SdkGroupShape[];
   createDm(inboxId: string): Promise<SdkGroupShape>;
