@@ -49,6 +49,8 @@ export type {
   MessageStream,
   GroupStream,
   SignerProviderLike,
+  ConsentEntityType,
+  ConsentState,
 } from "./xmtp-client-factory.js";
 
 // Identity registration
@@ -78,6 +80,10 @@ export type {
   OperatorStorageManager,
   OperatorPartition,
 } from "./operator-storage.js";
+
+// Consent actions
+export { createConsentActions } from "./consent-actions.js";
+export type { ConsentActionDeps } from "./consent-actions.js";
 
 // Conversation actions
 export { createConversationActions } from "./conversation-actions.js";

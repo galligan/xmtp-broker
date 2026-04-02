@@ -5,6 +5,7 @@ import type { CredentialManager, SealManager } from "@xmtp/signet-contracts";
 import { InternalError } from "@xmtp/signet-schemas";
 import { createKeyActions, createWalletActions } from "@xmtp/signet-keys";
 import {
+  createConsentActions,
   createConversationActions,
   createInboxActions,
   createMessageActions,
@@ -137,6 +138,13 @@ describe("action surface map", () => {
       registry.register(spec);
     }
 
+    for (const spec of createConsentActions({
+      identityStore: {} as never,
+      getManagedClient: () => undefined,
+    })) {
+      registry.register(spec);
+    }
+
     for (const spec of createSealActions({
       sealManager,
       resolveSealPublicKey: async () => Result.ok(null),
@@ -225,7 +233,7 @@ describe("action surface map", () => {
 
     expect(surfaceMap.entries.length).toBeGreaterThan(0);
     expect(hash).toBe(
-      "883409b554b71a6384d46b02a0c02756cb2c269dff906ed09431e4cc88f0b9a9",
+      "64b8424f690eb164190a8d0cb3c936811a0c01d671dd6b98d8476dfada9964ff",
     );
   });
 });

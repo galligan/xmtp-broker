@@ -101,6 +101,10 @@ export interface SignetRuntimeDeps {
   /** Optional factory for message action specs, wired in production by start.ts. */
   createMessageActions?: () => ActionSpec<unknown, unknown, SignetError>[];
 
+  /** Optional factory for consent action specs, wired in production by start.ts. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createConsentActions?: () => ActionSpec<any, any, SignetError>[];
+
   /** Optional factory for seal action specs, wired in production by start.ts. */
   createSealActions?: () => ActionSpec<unknown, unknown, SignetError>[];
 
@@ -397,6 +401,12 @@ export async function createSignetRuntime(
 
   if (deps.createMessageActions) {
     for (const spec of deps.createMessageActions()) {
+      registry.register(spec);
+    }
+  }
+
+  if (deps.createConsentActions) {
+    for (const spec of deps.createConsentActions()) {
       registry.register(spec);
     }
   }

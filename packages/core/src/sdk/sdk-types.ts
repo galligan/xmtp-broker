@@ -112,9 +112,32 @@ export interface SdkConversationsShape {
   ): Promise<SdkAsyncStreamProxyShape<SdkDecodedMessageShape>>;
 }
 
+/** Consent entity type enum values from @xmtp/node-bindings */
+export type SdkConsentEntityType = "InboxId" | "GroupId";
+
+/** Consent state enum values from @xmtp/node-bindings */
+export type SdkConsentState = "Unknown" | "Allowed" | "Denied";
+
+/** Mirrors the Consent record from @xmtp/node-bindings */
+export interface SdkConsentRecord {
+  entityType: SdkConsentEntityType;
+  entity: string;
+  state: SdkConsentState;
+}
+
+/** Mirrors the Preferences object from @xmtp/node-sdk */
+export interface SdkPreferencesShape {
+  getConsentState(
+    entityType: SdkConsentEntityType,
+    entity: string,
+  ): Promise<SdkConsentState>;
+  setConsentStates(consentStates: SdkConsentRecord[]): Promise<void>;
+}
+
 /** Mirrors the Client from @xmtp/node-sdk */
 export interface SdkClientShape {
   inboxId: string;
   installationId: string;
   conversations: SdkConversationsShape;
+  preferences: SdkPreferencesShape;
 }

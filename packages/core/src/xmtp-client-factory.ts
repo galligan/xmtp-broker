@@ -112,7 +112,38 @@ export interface XmtpClient {
    * Returns an async iterable and an abort function.
    */
   streamGroups(): Promise<Result<GroupStream, SignetError>>;
+
+  /**
+   * Get consent state for an entity (inbox ID or group ID).
+   *
+   * @param entityType - The type of entity: "inbox_id" or "group_id"
+   * @param entity - The entity identifier
+   * @returns The consent state: "unknown", "allowed", or "denied"
+   */
+  getConsentState(
+    entityType: ConsentEntityType,
+    entity: string,
+  ): Promise<Result<ConsentState, SignetError>>;
+
+  /**
+   * Set consent state for an entity (inbox ID or group ID).
+   *
+   * @param entityType - The type of entity: "inbox_id" or "group_id"
+   * @param entity - The entity identifier
+   * @param state - The consent state to set: "allowed" or "denied"
+   */
+  setConsentState(
+    entityType: ConsentEntityType,
+    entity: string,
+    state: "allowed" | "denied",
+  ): Promise<Result<void, SignetError>>;
 }
+
+/** Consent entity type for the XMTP consent system. */
+export type ConsentEntityType = "inbox_id" | "group_id";
+
+/** Consent state values returned by the XMTP consent system. */
+export type ConsentState = "unknown" | "allowed" | "denied";
 
 /** DM conversation metadata returned by the XMTP client. */
 export interface XmtpDmInfo {

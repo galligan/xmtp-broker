@@ -162,30 +162,120 @@ export function createUtilityCommands(
 
   consent
     .command("check")
-    .description("Check consent state")
-    .argument("<entity>", "Entity to check")
-    .option("--as <inbox>", "Inbox ID to act as")
-    .action((entity: string, opts: { as?: string }) => {
-      const params: Record<string, unknown> = { entity };
-      if (opts.as !== undefined) params["as"] = opts.as;
-      process.stdout.write(stubOutput("consent.check", params, false));
-    });
+    .description("Check consent state for an entity")
+    .argument("<entity>", "Entity to check (inbox ID or group ID)")
+    .option("--type <type>", "Entity type: inbox_id or group_id", "inbox_id")
+    .option("--as <label>", "Identity label to act as")
+    .option("--config <path>", "Path to config file")
+    .option("--json", "JSON output")
+    .action(
+      async (
+        entity: string,
+        opts: { type?: string; as?: string; config?: string; json?: true },
+      ) => {
+        const json = opts.json === true;
+        const input: Record<string, unknown> = { entity };
+        if (opts.type !== undefined) input["entityType"] = opts.type;
+        if (opts.as !== undefined) input["identityLabel"] = opts.as;
+
+        const result = await withDaemonClient(
+          { configPath: opts.config },
+          async (client) =>
+            client.request<{
+              entity: string;
+              entityType: string;
+              state: string;
+            }>("consent.check", input),
+        );
+
+        if (Result.isError(result)) {
+          process.stderr.write(
+            formatOutput({ error: result.error.message }, { json }) + "\n",
+          );
+          process.exit(exitCodeFromCategory(result.error.category));
+        }
+
+        process.stdout.write(formatOutput(result.value, { json }) + "\n");
+      },
+    );
 
   consent
     .command("allow")
-    .description("Allow a contact")
-    .argument("<entity>", "Entity to allow")
-    .action((entity: string) => {
-      process.stdout.write(stubOutput("consent.allow", { entity }, false));
-    });
+    .description("Allow messages from an entity")
+    .argument("<entity>", "Entity to allow (inbox ID or group ID)")
+    .option("--type <type>", "Entity type: inbox_id or group_id", "inbox_id")
+    .option("--as <label>", "Identity label to act as")
+    .option("--config <path>", "Path to config file")
+    .option("--json", "JSON output")
+    .action(
+      async (
+        entity: string,
+        opts: { type?: string; as?: string; config?: string; json?: true },
+      ) => {
+        const json = opts.json === true;
+        const input: Record<string, unknown> = { entity };
+        if (opts.type !== undefined) input["entityType"] = opts.type;
+        if (opts.as !== undefined) input["identityLabel"] = opts.as;
+
+        const result = await withDaemonClient(
+          { configPath: opts.config },
+          async (client) =>
+            client.request<{
+              entity: string;
+              entityType: string;
+              state: string;
+            }>("consent.allow", input),
+        );
+
+        if (Result.isError(result)) {
+          process.stderr.write(
+            formatOutput({ error: result.error.message }, { json }) + "\n",
+          );
+          process.exit(exitCodeFromCategory(result.error.category));
+        }
+
+        process.stdout.write(formatOutput(result.value, { json }) + "\n");
+      },
+    );
 
   consent
     .command("deny")
-    .description("Deny a contact")
-    .argument("<entity>", "Entity to deny")
-    .action((entity: string) => {
-      process.stdout.write(stubOutput("consent.deny", { entity }, false));
-    });
+    .description("Deny messages from an entity")
+    .argument("<entity>", "Entity to deny (inbox ID or group ID)")
+    .option("--type <type>", "Entity type: inbox_id or group_id", "inbox_id")
+    .option("--as <label>", "Identity label to act as")
+    .option("--config <path>", "Path to config file")
+    .option("--json", "JSON output")
+    .action(
+      async (
+        entity: string,
+        opts: { type?: string; as?: string; config?: string; json?: true },
+      ) => {
+        const json = opts.json === true;
+        const input: Record<string, unknown> = { entity };
+        if (opts.type !== undefined) input["entityType"] = opts.type;
+        if (opts.as !== undefined) input["identityLabel"] = opts.as;
+
+        const result = await withDaemonClient(
+          { configPath: opts.config },
+          async (client) =>
+            client.request<{
+              entity: string;
+              entityType: string;
+              state: string;
+            }>("consent.deny", input),
+        );
+
+        if (Result.isError(result)) {
+          process.stderr.write(
+            formatOutput({ error: result.error.message }, { json }) + "\n",
+          );
+          process.exit(exitCodeFromCategory(result.error.category));
+        }
+
+        process.stdout.write(formatOutput(result.value, { json }) + "\n");
+      },
+    );
 
   commands.push(consent);
 

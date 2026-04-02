@@ -108,6 +108,8 @@ export function createMockXmtpClient(options?: {
         groups: emptyAsyncIterable(),
         abort: () => {},
       }),
+    getConsentState: async () => Result.ok("unknown" as const),
+    setConsentState: async () => Result.ok(undefined),
   };
 }
 

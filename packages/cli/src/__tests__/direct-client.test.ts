@@ -122,6 +122,12 @@ function makeMockDeps(): DirectModeDeps {
             abort() {},
           });
         },
+        async getConsentState() {
+          return Result.ok("unknown" as const);
+        },
+        async setConsentState() {
+          return Result.ok(undefined);
+        },
       });
     },
     closed: closeFns,
