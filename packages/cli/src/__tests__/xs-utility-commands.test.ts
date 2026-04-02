@@ -166,7 +166,7 @@ describe("policy commands", () => {
     expect(flags).toContain("--label");
   });
 
-  test("rm subcommand accepts an id argument and --json option", async () => {
+  test("rm subcommand accepts an id argument and --force, --json options", async () => {
     const cmd = await load();
     const rm = findSub(cmd, "rm");
     expect(rm).toBeDefined();
@@ -174,6 +174,7 @@ describe("policy commands", () => {
     expect(args.length).toBeGreaterThanOrEqual(1);
     expect(args[0]?.name()).toBe("id");
     const flags = optionFlags(rm!);
+    expect(flags).toContain("--force");
     expect(flags).toContain("--json");
   });
 

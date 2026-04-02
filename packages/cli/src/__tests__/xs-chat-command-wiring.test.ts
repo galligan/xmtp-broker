@@ -123,7 +123,19 @@ describe("xs chat update", () => {
 });
 
 describe("xs chat leave", () => {
-  test("routes purge and force flags through the daemon client", async () => {
+  test("without --force prints dry-run message and does not dispatch", async () => {
+    const harness = createHarness({ leftGroup: true });
+    const command = createChatCommands(harness.deps);
+
+    await command.parseAsync(["node", "chat", "leave", "conv_abc"]);
+
+    expect(harness.requestCalls).toEqual([]);
+    expect(harness.stderr.join("")).toContain("This will");
+    expect(harness.stderr.join("")).toContain("--force");
+    expect(harness.exitCode).toBe(0);
+  });
+
+  test("with --force routes purge flag through the daemon client", async () => {
     const harness = createHarness({ leftGroup: true });
     const command = createChatCommands(harness.deps);
 
@@ -142,16 +154,26 @@ describe("xs chat leave", () => {
         params: {
           chatId: "conv_abc",
           purge: true,
-          force: true,
         },
       },
     ]);
-    expect(harness.stderr).toEqual([]);
   });
 });
 
 describe("xs chat rm", () => {
-  test("routes force through the daemon client", async () => {
+  test("without --force prints dry-run message and does not dispatch", async () => {
+    const harness = createHarness({ removed: true });
+    const command = createChatCommands(harness.deps);
+
+    await command.parseAsync(["node", "chat", "rm", "conv_abc"]);
+
+    expect(harness.requestCalls).toEqual([]);
+    expect(harness.stderr.join("")).toContain("This will");
+    expect(harness.stderr.join("")).toContain("--force");
+    expect(harness.exitCode).toBe(0);
+  });
+
+  test("with --force dispatches through the daemon client", async () => {
     const harness = createHarness({ removed: true });
     const command = createChatCommands(harness.deps);
 
@@ -166,7 +188,6 @@ describe("xs chat rm", () => {
         },
       },
     ]);
-    expect(harness.stderr).toEqual([]);
   });
 });
 

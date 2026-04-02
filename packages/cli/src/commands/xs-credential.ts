@@ -21,6 +21,7 @@ import {
   ScopeSet,
   ValidationError,
 } from "@xmtp/signet-schemas";
+import { requireForce } from "../output/confirm.js";
 import { exitCodeFromCategory } from "../output/exit-codes.js";
 import { formatOutput } from "../output/formatter.js";
 import {
@@ -323,13 +324,24 @@ export function createCredentialCommands(
     .description("Revoke a credential")
     .argument("<id>", "Credential ID")
     .option("--config <path>", "Path to config file")
-    .option("--force", "Execute without confirmation")
+    .option("--force", "Execute without dry-run preview")
     .option("--json", "JSON output")
     .action(
       async (
         id: string,
         opts: { config?: string; force?: true; json?: true },
       ) => {
+        if (
+          !requireForce(
+            opts,
+            `revoke credential "${id}"`,
+            resolvedDeps.writeStderr,
+            resolvedDeps.exit,
+          )
+        ) {
+          return;
+        }
+
         const json = opts.json === true;
         const result = await resolvedDeps.withDaemonClient(
           {
@@ -351,7 +363,6 @@ export function createCredentialCommands(
           formatOutput(
             {
               credentialId: id,
-              force: opts.force === true,
               ...result.value,
             },
             { json },

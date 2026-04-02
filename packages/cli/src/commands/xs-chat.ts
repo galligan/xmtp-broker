@@ -11,6 +11,7 @@
 
 import { Command } from "commander";
 import type { SignetError } from "@xmtp/signet-schemas";
+import { requireForce } from "../output/confirm.js";
 import { exitCodeFromCategory } from "../output/exit-codes.js";
 import { formatOutput } from "../output/formatter.js";
 import {
@@ -313,17 +314,31 @@ export function createChatCommands(
     .argument("<id>", "Conversation ID")
     .option("--config <path>", "Path to config file")
     .option("--purge", "Also clean up local state after leaving")
-    .option("--force", "Execute destructive cleanup without confirmation")
+    .option("--force", "Execute without dry-run preview")
     .option("--json", "JSON output")
     .action(
       async (
         id: string,
         opts: { config?: string; purge?: true; force?: true; json?: true },
       ) => {
+        const description =
+          opts.purge === true
+            ? `leave the XMTP group "${id}" and delete all local data`
+            : `leave the XMTP group "${id}"`;
+        if (
+          !requireForce(
+            opts,
+            description,
+            resolvedDeps.writeStderr,
+            resolvedDeps.exit,
+          )
+        ) {
+          return;
+        }
+
         const json = opts.json === true;
         const payload: Record<string, unknown> = { chatId: id };
         if (opts.purge === true) payload["purge"] = true;
-        if (opts.force === true) payload["force"] = true;
 
         const result = await resolvedDeps.withDaemonClient(
           { configPath: opts.config },
@@ -344,16 +359,26 @@ export function createChatCommands(
     .description("Remove a conversation")
     .argument("<id>", "Conversation ID")
     .option("--config <path>", "Path to config file")
-    .option("--force", "Execute without confirmation")
+    .option("--force", "Execute without dry-run preview")
     .option("--json", "JSON output")
     .action(
       async (
         id: string,
         opts: { config?: string; force?: true; json?: true },
       ) => {
+        if (
+          !requireForce(
+            opts,
+            `remove local conversation data for "${id}", revoke scoped credentials and seals`,
+            resolvedDeps.writeStderr,
+            resolvedDeps.exit,
+          )
+        ) {
+          return;
+        }
+
         const json = opts.json === true;
-        const payload: Record<string, unknown> = { chatId: id };
-        if (opts.force === true) payload["force"] = true;
+        const payload: Record<string, unknown> = { chatId: id, force: true };
 
         const result = await resolvedDeps.withDaemonClient(
           { configPath: opts.config },

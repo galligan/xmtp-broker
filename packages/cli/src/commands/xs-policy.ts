@@ -9,6 +9,7 @@
 
 import { Command } from "commander";
 import type { SignetError } from "@xmtp/signet-schemas";
+import { requireForce } from "../output/confirm.js";
 import { exitCodeFromCategory } from "../output/exit-codes.js";
 import { formatOutput } from "../output/formatter.js";
 import {
@@ -206,21 +207,38 @@ export function createPolicyCommands(
     .description("Remove a policy")
     .argument("<id>", "Policy ID or label")
     .option("--config <path>", "Path to config file")
+    .option("--force", "Execute without dry-run preview")
     .option("--json", "JSON output")
-    .action(async (id: string, opts: { config?: string; json?: true }) => {
-      const json = opts.json === true;
-      const result = await resolvedDeps.withDaemonClient(
-        { configPath: opts.config },
-        (client) => client.request("policy.remove", { policyId: id }),
-      );
+    .action(
+      async (
+        id: string,
+        opts: { config?: string; force?: true; json?: true },
+      ) => {
+        if (
+          !requireForce(
+            opts,
+            `remove policy "${id}"`,
+            resolvedDeps.writeStderr,
+            resolvedDeps.exit,
+          )
+        ) {
+          return;
+        }
 
-      if (result.isErr()) {
-        writeError(resolvedDeps, result.error, json);
-        return;
-      }
+        const json = opts.json === true;
+        const result = await resolvedDeps.withDaemonClient(
+          { configPath: opts.config },
+          (client) => client.request("policy.remove", { policyId: id }),
+        );
 
-      resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
-    });
+        if (result.isErr()) {
+          writeError(resolvedDeps, result.error, json);
+          return;
+        }
+
+        resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
+      },
+    );
 
   return cmd;
 }
