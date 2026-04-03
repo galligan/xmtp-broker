@@ -187,7 +187,34 @@ export function createMessageActions(
       after: z.string().optional(),
       identityLabel: z.string().optional(),
     }),
-    handler: async (input) => {
+    handler: async (input, ctx) => {
+      // Credential scope enforcement: verify the caller can read
+      // messages in this conversation before hitting the SDK.
+      if (ctx.credentialId && deps.credentialLookup) {
+        const credResult = await deps.credentialLookup(ctx.credentialId);
+        if (Result.isError(credResult)) {
+          return Result.err(
+            NotFoundError.create("conversation", input.chatId) as SignetError,
+          );
+        }
+        const credential = credResult.value;
+        const scopedGroupIds = credential.config.chatIds.map((chatId) =>
+          resolveGroupId(deps.idMappings, chatId),
+        );
+        const targetGroupId = resolveGroupId(deps.idMappings, input.chatId);
+        if (!scopedGroupIds.includes(targetGroupId)) {
+          return Result.err(
+            NotFoundError.create("conversation", input.chatId) as SignetError,
+          );
+        }
+        const effectiveScopes = resolveEffectiveScopes(credential.config);
+        if (!effectiveScopes.has("read-messages")) {
+          return Result.err(
+            NotFoundError.create("conversation", input.chatId) as SignetError,
+          );
+        }
+      }
+
       const resolved = await resolveIdentity(
         deps.identityStore,
         input.identityLabel,
