@@ -2,7 +2,11 @@ import { Result } from "better-result";
 import { z } from "zod";
 import type { ActionSpec } from "@xmtp/signet-contracts";
 import { NotFoundError } from "@xmtp/signet-schemas";
-import type { SignetError, IdMappingStore } from "@xmtp/signet-schemas";
+import type {
+  SignetError,
+  IdMappingStore,
+  CredentialRecordType,
+} from "@xmtp/signet-schemas";
 import type { SqliteIdentityStore } from "./identity-store.js";
 import type { ManagedClient } from "./client-registry.js";
 import type { XmtpDecodedMessage } from "./xmtp-client-factory.js";
@@ -15,6 +19,12 @@ export interface MessageActionDeps {
   readonly getManagedClient: (identityId: string) => ManagedClient | undefined;
   /** Optional ID mapping store for conv_ boundary enforcement. */
   readonly idMappings?: IdMappingStore;
+  /** Resolve a credential ID to its record. Used for scope enforcement. */
+  readonly credentialLookup?:
+    | ((
+        credentialId: string,
+      ) => Promise<Result<CredentialRecordType, SignetError>>)
+    | undefined;
 }
 
 /**
@@ -76,6 +86,23 @@ function resolveMessageId(
   if (!idMappings) return messageId;
   const networkId = idMappings.getNetwork(messageId);
   return networkId ?? messageId;
+}
+
+/**
+ * Compute effective scopes from credential config allow/deny.
+ * Deny always wins.
+ */
+function resolveEffectiveScopes(config: {
+  allow?: readonly string[] | undefined;
+  deny?: readonly string[] | undefined;
+}): ReadonlySet<string> {
+  const allowed = new Set(config.allow ?? []);
+  if (config.deny) {
+    for (const scope of config.deny) {
+      allowed.delete(scope);
+    }
+  }
+  return allowed;
 }
 
 function widenActionSpec<TInput, TOutput>(
@@ -223,7 +250,12 @@ export function createMessageActions(
       messageId: z.string(),
       identityLabel: z.string().optional(),
     }),
-    handler: async (input) => {
+    handler: async (input, ctx) => {
+      const notFound = () =>
+        Result.err(
+          NotFoundError.create("message", input.messageId) as SignetError,
+        );
+
       const resolved = await resolveIdentity(
         deps.identityStore,
         input.identityLabel,
@@ -245,17 +277,41 @@ export function createMessageActions(
       if (Result.isError(lookupResult)) return lookupResult;
 
       if (!lookupResult.value) {
-        return Result.err(
-          NotFoundError.create("message", input.messageId) as SignetError,
-        );
+        return notFound();
       }
 
-      // Validate the message belongs to the requested chat
+      // Validate the message belongs to the requested chat.
+      // This prevents ID space drift and cross-conversation fishing.
       const expectedGroupId = resolveGroupId(deps.idMappings, input.chatId);
       if (lookupResult.value.groupId !== expectedGroupId) {
-        return Result.err(
-          NotFoundError.create("message", input.messageId) as SignetError,
+        return notFound();
+      }
+
+      // Credential scope enforcement: when a credentialId is present,
+      // verify the credential has scope for this conversation and the
+      // read-messages permission. Always return not_found (never
+      // permission_denied) to prevent information leakage.
+      if (ctx.credentialId && deps.credentialLookup) {
+        const credResult = await deps.credentialLookup(ctx.credentialId);
+        if (Result.isError(credResult)) {
+          return notFound();
+        }
+
+        const credential = credResult.value;
+
+        // Resolve credential's conv_ chatIds to XMTP groupIds
+        const scopedGroupIds = credential.config.chatIds.map((chatId) =>
+          resolveGroupId(deps.idMappings, chatId),
         );
+
+        if (!scopedGroupIds.includes(lookupResult.value.groupId)) {
+          return notFound();
+        }
+
+        const effectiveScopes = resolveEffectiveScopes(credential.config);
+        if (!effectiveScopes.has("read-messages")) {
+          return notFound();
+        }
       }
 
       return Result.ok(lookupResult.value);
