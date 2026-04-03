@@ -65,6 +65,19 @@ function resolveGroupId(
   return networkId ?? chatId;
 }
 
+/**
+ * Resolve a messageId (which may be a msg_ local ID or a raw XMTP message ID)
+ * to the underlying network message ID using the mapping store.
+ */
+function resolveMessageId(
+  idMappings: IdMappingStore | undefined,
+  messageId: string,
+): string {
+  if (!idMappings) return messageId;
+  const networkId = idMappings.getNetwork(messageId);
+  return networkId ?? messageId;
+}
+
 function widenActionSpec<TInput, TOutput>(
   spec: ActionSpec<TInput, TOutput, SignetError>,
 ): ActionSpec<unknown, unknown, SignetError> {
@@ -227,24 +240,25 @@ export function createMessageActions(
         );
       }
 
-      const groupId = resolveGroupId(deps.idMappings, input.chatId);
-      // TODO: replace with direct getMessageById when the XMTP SDK supports it.
-      // For now, scan recent messages with a reasonable limit.
-      const listResult = await managed.client.listMessages(groupId, {
-        limit: 500,
-      });
-      if (Result.isError(listResult)) return listResult;
+      const xmtpMessageId = resolveMessageId(deps.idMappings, input.messageId);
+      const lookupResult = managed.client.getMessageById(xmtpMessageId);
+      if (Result.isError(lookupResult)) return lookupResult;
 
-      const message = listResult.value.find(
-        (m) => m.messageId === input.messageId,
-      );
-      if (!message) {
+      if (!lookupResult.value) {
         return Result.err(
           NotFoundError.create("message", input.messageId) as SignetError,
         );
       }
 
-      return Result.ok(message);
+      // Validate the message belongs to the requested chat
+      const expectedGroupId = resolveGroupId(deps.idMappings, input.chatId);
+      if (lookupResult.value.groupId !== expectedGroupId) {
+        return Result.err(
+          NotFoundError.create("message", input.messageId) as SignetError,
+        );
+      }
+
+      return Result.ok(lookupResult.value);
     },
     cli: {
       command: "message:info",
@@ -294,9 +308,10 @@ export function createMessageActions(
       }
 
       const groupId = resolveGroupId(deps.idMappings, input.chatId);
+      const resolvedMsgId = resolveMessageId(deps.idMappings, input.messageId);
       const sendResult = await managed.client.sendMessage(
         groupId,
-        { text: input.text, reference: input.messageId },
+        { text: input.text, reference: resolvedMsgId },
         "reply",
       );
       if (Result.isError(sendResult)) return sendResult;
@@ -355,10 +370,11 @@ export function createMessageActions(
       }
 
       const groupId = resolveGroupId(deps.idMappings, input.chatId);
+      const resolvedMsgId = resolveMessageId(deps.idMappings, input.messageId);
       const sendResult = await managed.client.sendMessage(
         groupId,
         {
-          reference: input.messageId,
+          reference: resolvedMsgId,
           action: "added",
           content: input.reaction,
           schema: "unicode",

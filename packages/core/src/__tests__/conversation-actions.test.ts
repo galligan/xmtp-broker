@@ -80,6 +80,7 @@ function createMockClient(options?: {
         createdAt: new Date().toISOString(),
       });
     },
+    getMessageById: () => Result.ok(undefined),
     streamAllMessages: async () =>
       Result.ok({ messages: emptyAsyncIterable(), abort: () => {} }),
     streamGroups: async () =>

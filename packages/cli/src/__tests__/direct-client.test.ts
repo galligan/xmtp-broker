@@ -104,6 +104,9 @@ function makeMockDeps(): DirectModeDeps {
         async listGroups() {
           return Result.ok([]);
         },
+        getMessageById() {
+          return Result.ok(undefined);
+        },
         async addMembers() {
           return Result.ok(undefined);
         },

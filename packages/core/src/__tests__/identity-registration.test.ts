@@ -46,6 +46,7 @@ function createMockClient(inboxId: string): XmtpClient {
     listGroups: notImplemented,
     addMembers: notImplemented,
     removeMembers: notImplemented,
+    getMessageById: notImplemented,
     streamAllMessages: notImplemented,
     streamGroups: notImplemented,
   };

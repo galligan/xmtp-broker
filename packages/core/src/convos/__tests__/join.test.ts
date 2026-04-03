@@ -136,6 +136,7 @@ function createMockClient(options?: {
     },
     syncGroup: notImplemented,
     getGroupInfo: notImplemented,
+    getMessageById: notImplemented,
     listMessages: notImplemented,
     listGroups: async () => {
       // Return groups only after sync has been called (simulating acceptance)
