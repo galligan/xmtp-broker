@@ -231,6 +231,10 @@ export function createMessageCommands(
     .option("--config <path>", "Path to config file")
     .requiredOption("--from <chat>", "Conversation ID")
     .option("--as <inbox>", "Inbox ID to act as")
+    .option(
+      "--dangerously-allow-message-read",
+      "Request a locally approved admin read elevation for this command",
+    )
     .option("--watch", "Watch for new messages")
     .option("--json", "JSON output")
     .action(
@@ -238,12 +242,16 @@ export function createMessageCommands(
         config?: string;
         from: string;
         as?: string;
+        dangerouslyAllowMessageRead?: true;
         watch?: true;
         json?: true;
       }) => {
         const json = opts.json === true;
         const payload: Record<string, unknown> = { chatId: opts.from };
         if (opts.as !== undefined) payload["identityLabel"] = opts.as;
+        if (opts.dangerouslyAllowMessageRead === true) {
+          payload["dangerouslyAllowMessageRead"] = true;
+        }
 
         const result = await resolvedDeps.withDaemonClient(
           { configPath: opts.config },
@@ -266,11 +274,21 @@ export function createMessageCommands(
     .option("--config <path>", "Path to config file")
     .requiredOption("--chat <id>", "Conversation ID")
     .option("--as <inbox>", "Inbox ID to act as")
+    .option(
+      "--dangerously-allow-message-read",
+      "Request a locally approved admin read elevation for this command",
+    )
     .option("--json", "JSON output")
     .action(
       async (
         msgId: string,
-        opts: { config?: string; chat: string; as?: string; json?: true },
+        opts: {
+          config?: string;
+          chat: string;
+          as?: string;
+          dangerouslyAllowMessageRead?: true;
+          json?: true;
+        },
       ) => {
         const json = opts.json === true;
         const payload: Record<string, unknown> = {
@@ -278,6 +296,9 @@ export function createMessageCommands(
           messageId: msgId,
         };
         if (opts.as !== undefined) payload["identityLabel"] = opts.as;
+        if (opts.dangerouslyAllowMessageRead === true) {
+          payload["dangerouslyAllowMessageRead"] = true;
+        }
 
         const result = await resolvedDeps.withDaemonClient(
           { configPath: opts.config },

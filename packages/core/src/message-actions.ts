@@ -1,11 +1,12 @@
 import { Result } from "better-result";
 import { z } from "zod";
-import type { ActionSpec } from "@xmtp/signet-contracts";
-import { NotFoundError } from "@xmtp/signet-schemas";
+import type { ActionSpec, HandlerContext } from "@xmtp/signet-contracts";
+import { NotFoundError, PermissionError } from "@xmtp/signet-schemas";
 import type {
   SignetError,
   IdMappingStore,
   CredentialRecordType,
+  AdminReadElevationType,
 } from "@xmtp/signet-schemas";
 import type { SqliteIdentityStore } from "./identity-store.js";
 import type { ManagedClient } from "./client-registry.js";
@@ -105,6 +106,69 @@ function resolveEffectiveScopes(config: {
   return allowed;
 }
 
+function authorizeAdminReadElevation(
+  elevation: AdminReadElevationType,
+  chatId: string,
+  idMappings: IdMappingStore | undefined,
+): Result<void, SignetError> {
+  const expiresAt = Date.parse(elevation.expiresAt);
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    return Result.err(
+      PermissionError.create("Admin read elevation has expired", {
+        approvalId: elevation.approvalId,
+        expiresAt: elevation.expiresAt,
+      }) as SignetError,
+    );
+  }
+
+  const targetGroupId = resolveGroupId(idMappings, chatId);
+  const scopedGroupIds = elevation.scope.chatIds.map((scopedChatId) =>
+    resolveGroupId(idMappings, scopedChatId),
+  );
+  if (!scopedGroupIds.includes(targetGroupId)) {
+    return Result.err(
+      PermissionError.create(
+        "Admin read elevation does not cover this conversation",
+        {
+          approvalId: elevation.approvalId,
+          chatId,
+        },
+      ) as SignetError,
+    );
+  }
+
+  return Result.ok(undefined);
+}
+
+function authorizeAdminReadAccess(
+  ctx: HandlerContext,
+  chatId: string,
+  idMappings: IdMappingStore | undefined,
+): Result<void, SignetError> {
+  if (ctx.credentialId) {
+    return Result.ok(undefined);
+  }
+  if (ctx.adminReadElevation) {
+    return authorizeAdminReadElevation(
+      ctx.adminReadElevation,
+      chatId,
+      idMappings,
+    );
+  }
+  if (ctx.adminAuth) {
+    return Result.err(
+      PermissionError.create(
+        "Admin message reads require owner-approved elevation",
+        {
+          chatId,
+          hint: "--dangerously-allow-message-read",
+        },
+      ) as SignetError,
+    );
+  }
+  return Result.ok(undefined);
+}
+
 function widenActionSpec<TInput, TOutput>(
   spec: ActionSpec<TInput, TOutput, SignetError>,
 ): ActionSpec<unknown, unknown, SignetError> {
@@ -188,6 +252,15 @@ export function createMessageActions(
       identityLabel: z.string().optional(),
     }),
     handler: async (input, ctx) => {
+      const elevationResult = authorizeAdminReadAccess(
+        ctx,
+        input.chatId,
+        deps.idMappings,
+      );
+      if (Result.isError(elevationResult)) {
+        return elevationResult;
+      }
+
       // Credential scope enforcement: verify the caller can read
       // messages in this conversation before hitting the SDK.
       // Fail closed: if credentialId is present but credentialLookup
@@ -289,6 +362,15 @@ export function createMessageActions(
         Result.err(
           NotFoundError.create("message", input.messageId) as SignetError,
         );
+
+      const elevationResult = authorizeAdminReadAccess(
+        ctx,
+        input.chatId,
+        deps.idMappings,
+      );
+      if (Result.isError(elevationResult)) {
+        return elevationResult;
+      }
 
       // Credential scope enforcement: verify scope BEFORE any data
       // access to prevent timing side-channels that leak message

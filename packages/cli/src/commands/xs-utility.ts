@@ -10,6 +10,7 @@
 
 import { Command, Option } from "commander";
 import { Result } from "better-result";
+import type { SignetError } from "@xmtp/signet-schemas";
 import type { AuditEntry } from "../audit/log.js";
 import { formatOutput } from "../output/formatter.js";
 import { exitCodeFromCategory } from "../output/exit-codes.js";
@@ -18,23 +19,127 @@ import {
   type WithDaemonClient,
 } from "./daemon-client.js";
 
-/** Stub action output for commands not yet wired to the daemon. */
-function stubOutput(
-  action: string,
-  params: Record<string, unknown>,
-  json: boolean,
-): string {
-  return formatOutput({ action, ...params }, { json }) + "\n";
-}
-
 /** Dependencies for utility commands. */
 export interface XsUtilityCommandDeps {
   readonly withDaemonClient: WithDaemonClient;
+  readonly writeStdout: (message: string) => void;
+  readonly writeStderr: (message: string) => void;
+  readonly exit: (code: number) => void;
 }
 
 const defaultUtilityDeps: XsUtilityCommandDeps = {
   withDaemonClient: createWithDaemonClient(),
+  writeStdout(message) {
+    process.stdout.write(message);
+  },
+  writeStderr(message) {
+    process.stderr.write(message);
+  },
+  exit(code) {
+    process.exit(code);
+  },
 };
+
+interface LookupResolveResult {
+  readonly query: string;
+  readonly found: boolean;
+  readonly mapping: {
+    readonly localId: string;
+    readonly networkId: string;
+  } | null;
+  readonly inbox: {
+    readonly id: string;
+    readonly label: string | null;
+    readonly networkInboxId: string | null;
+    readonly groupId: string | null;
+    readonly createdAt: string;
+  } | null;
+  readonly operator: {
+    readonly id: string;
+    readonly label: string;
+    readonly role: string;
+    readonly status: string;
+  } | null;
+  readonly policy: {
+    readonly id: string;
+    readonly label: string;
+    readonly updatedAt: string;
+  } | null;
+  readonly credential: {
+    readonly id: string;
+    readonly operatorId: string;
+    readonly policyId: string | null;
+    readonly chatIds: readonly string[];
+    readonly status: string;
+    readonly expiresAt: string;
+  } | null;
+}
+
+function writeError(
+  deps: XsUtilityCommandDeps,
+  error: SignetError,
+  json: boolean,
+): void {
+  deps.writeStderr(
+    formatOutput(
+      {
+        error: error._tag,
+        category: error.category,
+        message: error.message,
+        ...(error.context !== null ? { context: error.context } : {}),
+      },
+      { json },
+    ) + "\n",
+  );
+  deps.exit(exitCodeFromCategory(error.category));
+}
+
+function formatLookupResult(result: LookupResolveResult): string {
+  if (!result.found) {
+    return `No local match found for "${result.query}".`;
+  }
+
+  const lines = [`Query: ${result.query}`];
+
+  if (result.mapping) {
+    lines.push(`Local ID: ${result.mapping.localId}`);
+    lines.push(`Network ID: ${result.mapping.networkId}`);
+  }
+
+  if (result.inbox) {
+    lines.push(
+      `Inbox: ${result.inbox.id}${result.inbox.label ? ` (${result.inbox.label})` : ""}`,
+    );
+    if (result.inbox.networkInboxId) {
+      lines.push(`Inbox Network ID: ${result.inbox.networkInboxId}`);
+    }
+    if (result.inbox.groupId) {
+      lines.push(`Bound Group: ${result.inbox.groupId}`);
+    }
+  }
+
+  if (result.operator) {
+    lines.push(
+      `Operator: ${result.operator.id} (${result.operator.label}) role=${result.operator.role} status=${result.operator.status}`,
+    );
+  }
+
+  if (result.policy) {
+    lines.push(`Policy: ${result.policy.id} (${result.policy.label})`);
+  }
+
+  if (result.credential) {
+    lines.push(
+      `Credential: ${result.credential.id} operator=${result.credential.operatorId} status=${result.credential.status}`,
+    );
+    if (result.credential.policyId) {
+      lines.push(`Credential Policy: ${result.credential.policyId}`);
+    }
+    lines.push(`Credential Chats: ${result.credential.chatIds.join(", ")}`);
+  }
+
+  return lines.join("\n");
+}
 
 /**
  * Create utility commands for the top-level program.
@@ -45,7 +150,11 @@ const defaultUtilityDeps: XsUtilityCommandDeps = {
 export function createUtilityCommands(
   deps: Partial<XsUtilityCommandDeps> = {},
 ): Command[] {
-  const { withDaemonClient } = { ...defaultUtilityDeps, ...deps };
+  const resolvedDeps: XsUtilityCommandDeps = {
+    ...defaultUtilityDeps,
+    ...deps,
+  };
+  const { withDaemonClient } = resolvedDeps;
   const commands: Command[] = [];
 
   // --- logs ---
@@ -77,18 +186,16 @@ export function createUtilityCommands(
         );
 
         if (Result.isError(result)) {
-          process.stderr.write(
-            formatOutput({ error: result.error.message }, { json }) + "\n",
-          );
-          process.exit(exitCodeFromCategory(result.error.category));
+          writeError(resolvedDeps, result.error, json);
+          return;
         }
 
         if (json) {
-          process.stdout.write(formatOutput(result.value, { json }) + "\n");
+          resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
         } else {
           for (const entry of result.value) {
             const line = `${entry.timestamp} [${entry.actor}] ${entry.action}${entry.success ? "" : " FAILED"}${entry.target !== undefined ? ` target=${entry.target}` : ""}`;
-            process.stdout.write(line + "\n");
+            resolvedDeps.writeStdout(line + "\n");
           }
         }
       },
@@ -105,15 +212,13 @@ export function createUtilityCommands(
       );
 
       if (Result.isError(result)) {
-        process.stderr.write(
-          formatOutput({ error: result.error.message }, { json: true }) + "\n",
-        );
-        process.exit(exitCodeFromCategory(result.error.category));
+        writeError(resolvedDeps, result.error, true);
+        return;
       }
 
       // NDJSON: one JSON object per line
       for (const entry of result.value) {
-        process.stdout.write(JSON.stringify(entry) + "\n");
+        resolvedDeps.writeStdout(JSON.stringify(entry) + "\n");
       }
     });
   commands.push(logs);
@@ -121,13 +226,29 @@ export function createUtilityCommands(
   // --- lookup ---
 
   const lookup = new Command("lookup")
-    .description("Look up an address or ID")
-    .argument("<address>", "Address or ID to look up")
+    .description("Resolve a local or network identifier")
+    .argument("<query>", "Address, label, or ID to look up")
+    .option("--config <path>", "Path to config file")
     .option("--json", "JSON output")
-    .action((address: string, opts: { json?: true }) => {
-      process.stdout.write(
-        stubOutput("lookup", { address }, opts.json === true),
+    .action(async (query: string, opts: { config?: string; json?: true }) => {
+      const json = opts.json === true;
+      const result = await withDaemonClient(
+        { configPath: opts.config },
+        async (client) =>
+          client.request<LookupResolveResult>("lookup.resolve", { query }),
       );
+
+      if (Result.isError(result)) {
+        writeError(resolvedDeps, result.error, json);
+        return;
+      }
+
+      if (json) {
+        resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
+        return;
+      }
+
+      resolvedDeps.writeStdout(formatLookupResult(result.value) + "\n");
     });
   commands.push(lookup);
 
@@ -199,22 +320,24 @@ export function createUtilityCommands(
           );
 
           if (Result.isError(result)) {
-            process.stderr.write(
-              formatOutput({ error: result.error.message }, { json }) + "\n",
-            );
-            process.exit(exitCodeFromCategory(result.error.category));
+            writeError(resolvedDeps, result.error, json);
+            return;
           }
 
           if (json) {
-            process.stdout.write(formatOutput(result.value, { json }) + "\n");
+            resolvedDeps.writeStdout(
+              formatOutput(result.value, { json }) + "\n",
+            );
           } else {
             if (result.value.matches.length === 0) {
-              process.stdout.write("No resources found.\n");
+              resolvedDeps.writeStdout("No resources found.\n");
             } else {
               for (const hit of result.value.matches) {
-                process.stdout.write(`[${hit.type}] ${hit.id}  ${hit.label}\n`);
+                resolvedDeps.writeStdout(
+                  `[${hit.type}] ${hit.id}  ${hit.label}\n`,
+                );
               }
-              process.stdout.write(`\n${result.value.total} result(s)\n`);
+              resolvedDeps.writeStdout(`\n${result.value.total} result(s)\n`);
             }
           }
         } else {
@@ -243,17 +366,17 @@ export function createUtilityCommands(
           );
 
           if (Result.isError(result)) {
-            process.stderr.write(
-              formatOutput({ error: result.error.message }, { json }) + "\n",
-            );
-            process.exit(exitCodeFromCategory(result.error.category));
+            writeError(resolvedDeps, result.error, json);
+            return;
           }
 
           if (json) {
-            process.stdout.write(formatOutput(result.value, { json }) + "\n");
+            resolvedDeps.writeStdout(
+              formatOutput(result.value, { json }) + "\n",
+            );
           } else {
             if (result.value.matches.length === 0) {
-              process.stdout.write("No messages found.\n");
+              resolvedDeps.writeStdout("No messages found.\n");
             } else {
               for (const hit of result.value.matches) {
                 const ts = hit.sentAt;
@@ -261,11 +384,11 @@ export function createUtilityCommands(
                   hit.content.length > 80
                     ? hit.content.slice(0, 80) + "..."
                     : hit.content;
-                process.stdout.write(
+                resolvedDeps.writeStdout(
                   `${ts} [${hit.chatId}] ${hit.senderInboxId}: ${preview}\n`,
                 );
               }
-              process.stdout.write(`\n${result.value.total} result(s)\n`);
+              resolvedDeps.writeStdout(`\n${result.value.total} result(s)\n`);
             }
           }
         }
@@ -306,13 +429,11 @@ export function createUtilityCommands(
         );
 
         if (Result.isError(result)) {
-          process.stderr.write(
-            formatOutput({ error: result.error.message }, { json }) + "\n",
-          );
-          process.exit(exitCodeFromCategory(result.error.category));
+          writeError(resolvedDeps, result.error, json);
+          return;
         }
 
-        process.stdout.write(formatOutput(result.value, { json }) + "\n");
+        resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
       },
     );
 
@@ -345,13 +466,11 @@ export function createUtilityCommands(
         );
 
         if (Result.isError(result)) {
-          process.stderr.write(
-            formatOutput({ error: result.error.message }, { json }) + "\n",
-          );
-          process.exit(exitCodeFromCategory(result.error.category));
+          writeError(resolvedDeps, result.error, json);
+          return;
         }
 
-        process.stdout.write(formatOutput(result.value, { json }) + "\n");
+        resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
       },
     );
 
@@ -384,13 +503,11 @@ export function createUtilityCommands(
         );
 
         if (Result.isError(result)) {
-          process.stderr.write(
-            formatOutput({ error: result.error.message }, { json }) + "\n",
-          );
-          process.exit(exitCodeFromCategory(result.error.category));
+          writeError(resolvedDeps, result.error, json);
+          return;
         }
 
-        process.stdout.write(formatOutput(result.value, { json }) + "\n");
+        resolvedDeps.writeStdout(formatOutput(result.value, { json }) + "\n");
       },
     );
 

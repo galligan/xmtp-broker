@@ -10,6 +10,7 @@ export type BiometricGateConfig = {
   scopeExpansion: boolean;
   egressExpansion: boolean;
   agentCreation: boolean;
+  adminReadElevation: boolean;
 };
 
 /** Input type with all fields optional for configuration merging. */
@@ -19,6 +20,7 @@ export type BiometricGateConfigInput = {
   scopeExpansion?: boolean | undefined;
   egressExpansion?: boolean | undefined;
   agentCreation?: boolean | undefined;
+  adminReadElevation?: boolean | undefined;
 };
 
 /** Per-operation toggles for biometric gating. */
@@ -48,6 +50,10 @@ export const BiometricGateConfigSchema: z.ZodType<
       .boolean()
       .default(false)
       .describe("Require biometric for creating new agent inboxes"),
+    adminReadElevation: z
+      .boolean()
+      .default(false)
+      .describe("Require biometric for owner-approved admin read elevation"),
   })
   .describe("Per-operation biometric gating configuration");
 
@@ -57,7 +63,8 @@ export type GatedOperation =
   | "operationalKeyRotation"
   | "scopeExpansion"
   | "egressExpansion"
-  | "agentCreation";
+  | "agentCreation"
+  | "adminReadElevation";
 
 /** Callback to prompt biometric authentication. Returns Ok if confirmed. */
 export type BiometricPrompter = (

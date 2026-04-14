@@ -40,8 +40,15 @@ function testSocketPath(): string {
 }
 
 /** Minimal mock key manager for testing. */
-function makeKeyManager(opts?: { rejectAuth?: boolean }) {
+function makeKeyManager(opts?: {
+  rejectAuth?: boolean;
+  rejectElevation?: boolean;
+}) {
+  let authorizeCalls = 0;
   return {
+    get authorizeCalls() {
+      return authorizeCalls;
+    },
     admin: {
       async verifyJwt(
         token: string,
@@ -57,6 +64,19 @@ function makeKeyManager(opts?: { rejectAuth?: boolean }) {
           jti: "test-jti",
         });
       },
+      async get() {
+        return Result.ok({
+          publicKey: "test-public-key",
+          fingerprint: "approval-fingerprint",
+        } as const);
+      },
+    },
+    async authorizeSensitiveOperation() {
+      authorizeCalls++;
+      if (opts?.rejectElevation) {
+        return Result.err(PermissionError.create("Elevation denied"));
+      }
+      return Result.ok(undefined);
     },
   };
 }
@@ -71,6 +91,19 @@ function makeStubSignerProvider(): SignerProvider {
     getFingerprint: async () => err(),
     getDbEncryptionKey: async () => err(),
     getXmtpIdentityKey: async () => err(),
+  };
+}
+
+function makeReadElevationApprover(
+  keyManager: ReturnType<typeof makeKeyManager>,
+) {
+  return {
+    authorize: async () =>
+      keyManager.authorizeSensitiveOperation("adminReadElevation"),
+    async getApprovalFingerprint() {
+      const info = await keyManager.admin.get();
+      return Result.isError(info) ? info : Result.ok(info.value.fingerprint);
+    },
   };
 }
 
@@ -234,6 +267,185 @@ describe("AdminSocket round-trip", () => {
     if (r2.isOk()) {
       expect(r2.value.count).toBe(2);
     }
+  });
+
+  test("dangerous message read requests attach admin read elevation to context", async () => {
+    const socketPath = testSocketPath();
+    const registry = createActionRegistry();
+    const keyManager = makeKeyManager();
+    const spec = makeTestSpec("message.list", async (_input, ctx) =>
+      Result.ok({
+        approvalId: ctx.adminReadElevation?.approvalId ?? null,
+        chatIds: ctx.adminReadElevation?.scope.chatIds ?? [],
+        approvalKeyFingerprint:
+          ctx.adminReadElevation?.approvalKeyFingerprint ?? null,
+      }),
+    );
+    registry.register(spec);
+    const dispatcher = createAdminDispatcher(registry);
+
+    server = createAdminServer(
+      { socketPath, authMode: "admin-key" },
+      {
+        keyManager,
+        dispatcher,
+        signetId: "test-signet",
+        signerProvider: makeStubSignerProvider(),
+        readElevationApprover: makeReadElevationApprover(keyManager),
+      },
+    );
+    await server.start();
+
+    client = createAdminClient(socketPath);
+    const connectResult = await client.connect("valid-jwt-token");
+    expect(connectResult.isOk()).toBe(true);
+
+    const response = await client.request<{
+      approvalId: string | null;
+      chatIds: string[];
+      approvalKeyFingerprint: string | null;
+    }>("message.list", {
+      chatId: "conv_0123456789abcdef",
+      dangerouslyAllowMessageRead: true,
+    });
+
+    expect(response.isOk()).toBe(true);
+    if (response.isOk()) {
+      expect(response.value.approvalId).toContain("approval_");
+      expect(response.value.chatIds).toEqual(["conv_0123456789abcdef"]);
+      expect(response.value.approvalKeyFingerprint).toBe(
+        "approval-fingerprint",
+      );
+    }
+  });
+
+  test("dangerous message read request fails when local approval is denied", async () => {
+    const socketPath = testSocketPath();
+    const registry = createActionRegistry();
+    const keyManager = makeKeyManager({ rejectElevation: true });
+    const spec = makeTestSpec("message.list", async () => Result.ok({}));
+    registry.register(spec);
+    const dispatcher = createAdminDispatcher(registry);
+
+    server = createAdminServer(
+      { socketPath, authMode: "admin-key" },
+      {
+        keyManager,
+        dispatcher,
+        signetId: "test-signet",
+        signerProvider: makeStubSignerProvider(),
+        readElevationApprover: makeReadElevationApprover(keyManager),
+      },
+    );
+    await server.start();
+
+    client = createAdminClient(socketPath);
+    const connectResult = await client.connect("valid-jwt-token");
+    expect(connectResult.isOk()).toBe(true);
+
+    const response = await client.request("message.list", {
+      chatId: "conv_0123456789abcdef",
+      dangerouslyAllowMessageRead: true,
+    });
+
+    expect(response.isOk()).toBe(false);
+    if (response.isErr()) {
+      expect(response.error.category).toBe("permission");
+      expect(response.error.message).toContain("Elevation denied");
+    }
+  });
+
+  test("message read without dangerous flag does not attach elevation", async () => {
+    const socketPath = testSocketPath();
+    const registry = createActionRegistry();
+    const spec = makeTestSpec("message.list", async (_input, ctx) =>
+      Result.ok({
+        approvalId: ctx.adminReadElevation?.approvalId ?? null,
+      }),
+    );
+    registry.register(spec);
+    const dispatcher = createAdminDispatcher(registry);
+
+    server = createAdminServer(
+      { socketPath, authMode: "admin-key" },
+      {
+        keyManager: makeKeyManager(),
+        dispatcher,
+        signetId: "test-signet",
+        signerProvider: makeStubSignerProvider(),
+      },
+    );
+    await server.start();
+
+    client = createAdminClient(socketPath);
+    const connectResult = await client.connect("valid-jwt-token");
+    expect(connectResult.isOk()).toBe(true);
+
+    const response = await client.request<{ approvalId: string | null }>(
+      "message.list",
+      {
+        chatId: "conv_0123456789abcdef",
+      },
+    );
+
+    expect(response.isOk()).toBe(true);
+    if (response.isOk()) {
+      expect(response.value.approvalId).toBeNull();
+    }
+  });
+
+  test("dangerous message reads reuse a live elevation within the same admin session", async () => {
+    const socketPath = testSocketPath();
+    const registry = createActionRegistry();
+    const keyManager = makeKeyManager();
+    const spec = makeTestSpec("message.info", async (_input, ctx) =>
+      Result.ok({
+        approvalId: ctx.adminReadElevation?.approvalId ?? null,
+      }),
+    );
+    registry.register(spec);
+    const dispatcher = createAdminDispatcher(registry);
+
+    server = createAdminServer(
+      { socketPath, authMode: "admin-key" },
+      {
+        keyManager,
+        dispatcher,
+        signetId: "test-signet",
+        signerProvider: makeStubSignerProvider(),
+        readElevationApprover: makeReadElevationApprover(keyManager),
+      },
+    );
+    await server.start();
+
+    client = createAdminClient(socketPath);
+    const connectResult = await client.connect("valid-jwt-token");
+    expect(connectResult.isOk()).toBe(true);
+
+    const first = await client.request<{ approvalId: string | null }>(
+      "message.info",
+      {
+        chatId: "conv_same_session",
+        messageId: "msg_1",
+        dangerouslyAllowMessageRead: true,
+      },
+    );
+    const second = await client.request<{ approvalId: string | null }>(
+      "message.info",
+      {
+        chatId: "conv_same_session",
+        messageId: "msg_2",
+        dangerouslyAllowMessageRead: true,
+      },
+    );
+
+    expect(first.isOk()).toBe(true);
+    expect(second.isOk()).toBe(true);
+    if (first.isOk() && second.isOk()) {
+      expect(first.value.approvalId).toContain("approval_");
+      expect(second.value.approvalId).toBe(first.value.approvalId);
+    }
+    expect(keyManager.authorizeCalls).toBe(1);
   });
 
   test("client preserves structured signet errors from JSON-RPC failures", async () => {

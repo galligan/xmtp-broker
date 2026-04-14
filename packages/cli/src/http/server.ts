@@ -15,6 +15,12 @@ import {
   matchHttpActionRoute,
   type HttpActionRoute,
 } from "./action-routes.js";
+import type { AuditLog } from "../audit/log.js";
+import {
+  createAdminReadElevationManager,
+  type AdminReadElevationApprover,
+  type AdminReadElevationManager,
+} from "../admin/read-elevation.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,6 +42,9 @@ export interface HttpServerDeps {
   readonly verifyAdminJwt: (
     token: string,
   ) => Promise<Result<AdminJwtPayload, SignetError>>;
+  readonly readElevationManager?: AdminReadElevationManager;
+  readonly readElevationApprover?: AdminReadElevationApprover;
+  readonly auditLog?: AuditLog;
   readonly status: () => unknown | Promise<unknown>;
 }
 
@@ -115,10 +124,19 @@ export function createHttpServer(
   let serverState: "idle" | "listening" | "stopped" = "idle";
   let bunServer: ReturnType<typeof Bun.serve> | undefined;
   let actionRoutes: readonly HttpActionRoute[] = [];
+  const readElevationManager =
+    deps.readElevationManager ??
+    createAdminReadElevationManager({
+      ...(deps.readElevationApprover
+        ? { approver: deps.readElevationApprover }
+        : {}),
+      ...(deps.auditLog ? { auditLog: deps.auditLog } : {}),
+    });
 
   function makeHandlerContext(options?: {
     adminAuth?: { adminKeyFingerprint: string };
     credential?: Pick<CredentialRecord, "credentialId" | "operatorId">;
+    adminReadElevation?: HandlerContext["adminReadElevation"];
   }): HandlerContext {
     const base: HandlerContext = {
       signetId: deps.signetId,
@@ -134,6 +152,9 @@ export function createHttpServer(
             credentialId: options.credential.credentialId,
             operatorId: options.credential.operatorId,
           }
+        : {}),
+      ...(options?.adminReadElevation
+        ? { adminReadElevation: options.adminReadElevation }
         : {}),
     };
   }
@@ -193,10 +214,25 @@ export function createHttpServer(
       return errorResponse("validation", "Invalid JSON body", null);
     }
 
+    const elevationResult = await readElevationManager.resolveForRequest({
+      method,
+      params,
+      adminFingerprint: verifyResult.value.iss,
+      sessionKey: `${verifyResult.value.iss}:${verifyResult.value.jti}`,
+    });
+    if (Result.isError(elevationResult)) {
+      return errorResponse(
+        elevationResult.error.category,
+        elevationResult.error.message,
+        elevationResult.error.context ?? null,
+      );
+    }
+
     const ctx = makeHandlerContext({
       adminAuth: {
         adminKeyFingerprint: verifyResult.value.iss,
       },
+      adminReadElevation: elevationResult.value,
     });
 
     const actionResult = await deps.dispatcher.dispatch(method, params, ctx);
@@ -272,38 +308,6 @@ export function createHttpServer(
       );
     }
 
-    let ctx: HandlerContext;
-
-    if (route.auth === "admin") {
-      const verifyResult = await deps.verifyAdminJwt(token);
-      if (Result.isError(verifyResult)) {
-        return errorResponse(
-          "auth",
-          verifyResult.error.message,
-          verifyResult.error.context ?? null,
-        );
-      }
-
-      ctx = makeHandlerContext({
-        adminAuth: {
-          adminKeyFingerprint: verifyResult.value.iss,
-        },
-      });
-    } else {
-      const credentialResult =
-        await deps.credentialManager.lookupByToken(token);
-      if (!credentialResult.isOk()) {
-        return errorResponse("auth", "Invalid credential token", null);
-      }
-
-      ctx = makeHandlerContext({
-        credential: {
-          credentialId: credentialResult.value.credentialId,
-          operatorId: credentialResult.value.operatorId,
-        },
-      });
-    }
-
     const paramsResult = await parseActionParams(req, route.inputSource);
     if (!paramsResult.isOk()) {
       return errorResponse(
@@ -327,6 +331,70 @@ export function createHttpServer(
         error.context ?? null,
       );
     }
+
+    if (route.auth === "admin") {
+      const verifyResult = await deps.verifyAdminJwt(token);
+      if (Result.isError(verifyResult)) {
+        return errorResponse(
+          "auth",
+          verifyResult.error.message,
+          verifyResult.error.context ?? null,
+        );
+      }
+
+      const elevationResult = await readElevationManager.resolveForRequest({
+        method: route.spec.id,
+        params: paramsResult.value,
+        adminFingerprint: verifyResult.value.iss,
+        sessionKey: `${verifyResult.value.iss}:${verifyResult.value.jti}`,
+      });
+      if (Result.isError(elevationResult)) {
+        return errorResponse(
+          elevationResult.error.category,
+          elevationResult.error.message,
+          elevationResult.error.context ?? null,
+        );
+      }
+
+      const ctx = makeHandlerContext({
+        adminAuth: {
+          adminKeyFingerprint: verifyResult.value.iss,
+        },
+        adminReadElevation: elevationResult.value,
+      });
+      try {
+        const result = await route.spec.handler(parseResult.data, ctx);
+        if (result.isOk()) {
+          return successResponse(result.value);
+        }
+
+        return errorResponse(
+          result.error.category,
+          result.error.message,
+          result.error.context ?? null,
+        );
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        const internalError = InternalError.create(`Handler threw: ${message}`);
+        return errorResponse(
+          internalError.category,
+          internalError.message,
+          internalError.context ?? null,
+        );
+      }
+    }
+
+    const credentialResult = await deps.credentialManager.lookupByToken(token);
+    if (!credentialResult.isOk()) {
+      return errorResponse("auth", "Invalid credential token", null);
+    }
+
+    const ctx = makeHandlerContext({
+      credential: {
+        credentialId: credentialResult.value.credentialId,
+        operatorId: credentialResult.value.operatorId,
+      },
+    });
 
     try {
       const result = await route.spec.handler(parseResult.data, ctx);

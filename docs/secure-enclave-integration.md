@@ -126,9 +126,12 @@ confirmation. This uses a second SE key with `biometric` policy.
 
 The current runtime wiring applies this gate to compat key lifecycle
 operations such as root key creation, agent/operational key creation, and
-operational key rotation. Scope- and egress-expansion gate toggles remain
-part of the broader intended model, but are not yet consumed by a runtime
-code path.
+operational key rotation. Admin read elevation is also now consumed by the
+runtime on both the admin socket and HTTP admin routes, and active elevation
+now refreshes the current chat seal so `adminAccess` disclosure remains
+accurate while the elevation is live. Scope-expansion and egress-expansion
+toggles remain part of the broader intended model, but are not yet consumed by
+a runtime code path.
 
 ### Gated operations
 
@@ -141,6 +144,7 @@ operationalKeyRotation = true
 scopeExpansion = true
 egressExpansion = true
 agentCreation = false
+adminReadElevation = true
 ```
 
 When a gated operation fires:

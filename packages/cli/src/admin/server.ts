@@ -13,8 +13,14 @@ import {
   type AdminJwtPayload,
 } from "./protocol.js";
 import type { AdminServerConfig } from "../config/schema.js";
+import type { AuditLog } from "../audit/log.js";
 import { existsSync, unlinkSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import {
+  createAdminReadElevationManager,
+  type AdminReadElevationApprover,
+  type AdminReadElevationManager,
+} from "./read-elevation.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,6 +50,9 @@ export interface AdminServerDeps {
   readonly dispatcher: AdminDispatcher;
   readonly signetId: string;
   readonly signerProvider: HandlerContext["signerProvider"];
+  readonly readElevationManager?: AdminReadElevationManager;
+  readonly readElevationApprover?: AdminReadElevationApprover;
+  readonly auditLog?: AuditLog;
 }
 
 // ---------------------------------------------------------------------------
@@ -53,7 +62,23 @@ export interface AdminServerDeps {
 interface ConnectionState {
   authenticated: boolean;
   adminFingerprint: string | null;
+  adminSessionKey: string | null;
   buffer: string;
+}
+
+function jsonRpcCodeForCategory(category: string): number {
+  switch (category) {
+    case "validation":
+      return JSON_RPC_ERRORS.INVALID_PARAMS;
+    case "auth":
+      return JSON_RPC_ERRORS.AUTH_FAILED;
+    case "permission":
+      return JSON_RPC_ERRORS.PERMISSION_DENIED;
+    case "not_found":
+      return JSON_RPC_ERRORS.NOT_FOUND;
+    default:
+      return JSON_RPC_ERRORS.INTERNAL_ERROR;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -72,6 +97,14 @@ export function createAdminServer(
   let serverState: "idle" | "listening" | "stopped" = "idle";
   let listener: ReturnType<typeof Bun.listen> | undefined;
   const socketPath = config.socketPath ?? "/tmp/xmtp-signet/admin.sock";
+  const readElevationManager =
+    deps.readElevationManager ??
+    createAdminReadElevationManager({
+      ...(deps.readElevationApprover
+        ? { approver: deps.readElevationApprover }
+        : {}),
+      ...(deps.auditLog ? { auditLog: deps.auditLog } : {}),
+    });
 
   const connectionStates = new WeakMap<object, ConnectionState>();
 
@@ -81,6 +114,7 @@ export function createAdminServer(
       state = {
         authenticated: false,
         adminFingerprint: null,
+        adminSessionKey: null,
         buffer: "",
       };
       connectionStates.set(socket, state);
@@ -112,13 +146,17 @@ export function createAdminServer(
     );
   }
 
-  function makeHandlerContext(fingerprint: string): HandlerContext {
+  function makeHandlerContext(
+    fingerprint: string,
+    adminReadElevation?: HandlerContext["adminReadElevation"],
+  ): HandlerContext {
     return {
       signetId: deps.signetId,
       signerProvider: deps.signerProvider,
       requestId: crypto.randomUUID(),
       signal: AbortSignal.timeout(30_000),
       adminAuth: { adminKeyFingerprint: fingerprint },
+      ...(adminReadElevation !== undefined ? { adminReadElevation } : {}),
     };
   }
 
@@ -167,6 +205,7 @@ export function createAdminServer(
 
       connState.authenticated = true;
       connState.adminFingerprint = verifyResult.value.iss;
+      connState.adminSessionKey = `${verifyResult.value.iss}:${verifyResult.value.jti}`;
       // Send auth success acknowledgment
       socket.write(
         JSON.stringify({ jsonrpc: "2.0", result: { authenticated: true } }) +
@@ -200,7 +239,28 @@ export function createAdminServer(
       return;
     }
 
-    const ctx = makeHandlerContext(connState.adminFingerprint ?? "");
+    const elevationResult = await readElevationManager.resolveForRequest({
+      method: request.method,
+      params: request.params,
+      adminFingerprint: connState.adminFingerprint ?? "",
+      sessionKey: connState.adminSessionKey ?? connState.adminFingerprint ?? "",
+    });
+    if (Result.isError(elevationResult)) {
+      socket.write(
+        makeJsonRpcError(
+          request.id,
+          jsonRpcCodeForCategory(elevationResult.error.category),
+          elevationResult.error.message,
+          elevationResult.error,
+        ),
+      );
+      return;
+    }
+
+    const ctx = makeHandlerContext(
+      connState.adminFingerprint ?? "",
+      elevationResult.value,
+    );
 
     const actionResult = await deps.dispatcher.dispatch(
       request.method,
@@ -211,16 +271,7 @@ export function createAdminServer(
     if (actionResult.ok) {
       socket.write(makeJsonRpcSuccess(request.id, actionResult));
     } else {
-      const errorCode =
-        actionResult.error.category === "validation"
-          ? JSON_RPC_ERRORS.INVALID_PARAMS
-          : actionResult.error.category === "auth"
-            ? JSON_RPC_ERRORS.AUTH_FAILED
-            : actionResult.error.category === "permission"
-              ? JSON_RPC_ERRORS.PERMISSION_DENIED
-              : actionResult.error.category === "not_found"
-                ? JSON_RPC_ERRORS.NOT_FOUND
-                : JSON_RPC_ERRORS.INTERNAL_ERROR;
+      const errorCode = jsonRpcCodeForCategory(actionResult.error.category);
 
       socket.write(
         makeJsonRpcError(

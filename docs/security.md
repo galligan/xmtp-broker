@@ -271,15 +271,12 @@ content.
 ### Admin path
 
 Admin-authenticated callers (no `credentialId` in context) still undergo
-chatId ↔ groupId validation. They cannot fish for messages across conversations
-by passing mismatched IDs. However, admins are not currently subject to
-credential scope checks — they can read any message in a conversation they
-specify.
+chatId ↔ groupId validation, but they now fail closed unless an explicit
+owner-approved read elevation is attached to the request context.
 
-This is an interim state. The full admin message access model requires
-owner-approved elevation via the biometric gate (see Privilege elevation below).
-Until that is implemented, the admin socket is local-only and admin auth tokens
-are short-lived.
+That means plain `adminAuth` is not enough to read message content. The daemon
+must inject a time-bound, chat-scoped `adminReadElevation` object before the
+message handlers will proceed.
 
 ## Privilege elevation
 
@@ -287,32 +284,47 @@ An admin can request elevated access (e.g., read access to an operator's
 messages). This requires owner approval via Secure Enclave biometric gate:
 
 1. Admin requests elevation
-2. Signet creates a pending elevation request
-3. Owner is prompted for biometric confirmation (Touch ID / Face ID)
-4. On approval: admin receives a time-bound, scoped read credential — logged
-   in audit trail with timestamp, scope, and approver. Credential expires
-   automatically.
-5. On denial: request logged, admin notified, no access granted
+2. Signet prompts for biometric confirmation (Touch ID / Face ID)
+3. On approval: the daemon issues a time-bound, chat-scoped read elevation for
+   the current authenticated admin session, logs the approval, and allows the
+   read
+4. On denial: the request is logged and the read is rejected
 
-When implemented, granting admin message read access will require an
-intentionally obnoxious flag (e.g., `--dangerously-allow-message-read`) to
-trigger biometric confirmation, audit log entry, seal republish with admin
-read access disclosed, and time-bound expiry. No hidden surveillance.
+The current admin transports use an intentionally obnoxious flag:
 
-> **Status:** Privilege elevation is designed but not yet implemented in the
-> v1 CLI. The biometric gate requires Secure Enclave integration.
+```bash
+xs msg list --from conv_9e2d --dangerously-allow-message-read
+xs msg info msg_1234 --chat conv_9e2d --dangerously-allow-message-read
+```
+
+The same `dangerouslyAllowMessageRead` transport control is also honored on the
+HTTP admin path.
+
+This flag remains explicit on every request. If the same authenticated admin
+session requests another read for the same chat before the short elevation TTL
+expires, the daemon reuses the cached approval instead of prompting again.
+
+> **Status:** The v1 runtime now supports short-lived, reusable admin read
+> elevation on both the admin socket and HTTP admin routes. The current head
+> seal for the affected chat is refreshed while elevation is active so public
+> disclosure stays honest. Cross-restart elevation persistence remains
+> deferred.
 
 Properties of elevated credentials:
 
 - **Explicit** — requires a deliberate request, not implicit
-- **Audited** — every elevation is logged (request, approval/denial, scope,
-  expiry)
+- **Audited** — approvals, denials, reuse, and expiry are logged
 - **Time-bound** — the read credential expires automatically
 - **Owner-approved** — biometric confirmation via Secure Enclave, cannot be
   bypassed
 - **Scoped** — grants access to specific operators/chats, not blanket access
-- **Seal-disclosed** — the seal is republished to show admin read access is
-  active
+- **Seal-disclosed** — the current public seal is republished while elevation
+  is active and refreshed again when the elevation expires
+
+In the current local v1 model, that disclosure is intentionally root-admin
+scoped rather than per-admin-user scoped. Public seals therefore surface
+temporary elevated read access as `adminAccess.operatorId: "owner"` with the
+same expiry as the active elevation.
 
 ## Threat model
 

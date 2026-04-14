@@ -29,6 +29,7 @@ import {
   createConsentActions,
   createConversationActions,
   createInboxActions as createInboxActionSpecs,
+  createLookupActions,
   createMessageActions,
   createSearchActions,
   createSqliteIdMappingStore,
@@ -62,6 +63,11 @@ import {
 import type { AdminServerConfig } from "./config/schema.js";
 import type { SignetRuntimeDeps } from "./runtime.js";
 import { createSealActions as createSealActionSpecs } from "./actions/seal-actions.js";
+import {
+  createAdminReadElevationManager,
+  type AdminReadElevationManager,
+} from "./admin/read-elevation.js";
+import { createAdminReadDisclosureStore } from "./admin/read-disclosure-store.js";
 import { createWsRequestHandler } from "./ws/request-handler.js";
 import { createLazyCoreUpgrade } from "./ws/core-upgrade.js";
 import { createEventProjector } from "./ws/event-projector.js";
@@ -117,6 +123,10 @@ export function createProductionDeps(): SignetRuntimeDeps {
   // Lazy-initialized ID mapping store for conv_ boundary
   let idMappingStoreRef: import("@xmtp/signet-schemas").IdMappingStore | null =
     null;
+  // Shared in-memory disclosure state for owner-approved admin message reads.
+  const readDisclosureStore = createAdminReadDisclosureStore();
+  // Late-bound shared elevation manager for admin socket + HTTP parity.
+  let readElevationManagerRef: AdminReadElevationManager | null = null;
   // In-memory invite tag store: groupId -> inviteTag (v1 single-process)
   const inviteTagStore = new Map<string, string>();
   // Track invite host listener unsubscribe for cleanup
@@ -373,6 +383,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
         credentialManager: d.credentialManager,
         operatorManager: operatorManagerRef,
         trustTier: keyManagerRef?.trustTier ?? "unverified",
+        lookupAdminAccess: (chatId) => readDisclosureStore.get(chatId),
       });
 
       const sealManager = createSealManagerImpl({
@@ -382,6 +393,60 @@ export function createProductionDeps(): SignetRuntimeDeps {
       });
       globalSealManagerRef = sealManager;
       return sealManager;
+    },
+
+    createReadElevationManager(deps: unknown) {
+      const d = deps as {
+        keyManager: KeyManager;
+        sealManager: import("@xmtp/signet-contracts").SealManager;
+        auditLog: import("./audit/log.js").AuditLog;
+      };
+
+      const manager =
+        readElevationManagerRef ??
+        createAdminReadElevationManager({
+          approver: {
+            authorize: async () =>
+              d.keyManager.authorizeSensitiveOperation("adminReadElevation"),
+            getApprovalFingerprint: async () => {
+              const info = await d.keyManager.admin.get();
+              return Result.isError(info)
+                ? info
+                : Result.ok(info.value.fingerprint);
+            },
+          },
+          auditLog: d.auditLog,
+          disclosureStore: readDisclosureStore,
+          disclosureActorId: "owner",
+          onDisclosureChanged: async (chatIds) => {
+            const refreshedSealIds = new Set<string>();
+
+            for (const chatId of chatIds) {
+              const listResult = await d.sealManager.list({ chatId });
+              if (Result.isError(listResult)) {
+                return listResult;
+              }
+
+              for (const seal of listResult.value) {
+                const sealId = seal.chain.current.sealId;
+                if (refreshedSealIds.has(sealId)) {
+                  continue;
+                }
+                refreshedSealIds.add(sealId);
+
+                const refreshResult = await d.sealManager.refresh(sealId);
+                if (Result.isError(refreshResult)) {
+                  return refreshResult;
+                }
+              }
+            }
+
+            return Result.ok(undefined);
+          },
+        });
+
+      readElevationManagerRef = manager;
+      return manager;
     },
 
     createWsServer(config: unknown, deps: unknown): WsServer {
@@ -889,6 +954,30 @@ export function createProductionDeps(): SignetRuntimeDeps {
       };
 
       return createSearchActions(searchDeps);
+    },
+
+    createLookupActions() {
+      if (coreImplRef === null) {
+        throw new Error("SignetCoreImpl not initialized before lookup actions");
+      }
+
+      if (!idMappingStoreRef) {
+        const dbPath =
+          coreImplRef.config.dataDir === ":memory:"
+            ? ":memory:"
+            : `${coreImplRef.config.dataDir}/id-mappings.db`;
+        idMappingStoreRef = createSqliteIdMappingStore(new Database(dbPath));
+      }
+
+      return createLookupActions({
+        identityStore: coreImplRef.identityStore,
+        idMappings: idMappingStoreRef,
+        ...(operatorManagerRef ? { operatorManager: operatorManagerRef } : {}),
+        ...(policyManagerRef ? { policyManager: policyManagerRef } : {}),
+        ...(credentialManagerRef
+          ? { credentialManager: credentialManagerRef }
+          : {}),
+      });
     },
 
     async listIdentities() {

@@ -100,16 +100,14 @@ describe("buildSeal", () => {
     const result = buildSeal(
       validInput({
         adminAccess: {
-          operatorId: "op_adcd0123feedbabe",
+          operatorId: "owner",
           expiresAt: "2025-12-31T23:59:59.000Z",
         },
       }),
     );
     expect(Result.isOk(result)).toBe(true);
     if (Result.isError(result)) return;
-    expect(result.value.chain.current.adminAccess?.operatorId).toBe(
-      "op_adcd0123feedbabe",
-    );
+    expect(result.value.chain.current.adminAccess?.operatorId).toBe("owner");
   });
 
   test("maps trustTier from input", () => {

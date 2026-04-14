@@ -19,6 +19,22 @@ import {
 // Test helpers
 // ---------------------------------------------------------------------------
 
+function makeReadElevationApprover() {
+  let authorizeCalls = 0;
+  return {
+    get authorizeCalls() {
+      return authorizeCalls;
+    },
+    async authorize() {
+      authorizeCalls++;
+      return Result.ok(undefined);
+    },
+    async getApprovalFingerprint() {
+      return Result.ok("approval-fingerprint");
+    },
+  };
+}
+
 function makeDispatcher(overrides?: Partial<AdminDispatcher>): AdminDispatcher {
   return {
     dispatch:
@@ -56,6 +72,8 @@ function makeDeps(overrides?: Partial<HttpServerDeps>): HttpServerDeps {
           exp: 2,
           jti: "test-jti",
         } satisfies AdminJwtPayload)),
+    readElevationApprover: overrides?.readElevationApprover,
+    auditLog: overrides?.auditLog,
     status: overrides?.status ?? (() => ({ state: "running", pid: 1 })),
   };
 }
@@ -144,6 +162,66 @@ describe("HttpServer", () => {
     expect(seenFingerprint).toBe("admin-fingerprint");
   });
 
+  test("POST /v1/admin/:method can attach and reuse admin read elevation", async () => {
+    const approver = makeReadElevationApprover();
+    const dispatcher = makeDispatcher({
+      dispatch: async (_method, _params, ctx) => ({
+        ok: true as const,
+        data: {
+          approvalId: ctx.adminReadElevation?.approvalId ?? null,
+          chatIds: ctx.adminReadElevation?.scope.chatIds ?? [],
+        },
+        meta: {
+          requestId: "req-1",
+          timestamp: new Date().toISOString(),
+          durationMs: 1,
+        },
+      }),
+    });
+    const deps = makeDeps({
+      dispatcher,
+      readElevationApprover: approver,
+    });
+    const port = await startTestServer(deps);
+
+    const first = await fetch(
+      `http://127.0.0.1:${port}/v1/admin/message.list`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer valid-admin-jwt",
+        },
+        body: JSON.stringify({
+          chatId: "conv_http_admin",
+          dangerouslyAllowMessageRead: true,
+        }),
+      },
+    );
+    const second = await fetch(
+      `http://127.0.0.1:${port}/v1/admin/message.list`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer valid-admin-jwt",
+        },
+        body: JSON.stringify({
+          chatId: "conv_http_admin",
+          dangerouslyAllowMessageRead: true,
+        }),
+      },
+    );
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    const firstBody = await first.json();
+    const secondBody = await second.json();
+    expect(firstBody.data.chatIds).toEqual(["conv_http_admin"]);
+    expect(secondBody.data.approvalId).toBe(firstBody.data.approvalId);
+    expect(approver.authorizeCalls).toBe(1);
+  });
+
   test("derived admin action route executes directly from the registry", async () => {
     const registry = createActionRegistry();
     registry.register(
@@ -183,6 +261,52 @@ describe("HttpServer", () => {
       adminKeyFingerprint: "admin-fingerprint",
       operatorId: "op_123",
     });
+  });
+
+  test("derived admin message route attaches elevation when dangerous read is requested", async () => {
+    const approver = makeReadElevationApprover();
+    const registry = createActionRegistry();
+    registry.register(
+      makeHttpActionSpec("message.info", {
+        description: "Read a message",
+        intent: "read",
+        input: z.object({
+          chatId: z.string(),
+          messageId: z.string(),
+        }),
+        handler: async (_input, ctx) =>
+          Result.ok({
+            approvalId: ctx.adminReadElevation?.approvalId ?? null,
+            approvalKeyFingerprint:
+              ctx.adminReadElevation?.approvalKeyFingerprint ?? null,
+          }),
+        http: {
+          auth: "admin",
+        },
+      }),
+    );
+
+    const deps = makeDeps({
+      registry,
+      readElevationApprover: approver,
+    });
+    const port = await startTestServer(deps);
+
+    const res = await fetch(
+      `http://127.0.0.1:${port}/v1/actions/message/info?chatId=conv_http_route&messageId=msg_123&dangerouslyAllowMessageRead=true`,
+      {
+        headers: {
+          Authorization: "Bearer valid-admin-jwt",
+        },
+      },
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.data.approvalId).toContain("approval_");
+    expect(body.data.approvalKeyFingerprint).toBe("approval-fingerprint");
+    expect(approver.authorizeCalls).toBe(1);
   });
 
   test("derived credential action route executes directly from the registry", async () => {

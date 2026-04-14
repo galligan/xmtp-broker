@@ -11,12 +11,16 @@ import type {
 } from "@xmtp/signet-contracts";
 import { checkChatInScope } from "@xmtp/signet-policy";
 import type { InputResolver } from "@xmtp/signet-seals";
+import type { AdminReadDisclosure } from "./admin/read-disclosure-store.js";
 
 /** Dependencies required to resolve real seal input from runtime state. */
 export interface CreateSealInputResolverDeps {
   readonly credentialManager: CredentialManager;
   readonly operatorManager: OperatorManager;
   readonly trustTier: TrustTierType;
+  readonly lookupAdminAccess?:
+    | ((chatId: string) => AdminReadDisclosure | undefined)
+    | undefined;
 }
 
 /**
@@ -82,12 +86,14 @@ export function createSealInputResolver(
     }
 
     const operatorDisclosures = op.config.operatorDisclosures;
+    const adminAccess = deps.lookupAdminAccess?.(chatId);
     return Result.ok({
       credentialId,
       operatorId: cred.config.operatorId,
       chatId,
       scopeMode: op.config.scopeMode,
       permissions,
+      ...(adminAccess !== undefined ? { adminAccess } : {}),
       trustTier: deps.trustTier,
       operatorDisclosures,
       provenanceMap: buildSealProvenanceMap({

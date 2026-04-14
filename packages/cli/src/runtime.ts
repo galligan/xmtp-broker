@@ -33,6 +33,10 @@ import type { DaemonState } from "./daemon/lifecycle.js";
 import { createAdminDispatcher } from "./admin/dispatcher.js";
 import type { DaemonStatus } from "./daemon/status.js";
 import { createSignetActions } from "./actions/signet-actions.js";
+import {
+  createAdminReadElevationManager,
+  type AdminReadElevationManager,
+} from "./admin/read-elevation.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -91,6 +95,13 @@ export interface SignetRuntimeDeps {
 
   createHttpServer?: (config: unknown, deps: unknown) => HttpServer;
 
+  /** Optional factory for the shared admin read-elevation manager. */
+  createReadElevationManager?: (deps: {
+    keyManager: KeyManager;
+    sealManager: SealManager;
+    auditLog: AuditLog;
+  }) => AdminReadElevationManager;
+
   /** Optional factory for conversation action specs, wired in production by start.ts. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createConversationActions?: () => ActionSpec<any, any, SignetError>[];
@@ -107,6 +118,9 @@ export interface SignetRuntimeDeps {
 
   /** Optional factory for search action specs, wired in production by start.ts. */
   createSearchActions?: () => ActionSpec<unknown, unknown, SignetError>[];
+
+  /** Optional factory for lookup action specs, wired in production by start.ts. */
+  createLookupActions?: () => ActionSpec<unknown, unknown, SignetError>[];
 
   /** Optional factory for seal action specs, wired in production by start.ts. */
   createSealActions?: () => ActionSpec<unknown, unknown, SignetError>[];
@@ -202,6 +216,25 @@ export async function createSignetRuntime(
   );
 
   const auditLog = createAuditLog(paths.auditLog);
+  const readElevationManager = deps.createReadElevationManager
+    ? deps.createReadElevationManager({
+        keyManager,
+        sealManager,
+        auditLog,
+      })
+    : createAdminReadElevationManager({
+        approver: {
+          authorize: async () =>
+            keyManager.authorizeSensitiveOperation("adminReadElevation"),
+          getApprovalFingerprint: async () => {
+            const info = await keyManager.admin.get();
+            return Result.isError(info)
+              ? info
+              : Result.ok(info.value.fingerprint);
+          },
+        },
+        auditLog,
+      });
 
   // Admin handlers are admin-auth only and don't use the signer.
   // Provide a stub that returns InternalError if ever called.
@@ -420,6 +453,12 @@ export async function createSignetRuntime(
     }
   }
 
+  if (deps.createLookupActions) {
+    for (const spec of deps.createLookupActions()) {
+      registry.register(spec);
+    }
+  }
+
   if (deps.createSealActions) {
     for (const spec of deps.createSealActions()) {
       registry.register(spec);
@@ -438,6 +477,8 @@ export async function createSignetRuntime(
       dispatcher,
       signetId: "signet",
       signerProvider: adminSignerStub,
+      readElevationManager,
+      auditLog,
     },
   );
 
@@ -455,6 +496,8 @@ export async function createSignetRuntime(
         verifyAdminJwt: async (token: string) => {
           return keyManager.admin.verifyJwt(token);
         },
+        readElevationManager,
+        auditLog,
         status: async () => {
           if (runtimeRef === undefined) {
             return { state: "starting" };

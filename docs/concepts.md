@@ -235,7 +235,8 @@ into a chat that tells other participants what an operator can do there.
 - `permissions` — the effective scope set (allow/deny)
 - `scopeMode` — how permissions are interpreted
 - `adminAccess` — optional, with expiry (disclosed when an admin has elevated
-  read access)
+  read access; current local v1 uses `operatorId: "owner"` for that root-admin
+  path)
 - `issuedAt` — when the seal was created
 
 The entire payload is wrapped in a `SealEnvelope` with an Ed25519 signature
@@ -282,6 +283,11 @@ seal noise while ensuring stale seals are refreshed.
 published when something material changes: scopes added or removed, allow/deny
 status flipped, credential or operator changed, or admin access granted or
 revoked. Empty deltas and routine operations do not produce new seals.
+
+In the current local v1 runtime, owner-approved admin reads republish the
+current seal with `adminAccess` attached for the duration of the elevation and
+refresh it again once the elevation expires. That disclosure is intentionally
+root-admin scoped today, not tied to a separate delegated admin operator.
 
 **Revocation seals** are a special form published when a credential is revoked.
 They contain the revoked seal ID, the previous seal reference, a reason, and a
