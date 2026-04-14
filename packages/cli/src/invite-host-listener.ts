@@ -49,6 +49,13 @@ const RECENT_JOIN_SCAN_OPTIONS = {
   limit: 10,
   direction: "descending",
 } satisfies ListMessagesOptions;
+const DM_RECOVERY_RETRY_DELAY_MS = 250;
+const MAX_DM_RECOVERY_RETRIES = 3;
+
+interface InviteRecoveryScanResult {
+  readonly messages: readonly RawMessageEvent[];
+  readonly shouldRetry: boolean;
+}
 
 function isInviteCandidate(event: CoreRawEvent): event is RawMessageEvent {
   if (event.type !== "raw.message") return false;
@@ -122,9 +129,10 @@ async function listRecentInviteCandidatesAcrossManagedIdentities(
   deps: ManagedInviteHostListenerDeps,
   conversationId: string,
   processedMessageIds: ReadonlySet<string>,
-): Promise<readonly RawMessageEvent[]> {
+): Promise<InviteRecoveryScanResult> {
   const identities = await deps.listIdentities();
   const messages = new Map<string, RawMessageEvent>();
+  let shouldRetry = false;
 
   for (const identity of identities) {
     const managed = deps.getManagedClient(identity.id);
@@ -140,7 +148,10 @@ async function listRecentInviteCandidatesAcrossManagedIdentities(
         conversationId,
         listOptions,
       );
-      if (Result.isError(listResult)) break;
+      if (Result.isError(listResult)) {
+        shouldRetry = true;
+        break;
+      }
       if (listResult.value.length === 0) break;
 
       for (const message of [...listResult.value].reverse()) {
@@ -158,7 +169,10 @@ async function listRecentInviteCandidatesAcrossManagedIdentities(
     }
   }
 
-  return [...messages.values()];
+  return {
+    messages: [...messages.values()],
+    shouldRetry,
+  };
 }
 
 async function processInviteCandidate(
@@ -194,8 +208,61 @@ export function startManagedInviteHostListener(
 ): () => void {
   const processedMessageIds = new Set<string>();
   const inflightMessageIds = new Set<string>();
+  const recoveryRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-  return deps.subscribe((event) => {
+  function clearRecoveryRetryTimer(dmId: string): void {
+    const timer = recoveryRetryTimers.get(dmId);
+    if (timer === undefined) return;
+    clearTimeout(timer);
+    recoveryRetryTimers.delete(dmId);
+  }
+
+  function unrefTimer(timer: ReturnType<typeof setTimeout>): void {
+    if (typeof timer !== "object" || timer === null || !("unref" in timer)) {
+      return;
+    }
+    const unref = timer.unref;
+    if (typeof unref === "function") {
+      unref.call(timer);
+    }
+  }
+
+  async function recoverInviteCandidatesFromDm(
+    dmId: string,
+    retryCount = 0,
+  ): Promise<void> {
+    const scanResult = await listRecentInviteCandidatesAcrossManagedIdentities(
+      deps,
+      dmId,
+      processedMessageIds,
+    );
+
+    for (const message of scanResult.messages) {
+      await processInviteCandidate(
+        deps,
+        message,
+        processedMessageIds,
+        inflightMessageIds,
+      );
+    }
+
+    if (
+      !scanResult.shouldRetry ||
+      retryCount >= MAX_DM_RECOVERY_RETRIES ||
+      recoveryRetryTimers.has(dmId)
+    ) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      recoveryRetryTimers.delete(dmId);
+      void recoverInviteCandidatesFromDm(dmId, retryCount + 1);
+    }, DM_RECOVERY_RETRY_DELAY_MS);
+    unrefTimer(timer);
+    recoveryRetryTimers.set(dmId, timer);
+  }
+
+  const unsubscribe = deps.subscribe((event) => {
     void (async () => {
       if (event.type === "raw.message") {
         if (!isInviteCandidate(event)) return;
@@ -210,21 +277,16 @@ export function startManagedInviteHostListener(
 
       if (event.type !== "raw.dm.joined") return;
 
-      const messages = await listRecentInviteCandidatesAcrossManagedIdentities(
-        deps,
-        event.dmId,
-        processedMessageIds,
-      );
-      for (const message of messages) {
-        await processInviteCandidate(
-          deps,
-          message,
-          processedMessageIds,
-          inflightMessageIds,
-        );
-      }
+      await recoverInviteCandidatesFromDm(event.dmId);
     })().catch(() => {
       // Ignore invite-processing failures so the raw event stream stays hot.
     });
   });
+
+  return () => {
+    for (const dmId of recoveryRetryTimers.keys()) {
+      clearRecoveryRetryTimer(dmId);
+    }
+    unsubscribe();
+  };
 }
