@@ -4,7 +4,7 @@ import protobuf from "protobufjs";
 import Long from "long";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { sha256 } from "@noble/hashes/sha256";
-import { InternalError } from "@xmtp/signet-schemas";
+import { InternalError, type SignetError } from "@xmtp/signet-schemas";
 import { SqliteIdentityStore } from "../../identity-store.js";
 import type {
   XmtpClient,
@@ -111,7 +111,7 @@ function createMockClient(options?: {
   inboxId?: string;
   onCreateDm?: (peerInboxId: string) => void;
   onSendDm?: (dmId: string, text: string) => void;
-  sendDmResult?: Result<string, InternalError>;
+  sendDmResult?: Result<string, SignetError>;
   onSendMessage?: (
     conversationId: string,
     content: unknown,
@@ -332,6 +332,55 @@ describe("joinConversation", () => {
       name: "Codex",
       memberKind: 1,
     });
+  });
+
+  test("continues polling when the plain-text fallback fails after a structured join request", async () => {
+    const structuredCalls: Array<{
+      conversationId: string;
+      content: unknown;
+      contentType: string | undefined;
+    }> = [];
+
+    const client = createMockClient({
+      sendDmResult: Result.err(
+        InternalError.create("temporary DM fallback failure"),
+      ),
+      onSendMessage: (conversationId, content, contentType) =>
+        structuredCalls.push({ conversationId, content, contentType }),
+      groupsAfterSync: [
+        {
+          groupId: "joined-group-1",
+          name: "Test Group",
+          description: "",
+          memberInboxIds: ["joiner-inbox-123", TEST_CREATOR_INBOX_ID],
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    const deps = createDeps({ client });
+    const result = await joinConversation(deps, buildTestUrl(), {
+      pollIntervalMs: 10,
+      maxPollAttempts: 3,
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value.groupId).toBe("joined-group-1");
+    expect(structuredCalls).toHaveLength(1);
+    expect(structuredCalls[0]).toEqual({
+      conversationId: "dm-1",
+      content: {
+        inviteSlug: buildTestSlug(),
+        profile: { memberKind: "agent" },
+      },
+      contentType: "convos.org/join_request:1.0",
+    });
+
+    const identities = await deps.identityStore.list();
+    expect(identities).toHaveLength(1);
+    expect(identities[0]?.inboxId).toBe("joiner-inbox-123");
   });
 
   test("returns error when invite URL is invalid", async () => {
