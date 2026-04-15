@@ -14,6 +14,7 @@ import type {
 } from "../../xmtp-client-factory.js";
 import { InviteJoinErrorType } from "../invite-join-error.js";
 import { joinConversation, type JoinConversationDeps } from "../join.js";
+import { extractProfileUpdateContent } from "../profile-state.js";
 
 // --- Protobuf setup (same as invite-parser tests) ---
 
@@ -275,6 +276,62 @@ describe("joinConversation", () => {
     const identities = await deps.identityStore.list();
     expect(identities).toHaveLength(1);
     expect(identities[0]?.inboxId).toBe("joiner-inbox-123");
+  });
+
+  test("includes the selected profile name and publishes a post-join profile update", async () => {
+    const structuredCalls: Array<{
+      conversationId: string;
+      content: unknown;
+      contentType: string | undefined;
+    }> = [];
+
+    const client = createMockClient({
+      onSendMessage: (conversationId, content, contentType) =>
+        structuredCalls.push({ conversationId, content, contentType }),
+      groupsAfterSync: [
+        {
+          groupId: "joined-group-1",
+          name: "Test Group",
+          description: "",
+          memberInboxIds: ["joiner-inbox-123", TEST_CREATOR_INBOX_ID],
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    const result = await joinConversation(
+      createDeps({ client }),
+      buildTestUrl(),
+      {
+        label: "codex",
+        profileName: "Codex",
+        pollIntervalMs: 10,
+        maxPollAttempts: 3,
+      },
+    );
+
+    expect(result.isOk()).toBe(true);
+    if (!result.isOk()) return;
+
+    expect(result.value.profileName).toBe("Codex");
+    expect(result.value.profileApplied).toBe(true);
+    expect(structuredCalls).toHaveLength(2);
+    expect(structuredCalls[0]).toEqual({
+      conversationId: "dm-1",
+      content: {
+        inviteSlug: buildTestSlug(),
+        profile: { name: "Codex", memberKind: "agent" },
+      },
+      contentType: "convos.org/join_request:1.0",
+    });
+    expect(structuredCalls[1]?.conversationId).toBe("joined-group-1");
+    expect(structuredCalls[1]?.contentType).toBe(
+      "convos.org/profile_update:1.0",
+    );
+    expect(extractProfileUpdateContent(structuredCalls[1]?.content)).toEqual({
+      name: "Codex",
+      memberKind: 1,
+    });
   });
 
   test("returns error when invite URL is invalid", async () => {
