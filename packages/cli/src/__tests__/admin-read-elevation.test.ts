@@ -498,4 +498,73 @@ describe("createAdminReadElevationManager", () => {
     expect(second.isErr()).toBe(true);
     expect(disclosureStore.get("conv_expiry_cleanup")).toBeUndefined();
   });
+
+  test("replays disclosure refresh to roll back partial expiry updates", async () => {
+    let currentTime = new Date("2026-04-14T15:00:00.000Z");
+    const disclosureStore = createAdminReadDisclosureStore({
+      now: () => currentTime,
+    });
+    const changedChatBatches: string[][] = [];
+    let disclosureRefreshCalls = 0;
+
+    const manager = createAdminReadElevationManager({
+      approver: {
+        async authorize() {
+          return Result.ok(undefined);
+        },
+        async getApprovalFingerprint() {
+          return Result.ok("approval-fingerprint");
+        },
+      },
+      disclosureStore,
+      onDisclosureChanged: async (chatIds) => {
+        changedChatBatches.push([...chatIds]);
+        disclosureRefreshCalls += 1;
+        if (disclosureRefreshCalls === 2) {
+          return Result.err(
+            InternalError.create("seal refresh failed", {
+              stage: "expiry",
+            }),
+          );
+        }
+        return Result.ok(undefined);
+      },
+      now: () => currentTime,
+      ttlMs: 1_000,
+    });
+
+    const first = await manager.resolveForRequest({
+      method: "message.list",
+      params: {
+        chatId: "conv_expiry_partial_refresh",
+        dangerouslyAllowMessageRead: true,
+      },
+      adminFingerprint: "admin-fingerprint",
+      sessionKey: "admin-fingerprint:test-jti",
+    });
+
+    expect(first.isOk()).toBe(true);
+    expect(disclosureStore.get("conv_expiry_partial_refresh")).toEqual({
+      operatorId: "owner",
+      expiresAt: "2026-04-14T15:00:01.000Z",
+    });
+
+    currentTime = new Date("2026-04-14T15:00:02.000Z");
+    const second = await manager.resolveForRequest({
+      method: "message.list",
+      params: {
+        chatId: "conv_expiry_partial_refresh",
+        dangerouslyAllowMessageRead: true,
+      },
+      adminFingerprint: "admin-fingerprint",
+      sessionKey: "admin-fingerprint:test-jti",
+    });
+
+    expect(second.isErr()).toBe(true);
+    expect(changedChatBatches).toEqual([
+      ["conv_expiry_partial_refresh"],
+      ["conv_expiry_partial_refresh"],
+      ["conv_expiry_partial_refresh"],
+    ]);
+  });
 });

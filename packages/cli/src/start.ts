@@ -125,6 +125,9 @@ export function createProductionDeps(): SignetRuntimeDeps {
     null;
   // Shared in-memory disclosure state for owner-approved admin message reads.
   const readDisclosureStore = createAdminReadDisclosureStore();
+  // Chat IDs whose disclosure refresh is temporarily rolling back an expired
+  // adminAccess state after a partial seal refresh failure.
+  const rollbackDisclosureChatIds = new Set<string>();
   // Late-bound shared elevation manager for admin socket + HTTP parity.
   let readElevationManagerRef: AdminReadElevationManager | null = null;
   // In-memory invite tag store: groupId -> inviteTag (v1 single-process)
@@ -383,7 +386,10 @@ export function createProductionDeps(): SignetRuntimeDeps {
         credentialManager: d.credentialManager,
         operatorManager: operatorManagerRef,
         trustTier: keyManagerRef?.trustTier ?? "unverified",
-        lookupAdminAccess: (chatId) => readDisclosureStore.get(chatId),
+        lookupAdminAccess: (chatId) =>
+          rollbackDisclosureChatIds.has(chatId)
+            ? readDisclosureStore.peek(chatId)
+            : readDisclosureStore.get(chatId),
       });
 
       const sealManager = createSealManagerImpl({
@@ -420,30 +426,43 @@ export function createProductionDeps(): SignetRuntimeDeps {
           disclosureActorId: "owner",
           normalizeChatId: (chatId) =>
             idMappingStoreRef?.resolve(chatId)?.localId ?? chatId,
-          onDisclosureChanged: async (chatIds) => {
+          onDisclosureChanged: async (chatIds, options) => {
             const refreshedSealIds = new Set<string>();
-
-            for (const chatId of chatIds) {
-              const listResult = await d.sealManager.list({ chatId });
-              if (Result.isError(listResult)) {
-                return listResult;
-              }
-
-              for (const seal of listResult.value) {
-                const sealId = seal.chain.current.sealId;
-                if (refreshedSealIds.has(sealId)) {
-                  continue;
-                }
-                refreshedSealIds.add(sealId);
-
-                const refreshResult = await d.sealManager.refresh(sealId);
-                if (Result.isError(refreshResult)) {
-                  return refreshResult;
-                }
+            if (options?.includeExpired) {
+              for (const chatId of chatIds) {
+                rollbackDisclosureChatIds.add(chatId);
               }
             }
 
-            return Result.ok(undefined);
+            try {
+              for (const chatId of chatIds) {
+                const listResult = await d.sealManager.list({ chatId });
+                if (Result.isError(listResult)) {
+                  return listResult;
+                }
+
+                for (const seal of listResult.value) {
+                  const sealId = seal.chain.current.sealId;
+                  if (refreshedSealIds.has(sealId)) {
+                    continue;
+                  }
+                  refreshedSealIds.add(sealId);
+
+                  const refreshResult = await d.sealManager.refresh(sealId);
+                  if (Result.isError(refreshResult)) {
+                    return refreshResult;
+                  }
+                }
+              }
+
+              return Result.ok(undefined);
+            } finally {
+              if (options?.includeExpired) {
+                for (const chatId of chatIds) {
+                  rollbackDisclosureChatIds.delete(chatId);
+                }
+              }
+            }
           },
         });
 

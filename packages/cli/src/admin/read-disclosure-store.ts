@@ -24,8 +24,14 @@ export interface AdminReadDisclosureStore {
     sessionKey: string,
     disclosure: AdminReadDisclosure,
   ): readonly string[];
+  restore(
+    chatIds: readonly string[],
+    sessionKey: string,
+    disclosure: AdminReadDisclosure,
+  ): void;
   delete(chatIds: readonly string[], sessionKey: string): readonly string[];
   get(chatId: string): AdminReadDisclosure | undefined;
+  peek(chatId: string): AdminReadDisclosure | undefined;
 }
 
 function stableSerialize(value: unknown): string {
@@ -50,7 +56,10 @@ export function createAdminReadDisclosureStore(
   const now = deps.now ?? (() => new Date());
   const entries = new Map<string, Map<string, AdminReadDisclosure>>();
 
-  function aggregateForChat(chatId: string): AdminReadDisclosure | undefined {
+  function aggregateForChat(
+    chatId: string,
+    options: { includeExpired?: boolean } = {},
+  ): AdminReadDisclosure | undefined {
     const perSession = entries.get(chatId);
     if (!perSession) {
       return undefined;
@@ -61,7 +70,10 @@ export function createAdminReadDisclosureStore(
 
     for (const [sessionKey, disclosure] of perSession.entries()) {
       const expiresAt = Date.parse(disclosure.expiresAt);
-      if (!Number.isFinite(expiresAt) || expiresAt <= nowMs) {
+      if (
+        !options.includeExpired &&
+        (!Number.isFinite(expiresAt) || expiresAt <= nowMs)
+      ) {
         perSession.delete(sessionKey);
         continue;
       }
@@ -116,6 +128,15 @@ export function createAdminReadDisclosureStore(
       });
     },
 
+    restore(chatIds, sessionKey, disclosure) {
+      for (const chatId of collectUniqueChatIds(chatIds)) {
+        const perSession =
+          entries.get(chatId) ?? new Map<string, AdminReadDisclosure>();
+        perSession.set(sessionKey, cloneDisclosure(disclosure));
+        entries.set(chatId, perSession);
+      }
+    },
+
     delete(chatIds, sessionKey) {
       return mutate(chatIds, (_chatId, perSession) => {
         perSession.delete(sessionKey);
@@ -124,6 +145,10 @@ export function createAdminReadDisclosureStore(
 
     get(chatId) {
       return aggregateForChat(chatId);
+    },
+
+    peek(chatId) {
+      return aggregateForChat(chatId, { includeExpired: true });
     },
   };
 }

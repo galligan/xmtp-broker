@@ -39,6 +39,7 @@ export interface AdminReadElevationManager {
 /** Callback fired when public seal disclosure should be refreshed. */
 export type AdminReadElevationDisclosureChangeHandler = (
   chatIds: readonly string[],
+  options?: { includeExpired?: boolean },
 ) => Promise<Result<void, SignetError>>;
 
 /** Dependencies required to manage admin read elevation state. */
@@ -174,11 +175,12 @@ export function createAdminReadElevationManager(
 
   async function notifyDisclosureChanged(
     chatIds: readonly string[],
+    options?: { includeExpired?: boolean },
   ): Promise<Result<void, SignetError>> {
     if (!deps.onDisclosureChanged || chatIds.length === 0) {
       return Result.ok(undefined);
     }
-    return deps.onDisclosureChanged(chatIds);
+    return deps.onDisclosureChanged(chatIds, options);
   }
 
   function clearExpirationTimer(cacheKey: string): void {
@@ -242,7 +244,31 @@ export function createAdminReadElevationManager(
       [cached.chatId],
       cached.sessionKey,
     );
-    return notifyDisclosureChanged(changedChats);
+    const notifyResult = await notifyDisclosureChanged(changedChats);
+    if (Result.isError(notifyResult)) {
+      deps.disclosureStore.restore([cached.chatId], cached.sessionKey, {
+        operatorId: disclosureActorId,
+        expiresAt: cached.elevation.expiresAt,
+      });
+      const rollbackResult = await notifyDisclosureChanged([cached.chatId], {
+        includeExpired: true,
+      });
+      if (Result.isError(rollbackResult)) {
+        return Result.err(
+          InternalError.create(
+            "Failed to roll back expired admin read disclosure refresh",
+            {
+              reason: notifyResult.error.message,
+              category: notifyResult.error.category,
+              rollbackReason: rollbackResult.error.message,
+              rollbackCategory: rollbackResult.error.category,
+            },
+          ),
+        );
+      }
+      return notifyResult;
+    }
+    return Result.ok(undefined);
   }
 
   async function expireCachedElevation(
