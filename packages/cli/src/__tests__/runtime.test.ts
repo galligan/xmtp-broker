@@ -300,6 +300,7 @@ describe("createSignetRuntime", () => {
         scopeExpansion: false,
         egressExpansion: false,
         agentCreation: false,
+        adminReadElevation: false,
       },
       dataDir: join(tempDir, "data"),
     });

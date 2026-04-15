@@ -2,7 +2,11 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { Database } from "bun:sqlite";
 import { Result } from "better-result";
 import { NotFoundError } from "@xmtp/signet-schemas";
-import type { SignetError, IdMappingStore } from "@xmtp/signet-schemas";
+import type {
+  SignetError,
+  IdMappingStore,
+  AdminReadElevationType,
+} from "@xmtp/signet-schemas";
 import type { HandlerContext } from "@xmtp/signet-contracts";
 import { SqliteIdentityStore } from "../identity-store.js";
 import { createSqliteIdMappingStore } from "../id-mapping-store.js";
@@ -18,6 +22,26 @@ function stubCtx(): HandlerContext {
   return {
     requestId: "test-req-1",
     signal: AbortSignal.timeout(5_000),
+  };
+}
+
+function stubAdminReadCtx(
+  overrides: Partial<AdminReadElevationType> = {},
+): HandlerContext {
+  return {
+    requestId: "test-admin-read-req-1",
+    signal: AbortSignal.timeout(5_000),
+    adminAuth: { adminKeyFingerprint: "admin-fingerprint-1" },
+    adminReadElevation: {
+      approvalId: "approval_read_1",
+      scope: {
+        chatIds: ["conv_0123456789abcdef"],
+      },
+      approvedAt: "2026-04-13T16:00:00.000Z",
+      expiresAt: "2099-04-13T17:00:00.000Z",
+      approvalKeyFingerprint: "local-approval-fingerprint",
+      ...overrides,
+    },
   };
 }
 
@@ -335,6 +359,81 @@ describe("message actions", () => {
         expect(result.error.category).toBe("not_found");
       }
     });
+
+    test("allows admin reads when owner-approved elevation covers the chat", async () => {
+      await seedIdentity("elevated-lister", { messages: sampleMessages });
+      idMappings.set("g1", "conv_0123456789abcdef", "conversation");
+      setupDeps();
+
+      const actions = createMessageActions(deps);
+      const listAction = actions.find((a) => a.id === "message.list")!;
+
+      const result = await listAction.handler(
+        { chatId: "conv_0123456789abcdef", identityLabel: "elevated-lister" },
+        stubAdminReadCtx(),
+      );
+
+      expect(Result.isOk(result)).toBe(true);
+      if (Result.isOk(result)) {
+        expect(result.value.messages).toHaveLength(2);
+      }
+    });
+
+    test("rejects expired admin read elevation", async () => {
+      await seedIdentity("expired-elevation-lister", {
+        messages: sampleMessages,
+      });
+      idMappings.set("g1", "conv_0123456789abcdef", "conversation");
+      setupDeps();
+
+      const actions = createMessageActions(deps);
+      const listAction = actions.find((a) => a.id === "message.list")!;
+
+      const result = await listAction.handler(
+        {
+          chatId: "conv_0123456789abcdef",
+          identityLabel: "expired-elevation-lister",
+        },
+        stubAdminReadCtx({
+          expiresAt: "2026-04-13T15:59:00.000Z",
+        }),
+      );
+
+      expect(Result.isError(result)).toBe(true);
+      if (Result.isError(result)) {
+        expect(result.error.category).toBe("permission");
+        expect(result.error.message).toContain("expired");
+      }
+    });
+
+    test("rejects plain admin reads without explicit elevation", async () => {
+      await seedIdentity("plain-admin-lister", { messages: sampleMessages });
+      idMappings.set("g1", "conv_0123456789abcdef", "conversation");
+      setupDeps();
+
+      const actions = createMessageActions(deps);
+      const listAction = actions.find((a) => a.id === "message.list")!;
+
+      const result = await listAction.handler(
+        {
+          chatId: "conv_0123456789abcdef",
+          identityLabel: "plain-admin-lister",
+        },
+        {
+          requestId: "test-admin-no-elevation",
+          signal: AbortSignal.timeout(5000),
+          adminAuth: { adminKeyFingerprint: "admin-fingerprint-1" },
+        },
+      );
+
+      expect(Result.isError(result)).toBe(true);
+      if (Result.isError(result)) {
+        expect(result.error.category).toBe("permission");
+        expect(result.error.message).toContain(
+          "require owner-approved elevation",
+        );
+      }
+    });
   });
 
   describe("message.info", () => {
@@ -564,6 +663,88 @@ describe("message actions", () => {
       expect(Result.isError(result)).toBe(true);
       if (Result.isError(result)) {
         expect(result.error.category).toBe("not_found");
+      }
+    });
+
+    test("allows admin info reads when owner-approved elevation covers the chat", async () => {
+      await seedIdentity("elevated-viewer", { messages: sampleMessages });
+      idMappings.set("g1", "conv_0123456789abcdef", "conversation");
+      setupDeps();
+
+      const actions = createMessageActions(deps);
+      const infoAction = actions.find((a) => a.id === "message.info")!;
+
+      const result = await infoAction.handler(
+        {
+          chatId: "conv_0123456789abcdef",
+          messageId: "msg-aaa",
+          identityLabel: "elevated-viewer",
+        },
+        stubAdminReadCtx(),
+      );
+
+      expect(Result.isOk(result)).toBe(true);
+      if (Result.isOk(result)) {
+        expect(result.value.messageId).toBe("msg-aaa");
+      }
+    });
+
+    test("rejects admin info reads when elevation does not cover the chat", async () => {
+      await seedIdentity("wrong-chat-viewer", { messages: sampleMessages });
+      idMappings.set("g1", "conv_0123456789abcdef", "conversation");
+      idMappings.set("g2", "conv_ffff456789abcdef", "conversation");
+      setupDeps();
+
+      const actions = createMessageActions(deps);
+      const infoAction = actions.find((a) => a.id === "message.info")!;
+
+      const result = await infoAction.handler(
+        {
+          chatId: "conv_0123456789abcdef",
+          messageId: "msg-aaa",
+          identityLabel: "wrong-chat-viewer",
+        },
+        stubAdminReadCtx({
+          scope: {
+            chatIds: ["conv_ffff456789abcdef"],
+          },
+        }),
+      );
+
+      expect(Result.isError(result)).toBe(true);
+      if (Result.isError(result)) {
+        expect(result.error.category).toBe("permission");
+        expect(result.error.message).toContain("does not cover");
+      }
+    });
+
+    test("rejects plain admin info reads without explicit elevation", async () => {
+      await seedIdentity("plain-admin-viewer", { messages: sampleMessages });
+      idMappings.set("g1", "conv_0123456789abcdef", "conversation");
+      setupDeps();
+
+      const actions = createMessageActions(deps);
+      const infoAction = actions.find((a) => a.id === "message.info")!;
+
+      const result = await infoAction.handler(
+        {
+          chatId: "conv_0123456789abcdef",
+          messageId: "msg-aaa",
+          identityLabel: "plain-admin-viewer",
+        },
+        {
+          requestId: "test-admin-no-elevation",
+          signal: AbortSignal.timeout(5000),
+          adminAuth: { adminKeyFingerprint: "admin-fingerprint-1" },
+        },
+      );
+
+      expect(Result.isError(result)).toBe(true);
+      if (Result.isError(result)) {
+        expect(result.error.category).toBe("permission");
+        expect(result.error.message).toContain(
+          "require owner-approved elevation",
+        );
       }
     });
   });

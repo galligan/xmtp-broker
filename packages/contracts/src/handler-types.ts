@@ -1,5 +1,5 @@
 import type { Result } from "better-result";
-import type { SignetError } from "@xmtp/signet-schemas";
+import type { AdminReadElevationType, SignetError } from "@xmtp/signet-schemas";
 import type { CoreContext } from "./core-types.js";
 
 /**
@@ -39,6 +39,13 @@ export interface HandlerContext extends CoreContext {
    * harness credential holder. Absent for admin callers.
    */
   readonly credentialId?: string;
+
+  /**
+   * Owner-approved, time-bound elevation for admin message reads.
+   * This is intentionally separate from `adminAuth`; plain admin access does
+   * not imply conversational read access.
+   */
+  readonly adminReadElevation?: AdminReadElevationType;
 }
 
 /**

@@ -97,6 +97,17 @@ export type { MessageActionDeps } from "./message-actions.js";
 export { createSearchActions } from "./search-actions.js";
 export type { SearchActionDeps } from "./search-actions.js";
 
+// Lookup actions
+export { createLookupActions } from "./lookup-actions.js";
+export type {
+  LookupActionDeps,
+  LookupResolveResult,
+  LookupInboxResult,
+  LookupOperatorResult,
+  LookupPolicyResult,
+  LookupCredentialResult,
+} from "./lookup-actions.js";
+
 // Convos invite parsing and join protocol
 export {
   parseConvosInviteUrl,

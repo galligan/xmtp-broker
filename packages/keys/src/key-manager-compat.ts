@@ -14,6 +14,7 @@ import { detectPlatform, platformToTrustTier } from "./platform.js";
 import type { TrustTier } from "./platform.js";
 import {
   createBiometricGate,
+  type GatedOperation,
   type BiometricPrompter,
 } from "./biometric-gate.js";
 import type { RootKeyHandle, OperationalKey, CredentialKey } from "./types.js";
@@ -201,6 +202,11 @@ export interface KeyManager {
 
   /** Stop operational key auto-rotation. */
   stopAutoRotation(): void;
+
+  /** Prompt for a configured privileged operation without performing it yet. */
+  authorizeSensitiveOperation(
+    operation: GatedOperation,
+  ): Promise<Result<void, SignetError>>;
 
   /** Release resources held by the compat manager. */
   close(): void;
@@ -836,6 +842,10 @@ export async function createKeyManager(
         clearInterval(rotationTimer);
         rotationTimer = null;
       }
+    },
+
+    async authorizeSensitiveOperation(operation) {
+      return gate(operation);
     },
 
     close() {

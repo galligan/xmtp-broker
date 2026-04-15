@@ -345,4 +345,20 @@ describe("createKeyManager biometric gating", () => {
     expect(created.error.message).toContain("Biometric gate unavailable");
     expect(manager.admin.exists()).toBe(false);
   });
+
+  test("prompts for admin read elevation when enabled", async () => {
+    const prompted: string[] = [];
+    const manager = await setupCompatKeyManager({
+      biometricGating: { adminReadElevation: true },
+      biometricPrompter: async (operation) => {
+        prompted.push(operation);
+        return Result.ok(undefined);
+      },
+    });
+
+    const authorized =
+      await manager.authorizeSensitiveOperation("adminReadElevation");
+    expect(Result.isOk(authorized)).toBe(true);
+    expect(prompted).toEqual(["adminReadElevation"]);
+  });
 });

@@ -459,13 +459,14 @@ describe("utility commands", () => {
     expect(optionFlags(exportCmd!)).not.toContain("--json");
   });
 
-  test("includes a lookup command with an address argument and --json", async () => {
+  test("includes a lookup command with a query argument, --config, and --json", async () => {
     const commands = await loadProgram();
     const lookup = commands.find((c) => c.name() === "lookup");
     expect(lookup).toBeDefined();
     const args = lookup!.registeredArguments;
     expect(args.length).toBeGreaterThanOrEqual(1);
-    expect(args[0]?.name()).toBe("address");
+    expect(args[0]?.name()).toBe("query");
+    expect(optionFlags(lookup!)).toContain("--config");
     expect(optionFlags(lookup!)).toContain("--json");
   });
 
@@ -481,6 +482,7 @@ describe("utility commands", () => {
     expect(flags).toContain("--type");
     expect(flags).toContain("--limit");
     expect(flags).toContain("--as");
+    expect(flags).toContain("--dangerously-allow-message-read");
     expect(flags).toContain("--config");
     expect(flags).toContain("--json");
   });

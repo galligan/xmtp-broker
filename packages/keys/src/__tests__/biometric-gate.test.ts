@@ -15,6 +15,7 @@ describe("BiometricGateConfig", () => {
     expect(config.scopeExpansion).toBe(false);
     expect(config.egressExpansion).toBe(false);
     expect(config.agentCreation).toBe(false);
+    expect(config.adminReadElevation).toBe(false);
   });
 });
 
@@ -25,6 +26,7 @@ describe("createBiometricGate", () => {
     scopeExpansion: false,
     egressExpansion: false,
     agentCreation: false,
+    adminReadElevation: false,
   };
 
   const allOn: BiometricGateConfig = {
@@ -33,6 +35,7 @@ describe("createBiometricGate", () => {
     scopeExpansion: true,
     egressExpansion: true,
     agentCreation: true,
+    adminReadElevation: true,
   };
 
   test("passes through when operation is disabled", async () => {

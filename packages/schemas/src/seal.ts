@@ -25,6 +25,9 @@ export type TrustTierType =
   | "reproducibly-verified"
   | "runtime-attested";
 
+/** Public subject disclosed when temporary admin read access is active. */
+export type AdminAccessActorType = "owner" | string;
+
 /** Core payload of a capability seal. */
 export type SealPayloadType = {
   sealId: string;
@@ -33,7 +36,12 @@ export type SealPayloadType = {
   chatId: string;
   scopeMode: ScopeModeType;
   permissions: ScopeSetType;
-  adminAccess?: { operatorId: string; expiresAt: string } | undefined;
+  adminAccess?:
+    | {
+        operatorId: AdminAccessActorType;
+        expiresAt: string;
+      }
+    | undefined;
   issuedAt: string;
   /** True when the seal used synthetic fallback input via SIGNET_SEAL_BYPASS. */
   bypassed?: true | undefined;
@@ -96,6 +104,11 @@ export const TrustTier: z.ZodEnum<
   "runtime-attested",
 ]);
 
+/** Public subject disclosed when temporary admin read access is active. */
+export const AdminAccessActor: z.ZodUnion<
+  [z.ZodType<string>, z.ZodLiteral<"owner">]
+> = z.union([OperatorId, z.literal("owner")]);
+
 export {
   InferenceMode,
   ContentEgressScope,
@@ -133,8 +146,11 @@ export const SealPayload: z.ZodType<SealPayloadType> = z
     /** Disclosed admin read access, if any. */
     adminAccess: z
       .object({
-        /** Admin operator who has read access. */
-        operatorId: OperatorId,
+        /**
+         * Delegated admin operator, or `owner` for the root-admin path used by
+         * the current local Secure Enclave elevation flow.
+         */
+        operatorId: AdminAccessActor,
         /** When the admin access expires. */
         expiresAt: z.string().datetime(),
       })

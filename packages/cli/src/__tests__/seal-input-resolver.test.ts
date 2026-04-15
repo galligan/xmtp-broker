@@ -290,6 +290,40 @@ describe("InputResolver", () => {
       hostingMode: { source: "declared" },
     });
   });
+
+  test("injects active admin read disclosure into the resolved seal input", async () => {
+    const credManager = createMockCredentialManager({
+      id: "cred_0123456789abcdef",
+      config: {
+        operatorId,
+        chatIds: ["conv_aabbccdd11223344"],
+      },
+    });
+
+    const resolver = createSealInputResolver({
+      credentialManager: credManager,
+      operatorManager,
+      trustTier: "source-verified",
+      lookupAdminAccess: (chatId) =>
+        chatId === "conv_aabbccdd11223344"
+          ? {
+              operatorId: "owner",
+              expiresAt: "2026-04-14T16:30:00.000Z",
+            }
+          : undefined,
+    });
+    const result = await resolver(
+      "cred_0123456789abcdef",
+      "conv_aabbccdd11223344",
+    );
+
+    expect(Result.isOk(result)).toBe(true);
+    if (!Result.isOk(result)) return;
+    expect(result.value.adminAccess).toEqual({
+      operatorId: "owner",
+      expiresAt: "2026-04-14T16:30:00.000Z",
+    });
+  });
 });
 
 describe("buildSealProvenanceMap", () => {

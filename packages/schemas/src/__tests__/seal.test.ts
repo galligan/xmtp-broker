@@ -38,6 +38,17 @@ describe("SealPayload", () => {
     expect(SealPayload.safeParse(withAdmin).success).toBe(true);
   });
 
+  it("accepts payload with owner-scoped adminAccess", () => {
+    const withOwnerAdmin = {
+      ...valid,
+      adminAccess: {
+        operatorId: "owner",
+        expiresAt: "2024-01-02T00:00:00Z",
+      },
+    };
+    expect(SealPayload.safeParse(withOwnerAdmin).success).toBe(true);
+  });
+
   it("accepts payload without adminAccess", () => {
     const result = SealPayload.safeParse(valid);
     expect(result.success).toBe(true);

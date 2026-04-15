@@ -15,6 +15,7 @@ describe("CliConfigSchema", () => {
     expect(config.keys.operationalKeyPolicy).toBe("open");
     expect(config.keys.vaultKeyPolicy).toBe("open");
     expect(config.biometricGating.rootKeyCreation).toBe(false);
+    expect(config.biometricGating.adminReadElevation).toBe(false);
     expect(config.ws.port).toBe(8393);
     expect(config.ws.host).toBe("127.0.0.1");
     expect(config.admin.authMode).toBe("admin-key");

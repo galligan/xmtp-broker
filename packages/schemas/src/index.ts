@@ -91,6 +91,8 @@ export {
 
 // Seal
 export {
+  AdminAccessActor,
+  type AdminAccessActorType,
   InferenceMode,
   ContentEgressScope,
   HostingMode,
@@ -120,6 +122,14 @@ export {
   type IdMappingType,
   type IdMappingStore,
 } from "./id-mapping.js";
+
+// Admin read elevation
+export {
+  AdminReadElevationScope,
+  type AdminReadElevationScopeType,
+  AdminReadElevation,
+  type AdminReadElevationType,
+} from "./admin-read-elevation.js";
 
 // Credentials
 export {

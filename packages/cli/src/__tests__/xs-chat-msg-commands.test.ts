@@ -291,13 +291,14 @@ describe("message commands", () => {
 
   // -- list --
 
-  test("list subcommand has --from required option and --watch, --json", async () => {
+  test("list subcommand has read-elevation flag plus --from, --watch, --json", async () => {
     const cmd = await load();
     const list = findSub(cmd, "list");
     expect(list).toBeDefined();
     const flags = optionFlags(list!);
     expect(flags).toContain("--from");
     expect(flags).toContain("--as");
+    expect(flags).toContain("--dangerously-allow-message-read");
     expect(flags).toContain("--watch");
     expect(flags).toContain("--json");
   });
@@ -314,6 +315,7 @@ describe("message commands", () => {
     const flags = optionFlags(info!);
     expect(flags).toContain("--chat");
     expect(flags).toContain("--as");
+    expect(flags).toContain("--dangerously-allow-message-read");
     expect(flags).toContain("--json");
   });
 
