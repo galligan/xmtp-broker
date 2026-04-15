@@ -239,9 +239,25 @@ export function createAdminServer(
       return;
     }
 
+    const paramsResult = deps.dispatcher.validate(
+      request.method,
+      request.params,
+    );
+    if (Result.isError(paramsResult)) {
+      socket.write(
+        makeJsonRpcError(
+          request.id,
+          jsonRpcCodeForCategory(paramsResult.error.category),
+          paramsResult.error.message,
+          paramsResult.error,
+        ),
+      );
+      return;
+    }
+
     const elevationResult = await readElevationManager.resolveForRequest({
       method: request.method,
-      params: request.params,
+      params: paramsResult.value,
       adminFingerprint: connState.adminFingerprint ?? "",
       sessionKey: connState.adminSessionKey ?? connState.adminFingerprint ?? "",
     });
@@ -262,9 +278,9 @@ export function createAdminServer(
       elevationResult.value,
     );
 
-    const actionResult = await deps.dispatcher.dispatch(
+    const actionResult = await deps.dispatcher.dispatchValidated(
       request.method,
-      request.params,
+      paramsResult.value,
       ctx,
     );
 

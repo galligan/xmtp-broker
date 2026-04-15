@@ -117,6 +117,62 @@ describe("AdminDispatcher", () => {
     }
   });
 
+  test("validate returns parsed params without invoking the handler", () => {
+    const registry = createActionRegistry();
+    let calls = 0;
+    const spec = makeSpec("message.info", {
+      input: z.object({
+        chatId: z.string(),
+        messageId: z.string(),
+      }),
+      handler: async () => {
+        calls++;
+        return Result.ok({});
+      },
+    });
+    registry.register(spec);
+
+    const dispatcher = createAdminDispatcher(registry);
+    const result = dispatcher.validate("message.info", {
+      chatId: "conv_validate_only",
+      messageId: "msg_1",
+    });
+
+    expect(Result.isOk(result)).toBe(true);
+    expect(calls).toBe(0);
+  });
+
+  test("dispatchValidated skips a second parse and invokes the handler", async () => {
+    const registry = createActionRegistry();
+    const spec = makeSpec("message.info", {
+      input: z.object({
+        chatId: z.string(),
+        messageId: z.string(),
+      }),
+      handler: async (input) => Result.ok(input),
+    });
+    registry.register(spec);
+
+    const dispatcher = createAdminDispatcher(registry);
+    const ctx = makeHandlerContext();
+    const result = await dispatcher.dispatchValidated(
+      "message.info",
+      {
+        chatId: "conv_dispatch_validated",
+        messageId: "msg_1",
+      },
+      ctx,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data).toEqual({
+        chatId: "conv_dispatch_validated",
+        messageId: "msg_1",
+      });
+    }
+  });
+
   test("wraps handler error in ActionResult", async () => {
     const registry = createActionRegistry();
     const spec = makeSpec("key.rotate", {

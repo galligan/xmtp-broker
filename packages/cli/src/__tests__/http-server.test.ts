@@ -9,6 +9,7 @@ import {
   type HandlerContext,
 } from "@xmtp/signet-contracts";
 import type { AdminDispatcher } from "../admin/dispatcher.js";
+import { createAdminDispatcher } from "../admin/dispatcher.js";
 import {
   createHttpServer,
   type HttpServer,
@@ -36,18 +37,22 @@ function makeReadElevationApprover() {
 }
 
 function makeDispatcher(overrides?: Partial<AdminDispatcher>): AdminDispatcher {
+  const dispatchValidated =
+    overrides?.dispatchValidated ??
+    overrides?.dispatch ??
+    (async () => ({
+      ok: true as const,
+      data: { status: "ok" },
+      meta: {
+        requestId: "req-1",
+        timestamp: new Date().toISOString(),
+        durationMs: 1,
+      },
+    }));
   return {
-    dispatch:
-      overrides?.dispatch ??
-      (async () => ({
-        ok: true as const,
-        data: { status: "ok" },
-        meta: {
-          requestId: "req-1",
-          timestamp: new Date().toISOString(),
-          durationMs: 1,
-        },
-      })),
+    validate: overrides?.validate ?? ((_, params) => Result.ok(params)),
+    dispatchValidated,
+    dispatch: overrides?.dispatch ?? dispatchValidated,
     hasMethod: overrides?.hasMethod ?? (() => true),
   };
 }
@@ -220,6 +225,48 @@ describe("HttpServer", () => {
     expect(firstBody.data.chatIds).toEqual(["conv_http_admin"]);
     expect(secondBody.data.approvalId).toBe(firstBody.data.approvalId);
     expect(approver.authorizeCalls).toBe(1);
+  });
+
+  test("POST /v1/admin/:method validates dangerous reads before prompting", async () => {
+    const approver = makeReadElevationApprover();
+    const registry = createActionRegistry();
+    registry.register({
+      id: "message.info",
+      description: "Read a message",
+      intent: "read",
+      input: z.object({
+        chatId: z.string(),
+        messageId: z.string(),
+      }),
+      handler: async () => Result.ok({ ok: true }),
+      cli: {
+        command: "message:info",
+      },
+    });
+    const dispatcher = createAdminDispatcher(registry);
+    const deps = makeDeps({
+      dispatcher,
+      readElevationApprover: approver,
+    });
+    const port = await startTestServer(deps);
+
+    const res = await fetch(`http://127.0.0.1:${port}/v1/admin/message.info`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer valid-admin-jwt",
+      },
+      body: JSON.stringify({
+        chatId: "conv_http_invalid_before_prompt",
+        dangerouslyAllowMessageRead: true,
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.error.category).toBe("validation");
+    expect(approver.authorizeCalls).toBe(0);
   });
 
   test("derived admin action route executes directly from the registry", async () => {

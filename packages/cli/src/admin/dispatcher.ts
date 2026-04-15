@@ -23,6 +23,19 @@ import { Result } from "better-result";
  * the canonical action ID-derived RPC method.
  */
 export interface AdminDispatcher {
+  /** Validate params for a JSON-RPC method without invoking its handler. */
+  validate(
+    method: string,
+    params: Record<string, unknown>,
+  ): Result<Record<string, unknown>, SignetError>;
+
+  /** Dispatch a request whose params have already been validated. */
+  dispatchValidated(
+    method: string,
+    params: Record<string, unknown>,
+    ctx: HandlerContext,
+  ): Promise<ActionResult<unknown>>;
+
   /** Route a JSON-RPC method call to the matching ActionSpec handler. */
   dispatch(
     method: string,
@@ -64,6 +77,32 @@ function makeMeta(ctx: HandlerContext, startMs: number): ActionResultMeta {
   };
 }
 
+function getSpec(
+  methodMap: Map<string, ActionSpec<unknown, unknown, SignetError>>,
+  method: string,
+): Result<ActionSpec<unknown, unknown, SignetError>, SignetError> {
+  const spec = methodMap.get(method);
+  if (spec === undefined) {
+    return Result.err(NotFoundError.create("Method", method));
+  }
+  return Result.ok(spec);
+}
+
+function validateParams(
+  spec: ActionSpec<unknown, unknown, SignetError>,
+  params: Record<string, unknown>,
+): Result<Record<string, unknown>, SignetError> {
+  const parseResult = spec.input.safeParse(params);
+  if (!parseResult.success) {
+    const issues = parseResult.error.issues
+      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .join("; ");
+    return Result.err(ValidationError.create("params", issues));
+  }
+
+  return Result.ok(parseResult.data as Record<string, unknown>);
+}
+
 /**
  * Create an AdminDispatcher that routes JSON-RPC methods to ActionSpecs
  * via the shared ActionRegistry.
@@ -74,37 +113,36 @@ export function createAdminDispatcher(
   const methodMap = buildMethodMap(registry);
 
   return {
-    async dispatch(
+    validate(
+      method: string,
+      params: Record<string, unknown>,
+    ): Result<Record<string, unknown>, SignetError> {
+      const specResult = getSpec(methodMap, method);
+      if (Result.isError(specResult)) {
+        return specResult;
+      }
+
+      return validateParams(specResult.value, params);
+    },
+
+    async dispatchValidated(
       method: string,
       params: Record<string, unknown>,
       ctx: HandlerContext,
     ): Promise<ActionResult<unknown>> {
       const startMs = Date.now();
-      const spec = methodMap.get(method);
+      const specResult = getSpec(methodMap, method);
 
-      if (spec === undefined) {
-        return toActionResult(
-          Result.err(NotFoundError.create("Method", method)),
-          makeMeta(ctx, startMs),
-        );
+      if (Result.isError(specResult)) {
+        return toActionResult(specResult, makeMeta(ctx, startMs));
       }
 
-      // Validate input against spec's Zod schema
-      const parseResult = spec.input.safeParse(params);
-      if (!parseResult.success) {
-        const issues = parseResult.error.issues
-          .map((i) => `${i.path.join(".")}: ${i.message}`)
-          .join("; ");
-        return toActionResult(
-          Result.err(ValidationError.create("params", issues)),
-          makeMeta(ctx, startMs),
-        );
-      }
+      const spec = specResult.value;
 
       // Call the handler -- catch unexpected throws and wrap as InternalError
       let result: Awaited<ReturnType<typeof spec.handler>>;
       try {
-        result = await spec.handler(parseResult.data, ctx);
+        result = await spec.handler(params, ctx);
       } catch (thrown: unknown) {
         const message =
           thrown instanceof Error ? thrown.message : String(thrown);
@@ -114,6 +152,20 @@ export function createAdminDispatcher(
         );
       }
       return toActionResult(result, makeMeta(ctx, startMs));
+    },
+
+    async dispatch(
+      method: string,
+      params: Record<string, unknown>,
+      ctx: HandlerContext,
+    ): Promise<ActionResult<unknown>> {
+      const startMs = Date.now();
+      const paramsResult = this.validate(method, params);
+      if (Result.isError(paramsResult)) {
+        return toActionResult(paramsResult, makeMeta(ctx, startMs));
+      }
+
+      return this.dispatchValidated(method, paramsResult.value, ctx);
     },
 
     hasMethod(method: string): boolean {

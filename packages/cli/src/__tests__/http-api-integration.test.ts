@@ -14,18 +14,22 @@ import {
 // ---------------------------------------------------------------------------
 
 function makeDispatcher(overrides?: Partial<AdminDispatcher>): AdminDispatcher {
+  const dispatchValidated =
+    overrides?.dispatchValidated ??
+    overrides?.dispatch ??
+    (async () => ({
+      ok: true as const,
+      data: { status: "ok" },
+      meta: {
+        requestId: "req-1",
+        timestamp: new Date().toISOString(),
+        durationMs: 1,
+      },
+    }));
   return {
-    dispatch:
-      overrides?.dispatch ??
-      (async () => ({
-        ok: true as const,
-        data: { status: "ok" },
-        meta: {
-          requestId: "req-1",
-          timestamp: new Date().toISOString(),
-          durationMs: 1,
-        },
-      })),
+    validate: overrides?.validate ?? ((_, params) => Result.ok(params)),
+    dispatchValidated,
+    dispatch: overrides?.dispatch ?? dispatchValidated,
     hasMethod: overrides?.hasMethod ?? (() => true),
   };
 }

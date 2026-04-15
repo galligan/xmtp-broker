@@ -68,6 +68,7 @@ import {
   type AdminReadElevationManager,
 } from "./admin/read-elevation.js";
 import { createAdminReadDisclosureStore } from "./admin/read-disclosure-store.js";
+import { createReadDisclosureRollbackTracker } from "./admin/read-disclosure-rollback-tracker.js";
 import { createWsRequestHandler } from "./ws/request-handler.js";
 import { createLazyCoreUpgrade } from "./ws/core-upgrade.js";
 import { createEventProjector } from "./ws/event-projector.js";
@@ -125,9 +126,9 @@ export function createProductionDeps(): SignetRuntimeDeps {
     null;
   // Shared in-memory disclosure state for owner-approved admin message reads.
   const readDisclosureStore = createAdminReadDisclosureStore();
-  // Chat IDs whose disclosure refresh is temporarily rolling back an expired
+  // Chats whose disclosure refresh is temporarily rolling back an expired
   // adminAccess state after a partial seal refresh failure.
-  const rollbackDisclosureChatIds = new Set<string>();
+  const rollbackDisclosureTracker = createReadDisclosureRollbackTracker();
   // Late-bound shared elevation manager for admin socket + HTTP parity.
   let readElevationManagerRef: AdminReadElevationManager | null = null;
   // In-memory invite tag store: groupId -> inviteTag (v1 single-process)
@@ -387,7 +388,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
         operatorManager: operatorManagerRef,
         trustTier: keyManagerRef?.trustTier ?? "unverified",
         lookupAdminAccess: (chatId) =>
-          rollbackDisclosureChatIds.has(chatId)
+          rollbackDisclosureTracker.has(chatId)
             ? readDisclosureStore.peek(chatId)
             : readDisclosureStore.get(chatId),
       });
@@ -429,9 +430,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
           onDisclosureChanged: async (chatIds, options) => {
             const refreshedSealIds = new Set<string>();
             if (options?.includeExpired) {
-              for (const chatId of chatIds) {
-                rollbackDisclosureChatIds.add(chatId);
-              }
+              rollbackDisclosureTracker.enter(chatIds);
             }
 
             try {
@@ -458,9 +457,7 @@ export function createProductionDeps(): SignetRuntimeDeps {
               return Result.ok(undefined);
             } finally {
               if (options?.includeExpired) {
-                for (const chatId of chatIds) {
-                  rollbackDisclosureChatIds.delete(chatId);
-                }
+                rollbackDisclosureTracker.leave(chatIds);
               }
             }
           },

@@ -448,6 +448,53 @@ describe("AdminSocket round-trip", () => {
     expect(keyManager.authorizeCalls).toBe(1);
   });
 
+  test("invalid dangerous message reads fail validation before prompting for elevation", async () => {
+    const socketPath = testSocketPath();
+    const registry = createActionRegistry();
+    const keyManager = makeKeyManager();
+    registry.register({
+      id: "message.info",
+      description: "Read a message",
+      intent: "read",
+      input: z.object({
+        chatId: z.string(),
+        messageId: z.string(),
+      }),
+      handler: async () => Result.ok({ ok: true }),
+      cli: {
+        command: "message:info",
+      },
+    });
+    const dispatcher = createAdminDispatcher(registry);
+
+    server = createAdminServer(
+      { socketPath, authMode: "admin-key" },
+      {
+        keyManager,
+        dispatcher,
+        signetId: "test-signet",
+        signerProvider: makeStubSignerProvider(),
+        readElevationApprover: makeReadElevationApprover(keyManager),
+      },
+    );
+    await server.start();
+
+    client = createAdminClient(socketPath);
+    const connectResult = await client.connect("valid-jwt-token");
+    expect(connectResult.isOk()).toBe(true);
+
+    const response = await client.request("message.info", {
+      chatId: "conv_invalid_before_prompt",
+      dangerouslyAllowMessageRead: true,
+    });
+
+    expect(response.isErr()).toBe(true);
+    if (response.isErr()) {
+      expect(response.error.category).toBe("validation");
+    }
+    expect(keyManager.authorizeCalls).toBe(0);
+  });
+
   test("client preserves structured signet errors from JSON-RPC failures", async () => {
     const socketPath = testSocketPath();
     const registry = createActionRegistry();

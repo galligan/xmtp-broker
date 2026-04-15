@@ -214,9 +214,18 @@ export function createHttpServer(
       return errorResponse("validation", "Invalid JSON body", null);
     }
 
+    const paramsResult = deps.dispatcher.validate(method, params);
+    if (Result.isError(paramsResult)) {
+      return errorResponse(
+        paramsResult.error.category,
+        paramsResult.error.message,
+        paramsResult.error.context ?? null,
+      );
+    }
+
     const elevationResult = await readElevationManager.resolveForRequest({
       method,
-      params,
+      params: paramsResult.value,
       adminFingerprint: verifyResult.value.iss,
       sessionKey: `${verifyResult.value.iss}:${verifyResult.value.jti}`,
     });
@@ -235,7 +244,11 @@ export function createHttpServer(
       adminReadElevation: elevationResult.value,
     });
 
-    const actionResult = await deps.dispatcher.dispatch(method, params, ctx);
+    const actionResult = await deps.dispatcher.dispatchValidated(
+      method,
+      paramsResult.value,
+      ctx,
+    );
 
     if (actionResult.ok) {
       return successResponse(actionResult.data);
