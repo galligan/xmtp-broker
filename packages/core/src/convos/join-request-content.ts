@@ -31,7 +31,9 @@ export interface JoinRequestContent {
   readonly metadata?: Record<string, string>;
 }
 
-function isEncodedConvosContent(value: unknown): value is EncodedConvosContent {
+export function isEncodedConvosContent(
+  value: unknown,
+): value is EncodedConvosContent {
   if (typeof value !== "object" || value === null) return false;
 
   const candidate = value as Record<string, unknown>;

@@ -148,6 +148,7 @@ export {
   JoinRequestCodec,
   decodeJoinRequest,
   extractJoinRequestContent,
+  isEncodedConvosContent,
   isJoinRequestContentType,
 } from "./convos/join-request-content.js";
 export type {
@@ -156,6 +157,17 @@ export type {
   EncodedConvosContent,
   ConvosContentTypeId,
 } from "./convos/join-request-content.js";
+export {
+  ContentTypeInviteJoinError,
+  InviteJoinErrorCodec,
+  InviteJoinErrorType,
+  decodeInviteJoinError,
+  encodeInviteJoinError,
+  extractInviteJoinError,
+  getInviteJoinErrorMessage,
+  isInviteJoinErrorContentType,
+} from "./convos/invite-join-error.js";
+export type { InviteJoinError } from "./convos/invite-join-error.js";
 export {
   ContentTypeProfileUpdate,
   ContentTypeProfileSnapshot,
@@ -175,6 +187,15 @@ export type {
   ProfileMetadataValue,
   EncryptedProfileImageRef,
 } from "./convos/profile-messages.js";
+export {
+  buildProfileSnapshotFromMessages,
+  extractProfileSnapshotContent,
+  extractProfileUpdateContent,
+  isProfileSnapshotContentType,
+  isProfileUpdateContentType,
+  resolveProfilesFromMessages,
+} from "./convos/profile-state.js";
+export type { ResolvedProfile } from "./convos/profile-state.js";
 
 // Convos invite host (join request listener)
 export {

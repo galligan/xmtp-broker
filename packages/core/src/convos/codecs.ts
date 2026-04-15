@@ -1,4 +1,5 @@
 import { JoinRequestCodec } from "./join-request-content.js";
+import { InviteJoinErrorCodec } from "./invite-join-error.js";
 import {
   ProfileSnapshotCodec,
   ProfileUpdateCodec,
@@ -9,5 +10,6 @@ export function createConvosCodecs(): unknown[] {
     new ProfileUpdateCodec(),
     new ProfileSnapshotCodec(),
     new JoinRequestCodec(),
+    new InviteJoinErrorCodec(),
   ];
 }
