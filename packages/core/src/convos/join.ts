@@ -7,6 +7,7 @@ import type { XmtpEnv, SignetCoreConfig } from "../config.js";
 import type { SignerProviderFactory } from "../identity-registration.js";
 import { registerIdentity } from "../identity-registration.js";
 import { parseConvosInviteUrl, verifyConvosInvite } from "./invite-parser.js";
+import type { JoinRequestContent } from "./join-request-content.js";
 
 /** Dependencies injected into the join orchestrator. */
 export interface JoinConversationDeps {
@@ -70,7 +71,7 @@ function extractSlugForDm(input: string): string {
  * 2. Check expiration
  * 3. Create a new per-conversation identity and XMTP client
  * 4. Create a DM with the creator's inbox ID
- * 5. Send the invite slug as a join request
+ * 5. Send the structured join request and text fallback via DM
  * 6. Poll for group discovery (creator adds joiner to the group)
  * 7. Return the joined group info
  *
@@ -162,6 +163,20 @@ export async function joinConversation(
   }
 
   const slug = extractSlugForDm(inviteUrl);
+  const joinRequest: JoinRequestContent = {
+    inviteSlug: slug,
+    profile: { memberKind: "agent" },
+  };
+  const structuredSendResult = await client.sendMessage(
+    dmResult.value.dmId,
+    joinRequest,
+    "convos.org/join_request:1.0",
+  );
+  if (!structuredSendResult.isOk()) {
+    await identityStore.remove(identityId);
+    return structuredSendResult;
+  }
+
   const sendResult = await client.sendDmMessage(dmResult.value.dmId, slug);
   if (!sendResult.isOk()) {
     await identityStore.remove(identityId);

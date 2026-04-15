@@ -109,6 +109,11 @@ function createMockClient(options?: {
   inboxId?: string;
   onCreateDm?: (peerInboxId: string) => void;
   onSendDm?: (dmId: string, text: string) => void;
+  onSendMessage?: (
+    conversationId: string,
+    content: unknown,
+    contentType?: string,
+  ) => void;
   groupsAfterSync?: XmtpGroupInfo[];
   syncCount?: { value: number };
 }): XmtpClient {
@@ -121,7 +126,10 @@ function createMockClient(options?: {
 
   return {
     inboxId,
-    sendMessage: notImplemented,
+    sendMessage: async (conversationId, content, contentType) => {
+      options?.onSendMessage?.(conversationId, content, contentType);
+      return Result.ok("msg-structured-1");
+    },
     createDm: async (peerInboxId) => {
       options?.onCreateDm?.(peerInboxId);
       return Result.ok({ dmId: "dm-1", peerInboxId });
@@ -203,10 +211,17 @@ describe("joinConversation", () => {
   test("successful join flow: creates identity, DMs slug, discovers group", async () => {
     const dmCalls: Array<{ peerInboxId: string }> = [];
     const sendCalls: Array<{ dmId: string; text: string }> = [];
+    const structuredCalls: Array<{
+      conversationId: string;
+      content: unknown;
+      contentType: string | undefined;
+    }> = [];
 
     const client = createMockClient({
       onCreateDm: (peerInboxId) => dmCalls.push({ peerInboxId }),
       onSendDm: (dmId, text) => sendCalls.push({ dmId, text }),
+      onSendMessage: (conversationId, content, contentType) =>
+        structuredCalls.push({ conversationId, content, contentType }),
       groupsAfterSync: [
         {
           groupId: "joined-group-1",
@@ -237,9 +252,21 @@ describe("joinConversation", () => {
     expect(dmCalls).toHaveLength(1);
     expect(dmCalls[0]?.peerInboxId).toBe(TEST_CREATOR_INBOX_ID);
 
+    expect(structuredCalls).toEqual([
+      {
+        conversationId: "dm-1",
+        content: {
+          inviteSlug: buildTestSlug(),
+          profile: { memberKind: "agent" },
+        },
+        contentType: "convos.org/join_request:1.0",
+      },
+    ]);
+
     // Verify slug was sent as DM text
     expect(sendCalls).toHaveLength(1);
     expect(sendCalls[0]?.dmId).toBe("dm-1");
+    expect(sendCalls[0]?.text).toBe(buildTestSlug());
 
     // Verify identity was persisted
     const identities = await deps.identityStore.list();

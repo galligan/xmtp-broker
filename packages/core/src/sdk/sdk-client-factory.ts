@@ -10,6 +10,7 @@ import { createXmtpSigner } from "./signer-adapter.js";
 import type { SdkEoaSigner } from "./signer-adapter.js";
 import { createSdkClient } from "./sdk-client.js";
 import type { SdkClientShape } from "./sdk-types.js";
+import { createConvosCodecs } from "../convos/codecs.js";
 
 /**
  * A function that creates a native SDK client.
@@ -24,6 +25,7 @@ export type SdkCreateClientFn = (
     env: string;
     appVersion: string;
     disableDeviceSync: boolean;
+    codecs: unknown[];
   },
 ) => Promise<SdkClientShape>;
 
@@ -63,6 +65,7 @@ export function createSdkClientFactory(
           env: options.env,
           appVersion: options.appVersion,
           disableDeviceSync: true,
+          codecs: createConvosCodecs(),
         });
 
         const client = createSdkClient({
@@ -97,6 +100,7 @@ async function defaultSdkCreate(
     env: string;
     appVersion: string;
     disableDeviceSync: boolean;
+    codecs: unknown[];
   },
 ): Promise<SdkClientShape> {
   // Dynamic import so native binding errors surface at runtime, not import time
@@ -128,7 +132,10 @@ async function defaultSdkCreate(
     signMessage: (message: string) => signer.signMessage(message),
   };
 
-  const client = await Client.create(sdkSigner, options);
+  const client = await Client.create(
+    sdkSigner,
+    options as Parameters<typeof Client.create>[1],
+  );
   // The SDK Client is structurally compatible with SdkClientShape
   return client as unknown as SdkClientShape;
 }
