@@ -12,6 +12,7 @@ import type {
   XmtpGroupInfo,
   SignerProviderLike,
 } from "../../xmtp-client-factory.js";
+import { InviteJoinErrorType } from "../invite-join-error.js";
 import { joinConversation, type JoinConversationDeps } from "../join.js";
 
 // --- Protobuf setup (same as invite-parser tests) ---
@@ -115,6 +116,7 @@ function createMockClient(options?: {
     content: unknown,
     contentType?: string,
   ) => void;
+  listMessagesImpl?: XmtpClient["listMessages"];
   groupsAfterSync?: XmtpGroupInfo[];
   syncCount?: { value: number };
 }): XmtpClient {
@@ -146,7 +148,7 @@ function createMockClient(options?: {
     syncGroup: notImplemented,
     getGroupInfo: notImplemented,
     getMessageById: notImplemented,
-    listMessages: notImplemented,
+    listMessages: options?.listMessagesImpl ?? (async () => Result.ok([])),
     listGroups: async () => {
       // Return groups only after sync has been called (simulating acceptance)
       if (syncCount.value > 0 && groupsAfterSync.length > 0) {
@@ -280,6 +282,45 @@ describe("joinConversation", () => {
 
     const result = await joinConversation(deps, "not-a-valid-invite");
     expect(result.isErr()).toBe(true);
+  });
+
+  test("surfaces invite-join errors returned on the creator DM", async () => {
+    const client = createMockClient({
+      listMessagesImpl: async () =>
+        Result.ok([
+          {
+            messageId: "invite-error-1",
+            groupId: "dm-1",
+            senderInboxId: TEST_CREATOR_INBOX_ID,
+            contentType: "convos.app/inviteJoinError:1.0",
+            content: {
+              errorType: InviteJoinErrorType.ConversationExpired,
+              inviteTag: "test-join-tag",
+              timestamp: "2026-04-16T12:00:00.000Z",
+            },
+            sentAt: "2026-04-16T12:00:00.000Z",
+            threadId: null,
+          },
+        ]),
+      groupsAfterSync: [],
+    });
+    const deps = createDeps({ client });
+
+    const result = await joinConversation(deps, buildTestUrl(), {
+      pollIntervalMs: 10,
+      maxPollAttempts: 3,
+    });
+
+    expect(result.isErr()).toBe(true);
+    if (!result.isErr()) return;
+
+    expect(result.error.category).toBe("validation");
+    expect(result.error.message).toContain(
+      "This conversation is no longer available",
+    );
+
+    const identities = await deps.identityStore.list();
+    expect(identities).toHaveLength(0);
   });
 
   test("returns error when invite is expired", async () => {

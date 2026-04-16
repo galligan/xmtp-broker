@@ -6,6 +6,11 @@ import type { XmtpClientFactory } from "../xmtp-client-factory.js";
 import type { XmtpEnv, SignetCoreConfig } from "../config.js";
 import type { SignerProviderFactory } from "../identity-registration.js";
 import { registerIdentity } from "../identity-registration.js";
+import {
+  extractInviteJoinError,
+  getInviteJoinErrorMessage,
+  isInviteJoinErrorContentType,
+} from "./invite-join-error.js";
 import { parseConvosInviteUrl, verifyConvosInvite } from "./invite-parser.js";
 import type { JoinRequestContent } from "./join-request-content.js";
 
@@ -61,6 +66,39 @@ function extractSlugForDm(input: string): string {
     // Raw slug
   }
   return trimmed;
+}
+
+function findInviteJoinErrorReply(
+  messages: readonly {
+    senderInboxId: string;
+    contentType: string;
+    content: unknown;
+  }[],
+  creatorInboxId: string,
+  inviteTag: string,
+): string | undefined {
+  const normalizedCreatorInboxId = creatorInboxId.toLowerCase();
+
+  for (const message of messages) {
+    if (message.senderInboxId.toLowerCase() !== normalizedCreatorInboxId) {
+      continue;
+    }
+    if (!isInviteJoinErrorContentType(message.contentType)) {
+      continue;
+    }
+
+    const inviteJoinError = extractInviteJoinError(message.content);
+    if (!inviteJoinError) {
+      continue;
+    }
+    if (inviteJoinError.inviteTag !== inviteTag) {
+      continue;
+    }
+
+    return getInviteJoinErrorMessage(inviteJoinError);
+  }
+
+  return undefined;
 }
 
 /**
@@ -167,6 +205,7 @@ export async function joinConversation(
     inviteSlug: slug,
     profile: { memberKind: "agent" },
   };
+  const joinRequestSentAfter = new Date().toISOString();
   const structuredSendResult = await client.sendMessage(
     dmResult.value.dmId,
     joinRequest,
@@ -210,6 +249,28 @@ export async function joinConversation(
           groupName: group.name || invite.name,
           creatorInboxId: invite.creatorInboxId,
         });
+      }
+    }
+
+    const rejectionMessagesResult = await client.listMessages(
+      dmResult.value.dmId,
+      {
+        limit: 20,
+        after: joinRequestSentAfter,
+        direction: "descending",
+      },
+    );
+    if (rejectionMessagesResult.isOk()) {
+      const rejectionMessage = findInviteJoinErrorReply(
+        rejectionMessagesResult.value,
+        invite.creatorInboxId,
+        invite.tag,
+      );
+      if (rejectionMessage !== undefined) {
+        await identityStore.remove(identityId);
+        return Result.err(
+          ValidationError.create("inviteUrl", rejectionMessage),
+        );
       }
     }
 
