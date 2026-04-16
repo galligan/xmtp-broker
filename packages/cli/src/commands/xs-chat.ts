@@ -80,10 +80,15 @@ async function resolveProfileNameOverride(
   options: {
     readonly configPath?: string | undefined;
     readonly explicitProfileName?: string | undefined;
+    readonly hasOperatorId?: boolean;
   },
 ): Promise<Result<string | undefined, SignetError>> {
   if (options.explicitProfileName !== undefined) {
     return Result.ok(options.explicitProfileName);
+  }
+
+  if (options.hasOperatorId === true) {
+    return Result.ok(undefined);
   }
 
   const configResult = await deps.loadConfig(
@@ -194,6 +199,7 @@ export function createChatCommands(
           ? await resolveProfileNameOverride(resolvedDeps, {
               configPath: opts.config,
               explicitProfileName: opts.profileName,
+              hasOperatorId: opts.op !== undefined,
             })
           : Result.ok(undefined);
         if (profileNameResult.isErr()) {
@@ -267,7 +273,15 @@ export function createChatCommands(
                 : {}),
             });
             if (invite.isErr()) {
-              return invite;
+              return Result.ok({
+                ...createdValue,
+                ...(profile ? { profile } : {}),
+                ...(profileWarning ? { profileWarning } : {}),
+                inviteWarning: {
+                  category: invite.error.category,
+                  message: invite.error.message,
+                },
+              });
             }
 
             return Result.ok({
@@ -286,30 +300,41 @@ export function createChatCommands(
 
         if (opts.invite === true) {
           const output = result.value as Record<string, unknown>;
-          const invite = output["invite"] as Record<string, unknown>;
+          const invite = output["invite"] as
+            | Record<string, unknown>
+            | undefined;
           const profileWarning = output["profileWarning"] as
+            | { category: string; message: string }
+            | undefined;
+          const inviteWarning = output["inviteWarning"] as
             | { category: string; message: string }
             | undefined;
 
           if (json) {
-            const { renderQrToDataUrl } = await import("../invite/qr.js");
-            const inviteUrl =
-              typeof invite["inviteUrl"] === "string"
-                ? invite["inviteUrl"]
-                : "";
-            const qrDataUrl = await renderQrToDataUrl(inviteUrl);
-            resolvedDeps.writeStdout(
-              formatOutput(
-                {
-                  ...output,
-                  invite: {
-                    ...invite,
-                    qrDataUrl,
+            if (invite !== undefined) {
+              const { renderQrToDataUrl } = await import("../invite/qr.js");
+              const inviteUrl =
+                typeof invite["inviteUrl"] === "string"
+                  ? invite["inviteUrl"]
+                  : "";
+              const qrDataUrl = await renderQrToDataUrl(inviteUrl);
+              resolvedDeps.writeStdout(
+                formatOutput(
+                  {
+                    ...output,
+                    invite: {
+                      ...invite,
+                      qrDataUrl,
+                    },
                   },
-                },
-                { json: true },
-              ) + "\n",
-            );
+                  { json: true },
+                ) + "\n",
+              );
+            } else {
+              resolvedDeps.writeStdout(
+                formatOutput(output, { json: true }) + "\n",
+              );
+            }
             return;
           }
 
@@ -326,10 +351,17 @@ export function createChatCommands(
               `warning: profile update failed (${profileWarning.category}): ${profileWarning.message}\n`,
             );
           }
-          await writeInviteOutput(resolvedDeps, invite, {
-            json: false,
-            format,
-          });
+          if (inviteWarning) {
+            resolvedDeps.writeStderr(
+              `warning: invite failed (${inviteWarning.category}): ${inviteWarning.message}\n`,
+            );
+          }
+          if (invite !== undefined) {
+            await writeInviteOutput(resolvedDeps, invite, {
+              json: false,
+              format,
+            });
+          }
           return;
         }
 
@@ -484,6 +516,7 @@ export function createChatCommands(
           {
             configPath: opts.config,
             explicitProfileName: opts.profileName,
+            hasOperatorId: opts.op !== undefined,
           },
         );
         if (profileNameResult.isErr()) {
@@ -589,6 +622,7 @@ export function createChatCommands(
           {
             configPath: opts.config,
             explicitProfileName: opts.profileName,
+            hasOperatorId: opts.op !== undefined,
           },
         );
         if (profileNameResult.isErr()) {
