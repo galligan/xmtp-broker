@@ -182,17 +182,48 @@ export function createInviteCrypto(config: InviteCryptoConfig): InviteCrypto {
         return BetterResult.ok(data);
       }
 
-      const decompressed = inflateSync(data.slice(5));
-      if (decompressed.length > maxDecompressedSize) {
+      if (data.length < 5) {
         return BetterResult.err(
           ValidationError.create(
             options?.errorField ?? "inviteData",
-            `Decompressed size exceeds maximum: ${decompressed.length}`,
+            "Compressed invite data is truncated",
           ),
         );
       }
 
-      return BetterResult.ok(new Uint8Array(decompressed));
+      const declaredSize =
+        data[1]! * 0x1000000 + data[2]! * 0x10000 + data[3]! * 0x100 + data[4]!;
+      if (declaredSize > maxDecompressedSize) {
+        return BetterResult.err(
+          ValidationError.create(
+            options?.errorField ?? "inviteData",
+            `Decompressed size exceeds maximum: ${declaredSize}`,
+          ),
+        );
+      }
+
+      try {
+        const decompressed = inflateSync(data.slice(5), {
+          maxOutputLength: maxDecompressedSize,
+        });
+        if (decompressed.length > maxDecompressedSize) {
+          return BetterResult.err(
+            ValidationError.create(
+              options?.errorField ?? "inviteData",
+              `Decompressed size exceeds maximum: ${decompressed.length}`,
+            ),
+          );
+        }
+
+        return BetterResult.ok(new Uint8Array(decompressed));
+      } catch (cause) {
+        return BetterResult.err(
+          ValidationError.create(
+            options?.errorField ?? "inviteData",
+            `Failed to decompress invite data: ${cause instanceof Error ? cause.message : String(cause)}`,
+          ),
+        );
+      }
     },
   };
 }
