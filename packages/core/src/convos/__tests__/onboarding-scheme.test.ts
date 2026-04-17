@@ -9,6 +9,39 @@ const TEST_CREATOR_INBOX_ID =
 
 const TEST_CONVERSATION_ID = "550e8400-e29b-41d4-a716-446655440000";
 
+async function withFixedRandomValues<T>(
+  seed: Uint8Array,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const original = globalThis.crypto.getRandomValues.bind(globalThis.crypto);
+
+  Object.defineProperty(globalThis.crypto, "getRandomValues", {
+    configurable: true,
+    value<TArray extends ArrayBufferView | null>(array: TArray): TArray {
+      if (array === null) {
+        return array;
+      }
+
+      const bytes = new Uint8Array(
+        array.buffer,
+        array.byteOffset,
+        array.byteLength,
+      );
+      bytes.set(seed.slice(0, bytes.length));
+      return array;
+    },
+  });
+
+  try {
+    return await fn();
+  } finally {
+    Object.defineProperty(globalThis.crypto, "getRandomValues", {
+      configurable: true,
+      value: original,
+    });
+  }
+}
+
 describe("createConvosOnboardingScheme", () => {
   test("roundtrips a generated invite through parse and verify", async () => {
     const scheme = createConvosOnboardingScheme();
@@ -51,5 +84,39 @@ describe("createConvosOnboardingScheme", () => {
       "convos.org/profile_snapshot:1.0",
     );
     expect(scheme.errorContentType()).toBe("convos.app/inviteJoinError:1.0");
+  });
+
+  test("honors the conversation format hint for UUID-shaped ids", async () => {
+    await withFixedRandomValues(
+      Uint8Array.from({ length: 12 }, (_, i) => i),
+      async () => {
+        const scheme = createConvosOnboardingScheme();
+        const creator = {
+          creatorInboxId: TEST_CREATOR_INBOX_ID,
+          walletPrivateKeyHex: TEST_PRIVATE_KEY_HEX,
+        };
+        const metadata = { tag: "format-hint" };
+        const options = { env: "production" as const };
+
+        const uuidEncoded = await scheme.generate(
+          { groupId: TEST_CONVERSATION_ID, format: "uuid" },
+          creator,
+          metadata,
+          options,
+        );
+        const stringEncoded = await scheme.generate(
+          { groupId: TEST_CONVERSATION_ID, format: "string" },
+          creator,
+          metadata,
+          options,
+        );
+
+        expect(uuidEncoded.isOk()).toBe(true);
+        expect(stringEncoded.isOk()).toBe(true);
+        if (!uuidEncoded.isOk() || !stringEncoded.isOk()) return;
+
+        expect(uuidEncoded.value.slug).not.toBe(stringEncoded.value.slug);
+      },
+    );
   });
 });

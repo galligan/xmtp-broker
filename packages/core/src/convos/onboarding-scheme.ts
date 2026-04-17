@@ -54,12 +54,16 @@ function resolveInviteBaseUrl(env: InviteOptions["env"]): string {
 
 function toGenerateInviteSlugOptions(
   conversationId: string,
+  conversationFormat: "uuid" | "string" | undefined,
   creator: CreatorContext,
   metadata: InviteMetadata,
   options: InviteOptions,
 ): GenerateInviteSlugOptions {
   return {
     conversationId,
+    ...(conversationFormat !== undefined
+      ? { conversationIdFormat: conversationFormat }
+      : {}),
     creatorInboxId: creator.creatorInboxId,
     walletPrivateKeyHex: creator.walletPrivateKeyHex,
     inviteTag: metadata.tag,
@@ -231,6 +235,7 @@ export function createConvosOnboardingScheme(): OnboardingScheme {
       const slugResult = await generateConvosInviteSlug(
         toGenerateInviteSlugOptions(
           conversation.groupId,
+          conversation.format,
           creator,
           metadata,
           options,
