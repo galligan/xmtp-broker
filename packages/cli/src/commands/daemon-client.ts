@@ -21,16 +21,21 @@ export interface DaemonCommandContext {
 
 /** Dependencies for commands that connect to the running daemon. */
 export interface DaemonCommandDeps {
+  /** Load the effective CLI config before deriving admin connection details. */
   readonly loadConfig: typeof loadConfig;
+  /** Resolve filesystem/socket paths from the parsed config. */
   readonly resolvePaths: typeof resolvePaths;
+  /** Open the local key manager so the command can mint an admin JWT. */
   readonly createKeyManager: (
     config: Parameters<typeof createKeyManager>[0],
   ) => Promise<Result<RpcKeyManager, SignetError>>;
+  /** Create the admin RPC client bound to the resolved Unix socket path. */
   readonly createAdminClient: (socketPath: string) => AdminClient;
 }
 
 /** Common option bag for commands that can target a config file. */
 export interface DaemonCommandOptions {
+  /** Override the default config path for one-off command invocations. */
   readonly configPath?: string | undefined;
 }
 

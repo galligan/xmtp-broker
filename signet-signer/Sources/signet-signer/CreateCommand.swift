@@ -4,6 +4,7 @@ import SignetCore
 
 extension SecureEnclaveManager.KeyPurpose: ExpressibleByArgument {}
 
+/// Create a new Secure Enclave-backed P-256 key and print its public metadata.
 struct CreateCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "create",
@@ -21,6 +22,7 @@ struct CreateCommand: ParsableCommand {
     @Option(name: .long, help: "Key purpose: signing or key-agreement")
     var purpose: SecureEnclaveManager.KeyPurpose = .signing
 
+    /// Validate CLI input, create the key, and emit the JSON response payload.
     mutating func run() throws {
         let manager = SecureEnclaveManager()
 

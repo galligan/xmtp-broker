@@ -377,10 +377,12 @@ function hasInputChanges(previous: SealInput, next: SealInput): boolean {
   );
 }
 
+/** Canonical serialization for structural equality checks on nested metadata. */
 function stableSerialize(value: unknown): string {
   return new TextDecoder().decode(canonicalize(value));
 }
 
+/** Apply the optional list filters used by the public seal listing API. */
 function matchesFilter(
   envelope: SealEnvelopeType,
   filter: SealListFilter,
@@ -402,6 +404,7 @@ function matchesFilter(
   return true;
 }
 
+/** Sort helper that keeps the most recently issued seal first. */
 function compareNewestFirst(
   left: SealEnvelopeType,
   right: SealEnvelopeType,
@@ -412,6 +415,10 @@ function compareNewestFirst(
   );
 }
 
+/**
+ * Finds the current head of a seal chain by looking for the only envelope that
+ * is not referenced as another envelope's predecessor.
+ */
 function findHistoryHead(
   envelopes: readonly SealEnvelopeType[],
 ): SealEnvelopeType | undefined {

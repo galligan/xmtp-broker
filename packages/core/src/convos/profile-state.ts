@@ -13,6 +13,7 @@ import {
 /** Resolved profile fields for a member after combining updates and snapshots. */
 export interface ResolvedProfile extends MemberProfileEntry {}
 
+/** Narrow arbitrary snapshot entries before we trust them as member profiles. */
 function isSnapshotProfileEntry(value: unknown): value is MemberProfileEntry {
   return (
     typeof value === "object" &&
@@ -23,6 +24,7 @@ function isSnapshotProfileEntry(value: unknown): value is MemberProfileEntry {
   );
 }
 
+/** Match both short legacy labels and fully qualified Convos content types. */
 function isContentTypeMatch(
   contentType: string | undefined,
   target: { authorityId: string; typeId: string },
@@ -98,6 +100,8 @@ export function resolveProfilesFromMessages(
   const profilesByInboxId = new Map<string, ResolvedProfile>();
   let latestSnapshotProfiles: Map<string, MemberProfileEntry> | undefined;
 
+  // Walk newest-first so the first update we see for an inbox wins, then use
+  // the latest snapshot only as a backfill for members without a newer update.
   const orderedMessages = [...messages].sort((left, right) =>
     right.sentAt.localeCompare(left.sentAt),
   );

@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import SignetCore
 
+/// Sign input bytes with a Secure Enclave key and normalize the signature to low-S form.
 struct SignCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "sign",
@@ -16,6 +17,7 @@ struct SignCommand: ParsableCommand {
     @Option(name: .long, help: "Hex-encoded data to sign")
     var data: String
 
+    /// Parse the CLI inputs, sign the payload, normalize the signature, and emit JSON output.
     mutating func run() throws {
         // Parse key reference
         guard let dataRep = Data(base64Encoded: keyRef) else {

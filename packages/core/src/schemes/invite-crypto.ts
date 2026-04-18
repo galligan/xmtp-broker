@@ -65,6 +65,7 @@ export interface InviteCrypto {
   ): Result<Uint8Array, SignetError>;
 }
 
+/** Pre-bind the scheme salt so token encryption and decryption share one KDF. */
 function createDeriveTokenKey(saltBytes: Uint8Array) {
   return function deriveTokenKey(
     privateKeyBytes: Uint8Array,
@@ -75,6 +76,7 @@ function createDeriveTokenKey(saltBytes: Uint8Array) {
   };
 }
 
+/** Validate config values that must fit into a single serialized byte. */
 function requireByteConfig(field: string, value: number): number {
   if (!Number.isInteger(value) || value < 0 || value > 0xff) {
     throw new RangeError(

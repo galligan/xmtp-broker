@@ -1,18 +1,20 @@
 import Foundation
 
+/// Shared formatting and normalization helpers for P-256 signatures and hex I/O.
 public struct SignatureFormatter {
 
-    // P-256 curve order
+    /// The P-256 curve order used for low-S normalization.
     public static let curveOrder = dataFromHexLiteral(
         "FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551"
     )
-    // curve_order / 2
+    /// Half of the P-256 curve order used as the low-S threshold.
     public static let halfOrder = dataFromHexLiteral(
         "7FFFFFFF800000007FFFFFFFFFFFFFFFDE737D56D38BCF4279DCE5617E3192A8"
     )
 
     // MARK: - DER Parsing
 
+    /// Parse a DER-encoded ECDSA signature into its `r` and `s` components.
     public static func parseDERSignature(_ der: Data) throws -> (r: Data, s: Data) {
         guard der.count >= 8 else {
             throw SignetError.invalidHex("DER signature too short")
@@ -73,6 +75,7 @@ public struct SignatureFormatter {
 
     // MARK: - Low-S Normalization
 
+    /// Rewrite `s` into its low-S form when the signature is in the upper half of the curve order.
     public static func applyLowS(s: Data) -> Data {
         let sPadded = leftPad(s, to: 32)
         let halfPadded = leftPad(halfOrder, to: 32)
@@ -86,6 +89,7 @@ public struct SignatureFormatter {
 
     // MARK: - DER Reconstruction
 
+    /// Rebuild a DER-encoded ECDSA signature from normalized `r` and `s` values.
     public static func reconstructDER(r: Data, s: Data) -> Data {
         let rDER = encodeInteger(r)
         let sDER = encodeInteger(s)
@@ -117,10 +121,12 @@ public struct SignatureFormatter {
 
     // MARK: - Hex Helpers
 
+    /// Render bytes as lowercase hexadecimal without a `0x` prefix.
     public static func formatHex(_ data: Data) -> String {
         data.map { String(format: "%02x", $0) }.joined()
     }
 
+    /// Parse a hex string into bytes, accepting an optional `0x` prefix.
     public static func parseHex(_ hex: String) throws -> Data {
         var cleaned = hex.trimmingCharacters(in: .whitespacesAndNewlines)
         if cleaned.isEmpty {
@@ -154,6 +160,7 @@ public struct SignatureFormatter {
 
     // MARK: - Big-Endian Arithmetic
 
+    /// Compare two unsigned big-endian integers represented as `Data`.
     public static func compareBigEndian(_ a: Data, _ b: Data) -> Int {
         let maxLen = max(a.count, b.count)
         let aPadded = leftPad(a, to: maxLen)
@@ -188,6 +195,7 @@ public struct SignatureFormatter {
         return data
     }
 
+    /// Left-pad a byte string with zeroes until it reaches the requested length.
     public static func leftPad(_ data: Data, to length: Int) -> Data {
         if data.count >= length { return data }
         var padded = Data(repeating: 0, count: length - data.count)

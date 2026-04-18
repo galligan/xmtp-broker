@@ -15,6 +15,7 @@ export interface McpAnnotations {
   readonly [key: string]: unknown;
 }
 
+/** Minimal action shape needed by the transport-derivation helpers. */
 type ActionLike = Pick<
   ActionSpec<unknown, unknown>,
   "cli" | "description" | "http" | "id" | "idempotent" | "intent" | "mcp"
@@ -22,6 +23,10 @@ type ActionLike = Pick<
 
 const DEFAULT_HTTP_BASE_PATH = "/v1/actions";
 
+/**
+ * Normalizes the configured HTTP base path so derived routes can join onto it
+ * without introducing double slashes or a dangling trailing slash.
+ */
 const normalizeBasePath = (basePath: string): string => {
   const trimmed = basePath.trim();
   if (trimmed === "" || trimmed === "/") {
@@ -32,6 +37,10 @@ const normalizeBasePath = (basePath: string): string => {
   return withLeadingSlash.replace(/\/+$/, "");
 };
 
+/**
+ * Normalizes an override path into the canonical route form used by the
+ * derived HTTP surface.
+ */
 const normalizePath = (path: string): string => {
   const trimmed = path.trim();
   if (trimmed === "") {
