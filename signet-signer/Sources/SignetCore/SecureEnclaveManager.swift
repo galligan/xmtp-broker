@@ -2,8 +2,10 @@ import Foundation
 import CryptoKit
 import Security
 
+/// High-level wrapper around CryptoKit and Security framework Secure Enclave operations.
 public class SecureEnclaveManager {
 
+    /// Create a new manager instance.
     public init() {}
 
     /// Purpose of the SE key — determines CryptoKit key type.
@@ -14,6 +16,7 @@ public class SecureEnclaveManager {
 
     // MARK: - Key Creation
 
+    /// Create a new Secure Enclave-backed P-256 key and return its opaque handle plus public key.
     public func createKey(policy: KeyPolicy, purpose: KeyPurpose = .signing) throws -> (dataRepresentation: Data, publicKey: Data) {
         guard SecureEnclave.isAvailable else {
             throw SignetError.seUnavailable
@@ -91,6 +94,7 @@ public class SecureEnclaveManager {
 
     // MARK: - Signing
 
+    /// Sign either raw message bytes or a pre-hashed 32-byte digest with a signing key.
     public func signData(_ data: Data, dataRepresentation: Data) throws -> Data {
         let privateKey: SecureEnclave.P256.Signing.PrivateKey
         do {
@@ -228,10 +232,12 @@ public class SecureEnclaveManager {
 
     // MARK: - System Info
 
+    /// Return whether Secure Enclave support is available on this machine.
     public func isAvailable() -> Bool {
         SecureEnclave.isAvailable
     }
 
+    /// Return a best-effort chip identifier for diagnostics and JSON output.
     public func getChipName() -> String {
         var size: Int = 0
         sysctlbyname("machdep.cpu.brand_string", nil, &size, nil, 0)
@@ -250,6 +256,7 @@ public class SecureEnclaveManager {
         return "Unknown"
     }
 
+    /// Return the host macOS version string for diagnostics and JSON output.
     public func getMacOSVersion() -> String {
         let v = ProcessInfo.processInfo.operatingSystemVersion
         if v.patchVersion != 0 {

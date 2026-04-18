@@ -42,16 +42,23 @@ import {
 import { resolveProfilesFromMessages } from "./profile-state.js";
 import { processJoinRequest } from "./process-join-requests.js";
 
+/** Render a fully qualified content-type label from the shared scheme shape. */
 function formatContentType(contentType: OnboardingContentTypeId): string {
   return `${contentType.authorityId}/${contentType.typeId}:${contentType.versionMajor}.${contentType.versionMinor}`;
 }
 
+/** Choose the public Convos invite host that matches the current XMTP env. */
 function resolveInviteBaseUrl(env: InviteOptions["env"]): string {
   return env === "dev" || env === "local"
     ? "https://dev.convos.org/v2"
     : "https://popup.convos.org/v2";
 }
 
+/**
+ * Adapt the shared invite-generation contract into the exact option bag the
+ * Convos slug generator expects, omitting optional fields when absent so we do
+ * not change wire defaults.
+ */
 function toGenerateInviteSlugOptions(
   conversationId: string,
   conversationFormat: "uuid" | "string" | undefined,
@@ -81,6 +88,7 @@ function toGenerateInviteSlugOptions(
   };
 }
 
+/** Convert the scheme's flat metadata map into Convos' typed metadata union. */
 function toConvosProfileMetadata(
   metadata: ProfileData["metadata"],
 ): ProfileMetadata | undefined {
@@ -100,6 +108,7 @@ function toConvosProfileMetadata(
   return Object.keys(converted).length > 0 ? converted : undefined;
 }
 
+/** Collapse Convos metadata values back to the generic primitive map. */
 function fromConvosProfileMetadata(
   metadata: ProfileMetadata | undefined,
 ): ProfileData["metadata"] | undefined {
@@ -135,6 +144,11 @@ function fromConvosMemberKind(
   return undefined;
 }
 
+/**
+ * Guard the generic scheme contract against raw image URLs. Convos profile
+ * messages only carry encrypted image descriptors, so accepting a plain URL
+ * here would silently promise behavior the codec cannot preserve.
+ */
 function assertNoPlainProfileImageUrl(
   profile: Pick<ProfileData, "imageUrl">,
 ): void {
@@ -171,6 +185,7 @@ function toMemberProfileEntry(profile: MemberProfileData): MemberProfileEntry {
   };
 }
 
+/** Convert a Convos-specific parsed invite into the shared scheme shape. */
 function toParsedInvite(invite: ReturnType<typeof parseConvosInviteUrl>) {
   if (invite.isErr()) return invite;
   return Result.ok<ParsedInvite, SignetError>({
@@ -193,6 +208,10 @@ function toParsedInvite(invite: ReturnType<typeof parseConvosInviteUrl>) {
   });
 }
 
+/**
+ * Narrow a shared parsed invite back to the Convos wire shape before running
+ * Convos-specific verification logic.
+ */
 function toConvosParsedInvite(
   invite: ParsedInvite,
 ): Result<Parameters<typeof verifyConvosInvite>[0], SignetError> {
@@ -220,6 +239,7 @@ function toConvosParsedInvite(
   });
 }
 
+/** Project a Convos member profile back into the generic onboarding view. */
 function toResolvedProfile(
   profile: MemberProfileEntry,
 ): ResolvedOnboardingProfile {

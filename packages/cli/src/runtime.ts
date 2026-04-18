@@ -44,15 +44,25 @@ import {
 
 /** The fully wired signet runtime returned by the composition root. */
 export interface SignetRuntime {
+  /** XMTP lifecycle facade used by the transports and status APIs. */
   readonly core: SignetCore;
+  /** Credential issuance, lookup, and revocation surface for the daemon. */
   readonly credentialManager: CredentialManager;
+  /** Seal publisher/lookup surface coupled to credential changes. */
   readonly sealManager: SealManager;
+  /** Local key custody layer for owner/admin and operational keys. */
   readonly keyManager: KeyManager;
+  /** Harness-facing WebSocket transport. */
   readonly wsServer: WsServer;
+  /** Owner-admin RPC transport. */
   readonly adminServer: AdminServer;
+  /** Optional HTTP admin surface when enabled in config. */
   readonly httpServer: HttpServer | null;
+  /** Audit log sink for approvals and sensitive operations. */
   readonly auditLog: AuditLog;
+  /** Parsed runtime config used to create this composition. */
   readonly config: CliConfig;
+  /** Resolved filesystem locations derived from the runtime config. */
   readonly paths: ResolvedPaths;
 
   /** Start all services in dependency order. */
@@ -73,26 +83,33 @@ export interface SignetRuntime {
  * Tests provide mocks here; production uses real implementations.
  */
 export interface SignetRuntimeDeps {
+  /** Create the platform-specific key custody layer before other services. */
   createKeyManager: (
     config: unknown,
   ) => Promise<Result<KeyManager, SignetError>>;
 
+  /** Create the XMTP core runtime and state machine. */
   createSignetCore: (
     config: unknown,
     signerFactory: unknown,
     clientFactory: unknown,
   ) => SignetCore;
 
+  /** Create the credential manager responsible for issue/revoke flows. */
   createCredentialManager: (
     config: unknown,
     keyManager: KeyManager,
   ) => CredentialManager;
+  /** Create the seal manager that tracks public authorization state. */
   createSealManager: (deps: unknown) => SealManager;
 
+  /** Create the harness-facing WebSocket transport. */
   createWsServer: (config: unknown, deps: unknown) => WsServer;
 
+  /** Create the admin RPC transport used by `xs` owner commands. */
   createAdminServer: (config: unknown, deps: unknown) => AdminServer;
 
+  /** Create the optional HTTP transport that mirrors selected admin flows. */
   createHttpServer?: (config: unknown, deps: unknown) => HttpServer;
 
   /** Optional factory for the shared admin read-elevation manager. */

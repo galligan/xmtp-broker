@@ -9,11 +9,17 @@ const APP_NAME = "xmtp-signet";
  * All paths are absolute with tilde and XDG variables resolved.
  */
 export interface ResolvedPaths {
+  /** Location of the CLI config file that `xs` reads and writes. */
   readonly configFile: string;
+  /** Persistent runtime data directory shared across daemon restarts. */
   readonly dataDir: string;
+  /** PID file used to advertise and inspect the active daemon process. */
   readonly pidFile: string;
+  /** Unix socket path for owner-admin RPC traffic. */
   readonly adminSocket: string;
+  /** JSONL audit log path for security-sensitive actions and approvals. */
   readonly auditLog: string;
+  /** Vault database path that backs local identity and key material. */
   readonly identityKeyFile: string;
 }
 

@@ -75,6 +75,10 @@ function extractSlugForDm(input: string): string {
   return trimmed;
 }
 
+/**
+ * Scan recent DM replies for a host-authored invite failure that matches the
+ * current invite tag so we can surface a precise error instead of timing out.
+ */
 function findInviteJoinErrorReply(
   messages: readonly {
     senderInboxId: string;

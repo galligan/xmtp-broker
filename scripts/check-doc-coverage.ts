@@ -13,6 +13,10 @@ type PackageStats = {
   documented: number;
 };
 
+/**
+ * Recursively collect source files from each package source tree, skipping
+ * generated and test directories so coverage only reflects shipped surfaces.
+ */
 function walkSourceFiles(dir: string, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const fullPath = join(dir, entry);
@@ -35,10 +39,12 @@ function walkSourceFiles(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
+/** Return the stable modifier list for a node across TypeScript versions. */
 function getModifiers(node: ts.Node): readonly ts.ModifierLike[] {
   return ts.getModifiers?.(node) ?? node.modifiers ?? [];
 }
 
+/** Detect whether a top-level declaration contributes to the export surface. */
 function isExported(node: ts.Node): boolean {
   const modifiers = getModifiers(node);
 
@@ -49,6 +55,12 @@ function isExported(node: ts.Node): boolean {
   );
 }
 
+/**
+ * Determine whether a declaration has a usable TSDoc/JSDoc comment.
+ *
+ * We accept either parsed JSDoc nodes with real content or a raw leading `/**`
+ * block so the script stays tolerant of the formatter and compiler API quirks.
+ */
 function hasDocComment(node: ts.Node, sourceFile: ts.SourceFile): boolean {
   const jsDocs = ts.getJSDocCommentsAndTags(node);
 
@@ -69,6 +81,7 @@ function hasDocComment(node: ts.Node, sourceFile: ts.SourceFile): boolean {
   );
 }
 
+/** Best-effort human-readable name used in failure output. */
 function getNodeName(
   node: ts.Node | undefined,
   sourceFile: ts.SourceFile,
@@ -82,11 +95,13 @@ function getNodeName(
   }
 }
 
+/** Format percentages with the single decimal place used in coverage output. */
 function formatPercent(numerator: number, denominator: number): string {
   if (denominator === 0) return "100.0";
   return ((numerator / denominator) * 100).toFixed(1);
 }
 
+/** Print the repo-wide and per-package coverage table. */
 function printSummary(
   byPackage: ReadonlyArray<[string, PackageStats]>,
   total: number,

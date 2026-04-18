@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import SignetCore
 
+/// Inspect host Secure Enclave availability or resolve whether a key reference still exists.
 struct InfoCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "info",
@@ -16,6 +17,7 @@ struct InfoCommand: ParsableCommand {
     @Option(name: .long, help: "Base64-encoded SE key reference to check")
     var keyRef: String?
 
+    /// Validate the requested mode and emit either system info or key lookup results.
     mutating func run() throws {
         if system && keyRef != nil {
             writeStderr("cannot specify both --system and --key-ref")

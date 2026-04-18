@@ -83,6 +83,7 @@ export async function handleCallTool(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+/** Build per-request action metadata for the result envelope. */
 function buildMeta(requestId: string, startTime: number): ActionResultMeta {
   return {
     requestId,
@@ -91,6 +92,7 @@ function buildMeta(requestId: string, startTime: number): ActionResultMeta {
   };
 }
 
+/** Resolve the MCP tool name back to its registered action spec. */
 function findSpecByToolName(
   toolName: string,
   registry: ActionRegistry,
@@ -99,6 +101,7 @@ function findSpecByToolName(
   return mcpSpecs.find((spec) => deriveMcpToolName(spec) === toolName);
 }
 
+/** Translate an unknown tool request into the standard action-result envelope. */
 function formatNotFound(
   toolName: string,
   startTime: number,
@@ -111,6 +114,7 @@ function formatNotFound(
   return formatActionResult(result);
 }
 
+/** Collapse Zod validation details into the shared validation error shape. */
 function formatValidationError(
   zodError: {
     issues: ReadonlyArray<{
@@ -133,6 +137,7 @@ function formatValidationError(
   return formatActionResult(result);
 }
 
+/** Guard the MCP adapter against unexpected handler throws. */
 function formatInternalError(
   error: unknown,
   startTime: number,

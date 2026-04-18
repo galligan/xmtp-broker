@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import SignetCore
 
+/// Decrypt an ECIES payload using a Secure Enclave key-agreement key.
 struct DecryptCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "decrypt",
@@ -25,6 +26,7 @@ struct DecryptCommand: ParsableCommand {
     @Option(name: .long, help: "Hex-encoded AES-GCM authentication tag (16 bytes)")
     var tag: String
 
+    /// Parse the CLI arguments, perform ECIES decryption, and emit the plaintext.
     mutating func run() throws {
         // Parse key reference
         guard let dataRep = Data(base64Encoded: keyRef) else {

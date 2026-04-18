@@ -50,6 +50,10 @@ export interface ActionSurfaceMapEntry {
   };
 }
 
+/**
+ * Recursively sorts object keys so hashes and snapshots stay stable even when
+ * source objects were assembled in different insertion orders.
+ */
 const deepSortKeys = (value: unknown): unknown => {
   if (Array.isArray(value)) {
     return value.map(deepSortKeys);
@@ -66,6 +70,11 @@ const deepSortKeys = (value: unknown): unknown => {
   return value;
 };
 
+/**
+ * Determines whether a surface should appear in the public map. HTTP is
+ * special because specs can opt out with `expose: false` while still carrying
+ * route metadata internally.
+ */
 const isSurfaceExposed = (
   spec: AnyActionSpec,
   surface: ActionSurface,
@@ -77,11 +86,16 @@ const isSurfaceExposed = (
   return spec[surface] !== undefined;
 };
 
+/** Returns the sorted list of exposed surfaces for a spec. */
 const getSurfaces = (spec: AnyActionSpec): ActionSurface[] =>
   ACTION_SURFACES.filter((surface) =>
     isSurfaceExposed(spec, surface),
   ).toSorted();
 
+/**
+ * Projects an action spec into its deterministic, transport-normalized summary
+ * shape before hashing or publishing the surface map.
+ */
 const toEntry = (spec: AnyActionSpec): ActionSurfaceMapEntry => {
   const entry: Record<string, unknown> = {
     exampleCount: spec.examples?.length ?? 0,

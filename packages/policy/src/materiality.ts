@@ -1,11 +1,13 @@
 import type { PolicyDelta } from "@xmtp/signet-contracts";
 
+/** Narrow a single-or-array input into the array form used internally. */
 function isDeltaArray(
   deltas: PolicyDelta | readonly PolicyDelta[],
 ): deltas is readonly PolicyDelta[] {
   return Array.isArray(deltas);
 }
 
+/** Normalize single-delta callers onto the shared batch evaluation path. */
 function normalizeDeltas(
   deltas: PolicyDelta | readonly PolicyDelta[],
 ): readonly PolicyDelta[] {
@@ -26,6 +28,7 @@ export function isMaterialChange(
   return normalizeDeltas(deltas).some((delta) => isSingleDeltaMaterial(delta));
 }
 
+/** Any added, removed, or flipped scope is material because the seal changes. */
 function isSingleDeltaMaterial(delta: PolicyDelta): boolean {
   return (
     delta.added.length > 0 ||
@@ -46,6 +49,10 @@ export function requiresReauthorization(
   );
 }
 
+/**
+ * Reauthorization is only required when privileges expand: newly added scopes
+ * or deny-to-allow flips. Pure restriction changes stay silent.
+ */
 function isSingleDeltaEscalation(delta: PolicyDelta): boolean {
   return (
     delta.added.length > 0 ||

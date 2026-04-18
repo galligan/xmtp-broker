@@ -3,19 +3,29 @@ import { z } from "zod";
 
 /** Daemon status as returned by `status` and admin `ping()`. */
 export type DaemonStatus = {
+  /** High-level daemon process lifecycle state. */
   state: "running" | "draining" | "stopped";
+  /** Current XMTP core readiness state projected into the public contract. */
   coreState: CoreState;
   pid: number;
   uptime: number;
+  /** Count of credentials that are currently issued and not revoked. */
   activeCredentials: number;
+  /** Number of live harness/admin transport connections. */
   activeConnections: number;
+  /** Active onboarding flow family used for invite/profile orchestration. */
   onboardingScheme: "convos";
+  /** XMTP environment the daemon is currently connected to. */
   xmtpEnv: "local" | "dev" | "production";
+  /** Identity isolation posture chosen for this runtime. */
   identityMode: "per-group" | "shared";
   wsPort: number;
   version: string;
+  /** Number of local identities currently registered in the runtime store. */
   identityCount: number;
+  /** Whether the core has reached a live network-connected state. */
   networkState: "disconnected" | "connected";
+  /** Inbox IDs that the current runtime has actively connected for syncing. */
   connectedInboxIds: readonly string[];
 };
 
