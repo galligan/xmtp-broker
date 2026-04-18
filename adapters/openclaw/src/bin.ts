@@ -70,7 +70,11 @@ addVerb(program, "setup", (opts) =>
     force: opts.force,
   }),
 );
-addVerb(program, "status", () => runOpenClawStatus());
-addVerb(program, "doctor", () => runOpenClawDoctor());
+addVerb(program, "status", (opts) =>
+  runOpenClawStatus({ configPath: opts.config }),
+);
+addVerb(program, "doctor", (opts) =>
+  runOpenClawDoctor({ configPath: opts.config }),
+);
 
 await program.parseAsync(process.argv);
