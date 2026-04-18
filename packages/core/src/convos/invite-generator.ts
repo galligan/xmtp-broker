@@ -35,10 +35,18 @@ const convosInviteCrypto = createInviteCrypto({
 
 // --- Types ---
 
+/** Preferred packing strategy for a conversation ID in a Convos invite. */
+export type ConversationIdFormat = "uuid" | "string";
+
 /** Options for generating a Convos invite slug. */
 export interface GenerateInviteSlugOptions {
   /** The conversation/group ID to encrypt into the invite. */
   readonly conversationId: string;
+  /**
+   * Optional packing hint for UUID-shaped IDs that should still be encoded
+   * as plain strings.
+   */
+  readonly conversationIdFormat?: ConversationIdFormat;
   /** Hex-encoded creator inbox ID. */
   readonly creatorInboxId: string;
   /** Hex-encoded secp256k1 private key (without 0x prefix). */
@@ -65,11 +73,23 @@ export interface GenerateInviteUrlOptions extends GenerateInviteSlugOptions {
 
 // --- Conversation ID packing ---
 
-function packConversationId(conversationId: string): Uint8Array {
+function packConversationId(
+  conversationId: string,
+  format?: ConversationIdFormat,
+): Uint8Array {
   const uuidMatch = conversationId.match(
     /^([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})$/i,
   );
-  if (uuidMatch) {
+  const shouldUseUuidEncoding =
+    format === "uuid" ? true : format === "string" ? false : uuidMatch !== null;
+
+  if (shouldUseUuidEncoding) {
+    if (!uuidMatch) {
+      throw new Error(
+        `Conversation ID format "uuid" requires a canonical UUID: ${conversationId}`,
+      );
+    }
+
     const hex = uuidMatch.slice(1).join("");
     const uuidBytes = hexToBytes(hex);
     const result = new Uint8Array(1 + uuidBytes.length);
@@ -136,11 +156,12 @@ export function unpackConversationId(data: Uint8Array): string {
 
 function encryptConversationToken(
   conversationId: string,
+  conversationIdFormat: ConversationIdFormat | undefined,
   creatorInboxId: string,
   privateKeyBytes: Uint8Array,
 ): Uint8Array {
   return convosInviteCrypto.encryptToken(
-    packConversationId(conversationId),
+    packConversationId(conversationId, conversationIdFormat),
     creatorInboxId,
     privateKeyBytes,
   );
@@ -217,6 +238,7 @@ export async function generateConvosInviteSlug(
     // Step 1: Encrypt conversation ID
     const conversationToken = encryptConversationToken(
       opts.conversationId,
+      opts.conversationIdFormat,
       opts.creatorInboxId,
       privateKeyBytes,
     );
