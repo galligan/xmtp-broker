@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { encodeProfileSnapshot } from "../convos/profile-messages.js";
-import { createConvosOnboardingScheme } from "../convos/onboarding-scheme.js";
+import { createConvosOnboardingScheme } from "../schemes/default-onboarding-scheme.js";
+import { encodeProfileSnapshot } from "../schemes/profile-messages.js";
 import type { EncodedOnboardingContent } from "../schemes/onboarding-scheme.js";
 import { createSdkClient } from "../sdk/sdk-client.js";
 import {

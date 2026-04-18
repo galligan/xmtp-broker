@@ -14,7 +14,7 @@ import type {
   ProcessedJoinRequest,
   ProfileData,
   ResolvedOnboardingProfile,
-} from "../schemes/onboarding-scheme.js";
+} from "../onboarding-scheme.js";
 import { createConvosCodecs } from "./codecs.js";
 import {
   generateConvosInviteSlug,
@@ -23,7 +23,7 @@ import {
 import { ContentTypeInviteJoinError } from "./invite-join-error.js";
 import {
   ContentTypeJoinRequest,
-  isEncodedConvosContent,
+  isEncodedContentEnvelope,
   isJoinRequestContentType,
 } from "./join-request-content.js";
 import { parseConvosInviteUrl, verifyConvosInvite } from "./invite-parser.js";
@@ -347,7 +347,7 @@ export function createConvosOnboardingScheme(): OnboardingScheme {
     },
 
     isEncodedContent(value): value is EncodedOnboardingContent {
-      return isEncodedConvosContent(value);
+      return isEncodedContentEnvelope(value);
     },
 
     isJoinRequestContentType(contentType) {

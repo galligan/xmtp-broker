@@ -36,8 +36,8 @@ export interface JoinRequestContent {
   readonly metadata?: Record<string, string>;
 }
 
-/** Returns true when a decoded XMTP payload matches the Convos content shape. */
-export function isEncodedConvosContent(
+/** Returns true when a decoded XMTP payload matches the encoded content shape. */
+export function isEncodedContentEnvelope(
   value: unknown,
 ): value is EncodedConvosContent {
   if (typeof value !== "object" || value === null) return false;
@@ -54,6 +54,16 @@ export function isEncodedConvosContent(
     typeof (type as Record<string, unknown>)["typeId"] === "string"
   );
 }
+
+/**
+ * Backward-compatible alias for the pre-schemes export name.
+ *
+ * Keep this exported while downstream consumers migrate to the scheme-neutral
+ * `isEncodedContentEnvelope` name.
+ */
+export const isEncodedConvosContent: (
+  value: unknown,
+) => value is EncodedConvosContent = isEncodedContentEnvelope;
 
 function isJoinRequestShape(value: unknown): value is JoinRequestContent {
   return (
@@ -83,7 +93,7 @@ export function extractJoinRequestContent(
     return value;
   }
 
-  if (isEncodedConvosContent(value)) {
+  if (isEncodedContentEnvelope(value)) {
     try {
       return decodeJoinRequest(value);
     } catch {

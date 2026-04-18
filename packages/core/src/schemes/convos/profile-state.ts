@@ -1,5 +1,5 @@
-import type { XmtpDecodedMessage } from "../xmtp-client-factory.js";
-import { isEncodedConvosContent } from "./join-request-content.js";
+import type { XmtpDecodedMessage } from "../../xmtp-client-factory.js";
+import { isEncodedContentEnvelope } from "./join-request-content.js";
 import {
   ContentTypeProfileSnapshot,
   ContentTypeProfileUpdate,
@@ -53,7 +53,7 @@ export function isProfileSnapshotContentType(
 export function extractProfileUpdateContent(
   content: unknown,
 ): ProfileUpdateContent | undefined {
-  if (isEncodedConvosContent(content)) {
+  if (isEncodedContentEnvelope(content)) {
     try {
       return decodeProfileUpdate(content);
     } catch {
@@ -72,7 +72,7 @@ export function extractProfileUpdateContent(
 export function extractProfileSnapshotContent(
   content: unknown,
 ): ProfileSnapshotContent | undefined {
-  if (isEncodedConvosContent(content)) {
+  if (isEncodedContentEnvelope(content)) {
     try {
       return decodeProfileSnapshot(content);
     } catch {
