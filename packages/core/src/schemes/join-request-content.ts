@@ -2,6 +2,7 @@ export {
   ContentTypeJoinRequest,
   decodeJoinRequest,
   extractJoinRequestContent,
+  isEncodedConvosContent,
   isEncodedContentEnvelope,
   isJoinRequestContentType,
   JoinRequestCodec,

@@ -171,6 +171,7 @@ export {
   JoinRequestCodec,
   decodeJoinRequest,
   extractJoinRequestContent,
+  isEncodedConvosContent,
   isEncodedContentEnvelope,
   isJoinRequestContentType,
 } from "./schemes/join-request-content.js";

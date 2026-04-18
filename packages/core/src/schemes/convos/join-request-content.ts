@@ -55,6 +55,16 @@ export function isEncodedContentEnvelope(
   );
 }
 
+/**
+ * Backward-compatible alias for the pre-schemes export name.
+ *
+ * Keep this exported while downstream consumers migrate to the scheme-neutral
+ * `isEncodedContentEnvelope` name.
+ */
+export const isEncodedConvosContent: (
+  value: unknown,
+) => value is EncodedConvosContent = isEncodedContentEnvelope;
+
 function isJoinRequestShape(value: unknown): value is JoinRequestContent {
   return (
     typeof value === "object" &&
