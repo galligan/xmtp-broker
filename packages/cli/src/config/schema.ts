@@ -74,7 +74,7 @@ export const HttpServerConfigSchema: z.ZodType<
 
 // -- CLI config --
 
-/** Supported onboarding scheme identifiers understood by the current CLI. */
+/** Supported onboarding scheme IDs for invite, profile, and first-run flows. */
 export type OnboardingSchemeId = "convos";
 
 type OnboardingConfig = {
