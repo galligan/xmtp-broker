@@ -2,7 +2,7 @@ import type {
   ConvosContentTypeId,
   EncodedConvosContent,
 } from "./join-request-content.js";
-import { isEncodedConvosContent } from "./join-request-content.js";
+import { isEncodedContentEnvelope } from "./join-request-content.js";
 
 /** Error types surfaced by the Convos invite-join failure content. */
 export enum InviteJoinErrorType {
@@ -98,7 +98,7 @@ export function extractInviteJoinError(
     };
   }
 
-  if (isEncodedConvosContent(value)) {
+  if (isEncodedContentEnvelope(value)) {
     try {
       return decodeInviteJoinError(value);
     } catch {

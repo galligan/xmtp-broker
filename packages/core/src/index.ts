@@ -138,14 +138,14 @@ export type {
 export {
   parseConvosInviteUrl,
   verifyConvosInvite,
-} from "./convos/invite-parser.js";
-export type { ParsedConvosInvite } from "./convos/invite-parser.js";
-export { joinConversation } from "./convos/join.js";
+} from "./schemes/invite-parser.js";
+export type { ParsedConvosInvite } from "./schemes/invite-parser.js";
+export { joinConversation } from "./schemes/join.js";
 export type {
   JoinConversationDeps,
   JoinConversationOptions,
   JoinResult,
-} from "./convos/join.js";
+} from "./schemes/join.js";
 
 // Convos invite generation
 export {
@@ -153,33 +153,33 @@ export {
   generateConvosInviteUrl,
   decryptConversationToken,
   unpackConversationId,
-} from "./convos/invite-generator.js";
+} from "./schemes/invite-generator.js";
 export type {
   GenerateInviteSlugOptions,
   GenerateInviteUrlOptions,
-} from "./convos/invite-generator.js";
+} from "./schemes/invite-generator.js";
 
 // Convos join request processing
-export { processJoinRequest } from "./convos/process-join-requests.js";
+export { processJoinRequest } from "./schemes/process-join-requests.js";
 export type {
   ProcessJoinRequestDeps,
   IncomingJoinMessage,
   JoinRequestResult,
-} from "./convos/process-join-requests.js";
+} from "./schemes/process-join-requests.js";
 export {
   ContentTypeJoinRequest,
   JoinRequestCodec,
   decodeJoinRequest,
   extractJoinRequestContent,
-  isEncodedConvosContent,
+  isEncodedContentEnvelope,
   isJoinRequestContentType,
-} from "./convos/join-request-content.js";
+} from "./schemes/join-request-content.js";
 export type {
   JoinRequestContent,
   JoinRequestProfile,
   EncodedConvosContent,
   ConvosContentTypeId,
-} from "./convos/join-request-content.js";
+} from "./schemes/join-request-content.js";
 export {
   ContentTypeInviteJoinError,
   InviteJoinErrorCodec,
@@ -189,8 +189,8 @@ export {
   extractInviteJoinError,
   getInviteJoinErrorMessage,
   isInviteJoinErrorContentType,
-} from "./convos/invite-join-error.js";
-export type { InviteJoinError } from "./convos/invite-join-error.js";
+} from "./schemes/invite-join-error.js";
+export type { InviteJoinError } from "./schemes/invite-join-error.js";
 export {
   ContentTypeProfileUpdate,
   ContentTypeProfileSnapshot,
@@ -201,7 +201,7 @@ export {
   decodeProfileUpdate,
   encodeProfileSnapshot,
   decodeProfileSnapshot,
-} from "./convos/profile-messages.js";
+} from "./schemes/profile-messages.js";
 export type {
   ProfileUpdateContent,
   ProfileSnapshotContent,
@@ -209,7 +209,7 @@ export type {
   ProfileMetadata,
   ProfileMetadataValue,
   EncryptedProfileImageRef,
-} from "./convos/profile-messages.js";
+} from "./schemes/profile-messages.js";
 export {
   buildProfileSnapshotFromMessages,
   extractProfileSnapshotContent,
@@ -217,16 +217,16 @@ export {
   isProfileSnapshotContentType,
   isProfileUpdateContentType,
   resolveProfilesFromMessages,
-} from "./convos/profile-state.js";
-export type { ResolvedProfile } from "./convos/profile-state.js";
+} from "./schemes/profile-state.js";
+export type { ResolvedProfile } from "./schemes/profile-state.js";
 
 // Convos invite host (join request listener)
 export {
   tryProcessJoinRequest,
   startInviteHostListener,
-} from "./convos/invite-host.js";
-export type { InviteHostDeps } from "./convos/invite-host.js";
-export { createConvosOnboardingScheme } from "./convos/onboarding-scheme.js";
+} from "./schemes/invite-host.js";
+export type { InviteHostDeps } from "./schemes/invite-host.js";
+export { createConvosOnboardingScheme } from "./schemes/default-onboarding-scheme.js";
 
 // SDK integration (production XmtpClientFactory implementation)
 export {

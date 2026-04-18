@@ -12,7 +12,7 @@ import {
   createConversationActions,
   type ConversationActionDeps,
 } from "../conversation-actions.js";
-import { createConvosOnboardingScheme } from "../convos/onboarding-scheme.js";
+import { createConvosOnboardingScheme } from "../schemes/default-onboarding-scheme.js";
 
 function stubCtx(): HandlerContext {
   return {

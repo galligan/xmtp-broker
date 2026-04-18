@@ -36,8 +36,8 @@ export interface JoinRequestContent {
   readonly metadata?: Record<string, string>;
 }
 
-/** Returns true when a decoded XMTP payload matches the Convos content shape. */
-export function isEncodedConvosContent(
+/** Returns true when a decoded XMTP payload matches the encoded content shape. */
+export function isEncodedContentEnvelope(
   value: unknown,
 ): value is EncodedConvosContent {
   if (typeof value !== "object" || value === null) return false;
@@ -83,7 +83,7 @@ export function extractJoinRequestContent(
     return value;
   }
 
-  if (isEncodedConvosContent(value)) {
+  if (isEncodedContentEnvelope(value)) {
     try {
       return decodeJoinRequest(value);
     } catch {
