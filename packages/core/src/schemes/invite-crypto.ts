@@ -75,13 +75,28 @@ function createDeriveTokenKey(saltBytes: Uint8Array) {
   };
 }
 
+function requireByteConfig(field: string, value: number): number {
+  if (!Number.isInteger(value) || value < 0 || value > 0xff) {
+    throw new RangeError(
+      `${field} must be an integer between 0 and 255, received ${value}`,
+    );
+  }
+
+  return value;
+}
+
 /** Create the shared invite crypto implementation for one scheme. */
 export function createInviteCrypto(config: InviteCryptoConfig): InviteCrypto {
   const saltBytes = new TextEncoder().encode(config.salt);
   const deriveTokenKey = createDeriveTokenKey(saltBytes);
-  const formatVersion = config.formatVersion ?? DEFAULT_FORMAT_VERSION;
-  const compressionMarker =
-    config.compressionMarker ?? DEFAULT_COMPRESSION_MARKER;
+  const formatVersion = requireByteConfig(
+    "formatVersion",
+    config.formatVersion ?? DEFAULT_FORMAT_VERSION,
+  );
+  const compressionMarker = requireByteConfig(
+    "compressionMarker",
+    config.compressionMarker ?? DEFAULT_COMPRESSION_MARKER,
+  );
   const compressionThresholdBytes =
     config.compressionThresholdBytes ?? DEFAULT_COMPRESSION_THRESHOLD_BYTES;
   const maxDecompressedSize =

@@ -18,6 +18,24 @@ function buildCompressedPayload(
 }
 
 describe("createInviteCrypto", () => {
+  test("rejects a format version outside the byte range", () => {
+    expect(() =>
+      createInviteCrypto({
+        salt: "TestInviteCrypto",
+        formatVersion: 256,
+      }),
+    ).toThrow(/formatVersion must be an integer between 0 and 255/);
+  });
+
+  test("rejects a compression marker outside the byte range", () => {
+    expect(() =>
+      createInviteCrypto({
+        salt: "TestInviteCrypto",
+        compressionMarker: -1,
+      }),
+    ).toThrow(/compressionMarker must be an integer between 0 and 255/);
+  });
+
   test("rejects compressed payloads whose declared size exceeds the configured maximum", () => {
     const crypto = createInviteCrypto({
       salt: "TestInviteCrypto",
