@@ -42,6 +42,7 @@ export interface XsAgentCommandDeps {
       verb: AdapterVerbType;
       configPath: string;
       json: boolean;
+      extraArgs?: readonly string[] | undefined;
     },
   ) => Promise<Result<AgentProcessResult, SignetError>>;
   readonly writeStdout: (message: string) => void;
@@ -95,11 +96,17 @@ function addAgentVerb(
     .description(`${verb[0]!.toUpperCase()}${verb.slice(1)} a harness adapter`)
     .argument("<harness>", "Harness adapter name")
     .option("--config <path>", "Path to config file")
+    .option(
+      "--force",
+      verb === "setup"
+        ? "Overwrite generated adapter artifacts when needed"
+        : "Reserved for future force-enabled harness workflows",
+    )
     .option("--json", "JSON output")
     .action(
       async (
         harness: string,
-        opts: { config?: string; json?: true },
+        opts: { config?: string; force?: true; json?: true },
       ): Promise<void> => {
         const json = opts.json === true;
         const configPath = opts.config ?? deps.defaultConfigPath();
@@ -124,6 +131,7 @@ function addAgentVerb(
           verb,
           configPath,
           json,
+          extraArgs: opts.force === true ? ["--force"] : undefined,
         });
         if (runResult.isErr()) {
           writeError(deps, runResult.error, json);
